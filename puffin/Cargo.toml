@@ -1,6 +1,6 @@
 [package]
 name = "puffin"
-version = "0.2.0"
+version = "0.2.1-alpha"
 authors = ["Embark <opensource@embark-studios.com>"]
 license = "MIT OR Apache-2.0"
 description = "Simple instrumentation profiler for games"
