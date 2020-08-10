@@ -1,22 +1,39 @@
-<!--- FIXME: Pick an emoji! --->
-# 🌻 opensource-template
+# 🐦 Puffin - The Friendly Little Profiler
 
-<!--- FIXME: Update crate and repo names here! --->
-[![Build Status](https://github.com/EmbarkStudios/template/workflows/CI/badge.svg)](https://github.com/EmbarkStudios/template/actions?workflow=CI)
-[![Crates.io](https://img.shields.io/crates/v/tame-oauth.svg)](https://crates.io/crates/tame-oauth)
-[![Docs](https://docs.rs/tame-oauth/badge.svg)](https://docs.rs/tame-oauth)
+[![Build Status](https://github.com/EmbarkStudios/puffin/workflows/CI/badge.svg)](https://github.com/EmbarkStudios/puffin/actions?workflow=CI)
+[![Crates.io](https://img.shields.io/crates/v/puffin.svg)](https://crates.io/crates/puffin)
+[![Docs](https://docs.rs/puffin/badge.svg)](https://docs.rs/puffin)
 [![Contributor Covenant](https://img.shields.io/badge/contributor%20covenant-v1.4%20adopted-ff69b4.svg)](CODE_OF_CONDUCT.md)
 [![Embark](https://img.shields.io/badge/embark-open%20source-blueviolet.svg)](https://embark.dev)
 
-Template for creating new open source repositories that follow the Embark open source guidelines.
+![Puffin photo by Richard Bartz](puffin.jpg)
 
-## TEMPLATE INSTRUCTIONS
+Puffin is an instrumention profiler written in Rust where you opt-in to profile parts of you code:
 
-1. Create a new repository under EmbarkStudios using this template.
-1. __Title:__ Change the first line of this README to the name of your project, and replace the sunflower with an emoji that represents your project. 🚨 Your emoji selection is critical.
-1. __Badges:__ In the badges section above, change the repo name in each URL. If you are creating something other than a Rust crate, remove the crates.io and docs badges (and feel free to add more appropriate ones for your language).
-1. __CI:__ In `./github/workflows/` rename `rust-ci.yml` (or the appropriate config for your language) to `ci.yml`. And go over it and adapt it to work for your project
-1. __Cleanup:__ Remove this section of the README and any unused files (such as configs for other languages) from the repo.
+``` rust
+fn my_function() {
+    puffin::profile_function!():
+    ...
+    if ... {
+        puffin::profile_scope_data!("load_image", image_name):
+        ...
+    }
+}
+```
+
+The Puffin macros write data to a thread-local data stream. When the outermost scope of a thread is closed, the data stream is sent to a global profiler collector. The scopes are pretty light-weight, costing around 100-200 nanoseconds.
+
+You have to turn on the profiler before it captures any data with a call to `puffin::set_scopes_on(true);`. When the profiler is off the profiler scope macros only has an overhead of 1-2 ns (and some stack space);
+
+## UI
+
+If you want to view a nice flamegraph of your profile data, you can use the crate `puffin-imgui` in this repo. It looks like this:
+
+![Puffin Flamegraph UI](puffin-imgui/flamegraph.png)
+
+## Other
+
+[Puffin photo by Richard Bartz](https://en.wikipedia.org/wiki/File:Papageitaucher_Fratercula_arctica.jpg)
 
 ## Contributing
 
