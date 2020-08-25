@@ -1,6 +1,6 @@
 [package]
 name = "puffin-imgui"
-version = "0.3.0"
+version = "0.3.1-alpha"
 authors = ["Embark <opensource@embark-studios.com>"]
 description = "ImGui GUI bindings for the Puffin profiler"
 license = "MIT OR Apache-2.0"
@@ -18,5 +18,5 @@ doctest = false
 [dependencies]
 glam = { version = "0.9", default-features = false } # TODO: remove? almost unused.
 imgui = { version = "0.4.0" }
-puffin = { version = "0.3.0", path = "../puffin" }
+puffin = { version = "0.3.1-alpha", path = "../puffin" }
 serde = { version = "1", features = ["derive"] }
