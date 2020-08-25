@@ -358,7 +358,7 @@ fn paint_timeline(
             };
 
             if text_alpha > 0.0 {
-                let grid_ms = 1e-6 * (grid_ns as f64);
+                let grid_ms = to_ms(grid_ns);
                 let text = if grid_ns % 1_000_000 == 0 {
                     format!("{:.0} ms", grid_ms)
                 } else if grid_ns % 100_000 == 0 {
@@ -418,7 +418,7 @@ fn paint_record(
         [1.0, 0.5, 0.5, 1.0]
     } else {
         // options.rect_color
-        color_from_duration_ms(record.duration_ns() as f32 * 1e-6)
+        color_from_duration(record.duration_ns())
     };
     let text_color = [0.1, 0.1, 0.1, 1.0];
 
@@ -437,7 +437,7 @@ fn paint_record(
         painter
             .draw_list
             .with_clip_rect_intersect(rect_min.into(), rect_max.into(), || {
-                let duration_ms = 1e-6 * (record.duration_ns() as f32);
+                let duration_ms = to_ms(record.duration_ns());
                 let text = if record.data.is_empty() {
                     format!("{} {:6.3} ms", record.id, duration_ms)
                 } else {
@@ -461,7 +461,8 @@ fn paint_record(
     }
 }
 
-fn color_from_duration_ms(ms: f32) -> [f32; 4] {
+fn color_from_duration(ns: NanoSecond) -> [f32; 4] {
+    let ms = to_ms(ns) as f32;
     // Brighter = more time.
     // So we start with dark colors (blue) and later bright colors (green).
     let b = remap_clamp(ms, 0.0..=5.0, 1.0..=0.0);
@@ -469,6 +470,10 @@ fn color_from_duration_ms(ms: f32) -> [f32; 4] {
     let g = remap_clamp(ms, 10.0..=20.0, 0.0..=0.8);
     let a = 0.8;
     [r, g, b, a]
+}
+
+fn to_ms(ns: NanoSecond) -> f64 {
+    ns as f64 * 1e-6
 }
 
 use std::ops::{Add, Mul, RangeInclusive};
@@ -526,7 +531,7 @@ fn paint_scope(
                 ui.text(&format!("data:     {}", scope.record.data));
                 ui.text(&format!(
                     "duration: {:6.3} ms",
-                    scope.record.duration_ns() as f32 * 1e-6
+                    to_ms(scope.record.duration_ns())
                 ));
                 ui.text(&format!("children: {}", num_children));
             });
