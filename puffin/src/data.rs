@@ -109,13 +109,13 @@ impl Stream {
 pub struct Reader<'s>(std::io::Cursor<&'s [u8]>);
 
 impl<'s> Reader<'s> {
-    pub fn from_start(data: &'s Stream) -> Self {
-        Self(std::io::Cursor::new(&data.0[..]))
+    pub fn from_start(stream: &'s Stream) -> Self {
+        Self(std::io::Cursor::new(&stream.0[..]))
     }
 
-    pub fn with_offset(data: &'s Stream, offset: u64) -> Result<Self> {
-        if offset <= data.len() as u64 {
-            let mut cursor = std::io::Cursor::new(&data.0[..]);
+    pub fn with_offset(stream: &'s Stream, offset: u64) -> Result<Self> {
+        if offset <= stream.len() as u64 {
+            let mut cursor = std::io::Cursor::new(&stream.0[..]);
             cursor.set_position(offset);
             Ok(Self(cursor))
         } else {
@@ -123,8 +123,9 @@ impl<'s> Reader<'s> {
         }
     }
 
-    /// Parse the next scope in the stream, if any.
-    pub fn parse_scope(&mut self) -> Result<Option<Scope<'s>>> {
+    /// Parse the next scope in the stream, if any,
+    /// and advance to the next sibling scope (if any).
+    fn parse_scope(&mut self) -> Result<Option<Scope<'s>>> {
         match self.peek_u8() {
             None => {
                 return Ok(None);
@@ -173,11 +174,10 @@ impl<'s> Reader<'s> {
     }
 
     /// Read all the top-level scopes (non-recursive) until the end of the stream.
-    pub fn read_top_scopes(&mut self) -> Result<Vec<Scope<'s>>> {
+    pub fn read_top_scopes(self) -> Result<Vec<Scope<'s>>> {
         let mut scopes = vec![];
-        while let Some(scope) = self.parse_scope()? {
-            self.0.set_position(scope.next_sibling_position);
-            scopes.push(scope);
+        for scope in self {
+            scopes.push(scope?);
         }
         Ok(scopes)
     }
@@ -228,6 +228,16 @@ fn longest_valid_utf8_prefix(data: &[u8]) -> &str {
             // This truncation may have happened in the middle of a unicode character.
             std::str::from_utf8(&data[..error.valid_up_to()]).expect("We can trust valid_up_to")
         }
+    }
+}
+
+// ----------------------------------------------------------------------------
+
+/// Read each top-level sibling scopes
+impl<'s> Iterator for Reader<'s> {
+    type Item = Result<Scope<'s>>;
+    fn next(&mut self) -> Option<Self::Item> {
+        self.parse_scope().transpose()
     }
 }
 

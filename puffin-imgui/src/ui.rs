@@ -539,15 +539,10 @@ fn paint_scope(
 
     if result != PaintResult::Culled {
         let mut num_children = 0;
-        let mut next_child_position = scope.child_begin_position;
-        while let Some(child_scope) =
-            Reader::with_offset(stream, next_child_position)?.parse_scope()?
-        {
-            paint_scope(painter, options, stream, &child_scope, depth + 1, min_y)?;
-            next_child_position = child_scope.next_sibling_position;
+        for child_scope in Reader::with_offset(stream, scope.child_begin_position)? {
+            paint_scope(painter, options, stream, &child_scope?, depth + 1, min_y)?;
             num_children += 1;
         }
-        assert_eq!(next_child_position, scope.child_end_position);
 
         if result == PaintResult::Hovered {
             let ui = painter.ui;

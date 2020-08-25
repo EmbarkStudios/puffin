@@ -39,9 +39,8 @@ pub fn merge_children_of_pieces<'s>(
     // collect all children of all the pieces scopes:
     let mut child_pieces = Vec::new();
     for piece in &parent.pieces {
-        for child in
-            Reader::with_offset(stream, piece.scope.child_begin_position)?.read_top_scopes()?
-        {
+        for child in Reader::with_offset(stream, piece.scope.child_begin_position)? {
+            let child = child?;
             child_pieces.push(MergePiece {
                 relative_start_ns: child.record.start_ns - piece.scope.record.start_ns,
                 scope: child,
