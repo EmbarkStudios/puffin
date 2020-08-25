@@ -34,8 +34,10 @@
 )]
 
 mod data;
+mod merge;
 
 pub use data::*;
+pub use merge::*;
 
 use parking_lot::Mutex;
 use std::collections::BTreeMap;

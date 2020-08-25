@@ -51,6 +51,9 @@ pub struct Options {
     rect_height: f32,
     spacing: f32,
     rounding: f32,
+
+    /// Aggregate child scopes with the same id?
+    merge_scopes: bool,
 }
 
 impl Default for Options {
@@ -68,6 +71,8 @@ impl Default for Options {
             rect_height: 16.0,
             spacing: 4.0,
             rounding: 4.0,
+
+            merge_scopes: true,
         }
     }
 }
@@ -153,6 +158,11 @@ impl ProfilerUi {
                 self.paused_data = None;
             }
         }
+        ui.same_line(0.0);
+        ui.checkbox(
+            im_str!("Merge children with same ID"),
+            &mut self.options.merge_scopes,
+        );
 
         if self.options.view == View::Spike {
             ui.same_line(0.0);
@@ -234,8 +244,22 @@ impl ProfilerUi {
 
             let mut paint_stream = || -> Result<()> {
                 let top_scopes = Reader::from_start(stream).read_top_scopes()?;
-                for scope in top_scopes {
-                    paint_scope(&painter, &self.options, stream, &scope, 0, &mut cursor_y)?;
+                if self.options.merge_scopes {
+                    let merges = puffin::merge_top_scopes(&top_scopes);
+                    for merge in merges {
+                        paint_merge_scope(
+                            &painter,
+                            &self.options,
+                            stream,
+                            &merge,
+                            0,
+                            &mut cursor_y,
+                        )?;
+                    }
+                } else {
+                    for scope in top_scopes {
+                        paint_scope(&painter, &self.options, stream, &scope, 0, &mut cursor_y)?;
+                    }
                 }
                 Ok(())
             };
@@ -396,6 +420,7 @@ fn grid_text(grid_ns: NanoSecond) -> String {
 fn paint_record(
     painter: &Painter<'_>,
     options: &Options,
+    prefix: &str,
     record: &Record<'_>,
     top_y: f32,
 ) -> PaintResult {
@@ -443,9 +468,12 @@ fn paint_record(
             .with_clip_rect_intersect(rect_min.into(), rect_max.into(), || {
                 let duration_ms = to_ms(record.duration_ns);
                 let text = if record.data.is_empty() {
-                    format!("{} {:6.3} ms", record.id, duration_ms)
+                    format!("{}{} {:6.3} ms", prefix, record.id, duration_ms)
                 } else {
-                    format!("{} {:?} {:6.3} ms", record.id, record.data, duration_ms)
+                    format!(
+                        "{}{} {:?} {:6.3} ms",
+                        prefix, record.id, record.data, duration_ms
+                    )
                 };
                 painter.draw_list.add_text(
                     [
@@ -513,7 +541,7 @@ fn paint_scope(
         painter.canvas_max.y() - (1.0 + depth as f32) * (options.rect_height + options.spacing);
     *min_y = min_y.min(top_y);
 
-    let result = paint_record(painter, options, &scope.record, top_y);
+    let result = paint_record(painter, options, "", &scope.record, top_y);
 
     if result != PaintResult::Culled {
         let mut num_children = 0;
@@ -532,10 +560,10 @@ fn paint_scope(
             ui.tooltip(|| {
                 ui.text(&format!("id:       {}", scope.record.id));
                 if !scope.record.location.is_empty() {
-                ui.text(&format!("location: {}", scope.record.location));
+                    ui.text(&format!("location: {}", scope.record.location));
                 }
                 if !scope.record.data.is_empty() {
-                ui.text(&format!("data:     {}", scope.record.data));
+                    ui.text(&format!("data:     {}", scope.record.data));
                 }
                 ui.text(&format!(
                     "duration: {:6.3} ms",
@@ -547,6 +575,74 @@ fn paint_scope(
     }
 
     Ok(result)
+}
+
+fn paint_merge_scope(
+    painter: &Painter<'_>,
+    options: &Options,
+    stream: &Stream,
+    merge: &MergeScope<'_>,
+    depth: usize,
+    min_y: &mut f32,
+) -> Result<PaintResult> {
+    let top_y =
+        painter.canvas_max.y() - (1.0 + depth as f32) * (options.rect_height + options.spacing);
+    *min_y = min_y.min(top_y);
+
+    let prefix = if merge.pieces.len() <= 1 {
+        String::default()
+    } else {
+        format!("{}x ", merge.pieces.len())
+    };
+    let result = paint_record(painter, options, &prefix, &merge.record, top_y);
+
+    if result != PaintResult::Culled {
+        for merged_child in merge_children_of_pieces(stream, merge)? {
+            paint_merge_scope(painter, options, stream, &merged_child, depth + 1, min_y)?;
+        }
+
+        if result == PaintResult::Hovered {
+            let ui = painter.ui;
+            ui.tooltip(|| merge_scope_tooltip(ui, merge));
+        }
+    }
+
+    Ok(result)
+}
+
+fn merge_scope_tooltip(ui: &Ui<'_>, merge: &MergeScope<'_>) {
+    ui.text(&format!("id:       {}", merge.record.id));
+    if !merge.record.location.is_empty() {
+        ui.text(&format!("location: {}", merge.record.location));
+    }
+    if !merge.record.data.is_empty() {
+        ui.text(&format!("data:     {}", merge.record.data));
+    }
+
+    if merge.pieces.len() <= 1 {
+        ui.text(&format!(
+            "duration: {:6.3} ms",
+            to_ms(merge.record.duration_ns)
+        ));
+    } else {
+        ui.text(&format!("sum of:   {} scopes", merge.pieces.len()));
+        ui.text(&format!(
+            "total:    {:6.3} ms",
+            to_ms(merge.record.duration_ns)
+        ));
+
+        ui.text(&format!(
+            "mean:     {:6.3} ms",
+            to_ms(merge.record.duration_ns) / (merge.pieces.len() as f64),
+        ));
+        let max_duration_ns = merge
+            .pieces
+            .iter()
+            .map(|piece| piece.scope.record.duration_ns)
+            .max()
+            .unwrap();
+        ui.text(&format!("max:      {:6.3} ms", to_ms(max_duration_ns)));
+    }
 }
 
 fn paint_thread_info(painter: &Painter<'_>, info: &ThreadInfo, stream: &Stream, pos: [f32; 2]) {
