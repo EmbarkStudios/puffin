@@ -220,7 +220,8 @@ impl ProfilerUi {
             self.options.pixels_per_ns = painter.canvas_width() / ((max_ns - min_ns) as f32);
         }
 
-        paint_timeline(&painter, &self.options, min_ns, max_ns);
+        let options = &self.options;
+        paint_timeline(&painter, options, min_ns, max_ns);
 
         // We paint the threads bottom up
         let mut cursor_y = painter.canvas_max[1];
@@ -244,21 +245,14 @@ impl ProfilerUi {
 
             let mut paint_stream = || -> Result<()> {
                 let top_scopes = Reader::from_start(stream).read_top_scopes()?;
-                if self.options.merge_scopes {
+                if options.merge_scopes {
                     let merges = puffin::merge_top_scopes(&top_scopes);
                     for merge in merges {
-                        paint_merge_scope(
-                            &painter,
-                            &self.options,
-                            stream,
-                            &merge,
-                            0,
-                            &mut cursor_y,
-                        )?;
+                        paint_merge_scope(&painter, options, stream, &merge, 0, &mut cursor_y)?;
                     }
                 } else {
                     for scope in top_scopes {
-                        paint_scope(&painter, &self.options, stream, &scope, 0, &mut cursor_y)?;
+                        paint_scope(&painter, options, stream, &scope, 0, &mut cursor_y)?;
                     }
                 }
                 Ok(())
