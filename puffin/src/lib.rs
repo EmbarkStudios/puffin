@@ -88,7 +88,7 @@ impl From<Vec<u8>> for Stream {
 }
 
 /// Used when parsing a Stream.
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Record<'s> {
     pub start_ns: NanoSecond,
     pub duration_ns: NanoSecond,
@@ -114,7 +114,7 @@ impl<'s> Record<'s> {
 }
 
 /// Used when parsing a Stream.
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Scope<'s> {
     pub record: Record<'s>,
     /// Stream offset for first child.
@@ -220,6 +220,7 @@ impl ThreadProfiler {
     }
 
     /// Returns position where to write scope size once the scope is closed.
+    #[must_use]
     pub fn begin_scope(&mut self, id: &str, location: &str, data: &str) -> usize {
         let now_ns = (self.now_ns)();
         self.start_time_ns = Some(self.start_time_ns.unwrap_or(now_ns));
