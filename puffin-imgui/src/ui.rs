@@ -396,7 +396,7 @@ fn paint_record(
     top_y: f32,
 ) -> PaintResult {
     let start_x = painter.pixel_from_ns(options, record.start_ns);
-    let stop_x = painter.pixel_from_ns(options, record.stop_ns);
+    let stop_x = painter.pixel_from_ns(options, record.stop_ns());
     let width = stop_x - start_x;
     if painter.canvas_max.x() < start_x
         || stop_x < painter.canvas_min.x()
@@ -418,7 +418,7 @@ fn paint_record(
         [1.0, 0.5, 0.5, 1.0]
     } else {
         // options.rect_color
-        color_from_duration(record.duration_ns())
+        color_from_duration(record.duration_ns)
     };
     let text_color = [0.1, 0.1, 0.1, 1.0];
 
@@ -437,7 +437,7 @@ fn paint_record(
         painter
             .draw_list
             .with_clip_rect_intersect(rect_min.into(), rect_max.into(), || {
-                let duration_ms = to_ms(record.duration_ns());
+                let duration_ms = to_ms(record.duration_ns);
                 let text = if record.data.is_empty() {
                     format!("{} {:6.3} ms", record.id, duration_ms)
                 } else {
@@ -531,7 +531,7 @@ fn paint_scope(
                 ui.text(&format!("data:     {}", scope.record.data));
                 ui.text(&format!(
                     "duration: {:6.3} ms",
-                    to_ms(scope.record.duration_ns())
+                    to_ms(scope.record.duration_ns)
                 ));
                 ui.text(&format!("children: {}", num_children));
             });

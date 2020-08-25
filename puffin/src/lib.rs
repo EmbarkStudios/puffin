@@ -91,7 +91,7 @@ impl From<Vec<u8>> for Stream {
 #[derive(Debug, PartialEq)]
 pub struct Record<'s> {
     pub start_ns: NanoSecond,
-    pub stop_ns: NanoSecond,
+    pub duration_ns: NanoSecond,
 
     /// e.g. function name. Mandatory. Used to identify records.
     /// Does not need to be globally unique, just unique in the parent scope.
@@ -108,8 +108,8 @@ pub struct Record<'s> {
 }
 
 impl<'s> Record<'s> {
-    pub fn duration_ns(&self) -> NanoSecond {
-        self.stop_ns - self.start_ns
+    pub fn stop_ns(&self) -> NanoSecond {
+        self.start_ns + self.duration_ns
     }
 }
 
@@ -149,7 +149,7 @@ impl FullProfileData {
             let top_scopes = Reader::from_start(stream).read_top_scopes()?;
             if !top_scopes.is_empty() {
                 min_ns = min_ns.min(top_scopes.first().unwrap().record.start_ns);
-                max_ns = max_ns.max(top_scopes.last().unwrap().record.stop_ns);
+                max_ns = max_ns.max(top_scopes.last().unwrap().record.stop_ns());
             }
         }
 
