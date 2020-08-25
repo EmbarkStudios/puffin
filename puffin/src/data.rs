@@ -6,7 +6,7 @@
 //!
 //!    '('          byte       Sentinel
 //!    time_ns      i64        Time stamp of when scope started
-//!    id           str        Scope name. Human readable, e.g. a function name. Never the empty stirng.
+//!    id           str        Scope name. Human readable, e.g. a function name. Never the empty string.
 //!    location     str        File name or similar. Could be the empty string.
 //!    data         str        Resource that is being processed, e.g. name of image being loaded. Could be the empty string.
 //!    scope_size   u64        Number of bytes of child scope

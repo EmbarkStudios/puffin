@@ -246,7 +246,7 @@ impl ProfilerUi {
                     .add_text([painter.canvas_min.x(), cursor_y], ERROR_COLOR, &text);
             }
 
-            cursor_y -= painter.font_size; // Extra spacing betwen threads
+            cursor_y -= painter.font_size; // Extra spacing between threads
         }
     }
 
@@ -358,16 +358,7 @@ fn paint_timeline(
             };
 
             if text_alpha > 0.0 {
-                let grid_ms = to_ms(grid_ns);
-                let text = if grid_ns % 1_000_000 == 0 {
-                    format!("{:.0} ms", grid_ms)
-                } else if grid_ns % 100_000 == 0 {
-                    format!("{:.1} ms", grid_ms)
-                } else if grid_ns % 10_000 == 0 {
-                    format!("{:.2} ms", grid_ms)
-                } else {
-                    format!("{:.3} ms", grid_ms)
-                };
+                let text = grid_text(grid_ns);
                 let text_x = line_x + 4.0;
                 let text_color = [1.0, 1.0, 1.0, (text_alpha * 2.0).min(1.0)];
 
@@ -386,6 +377,19 @@ fn paint_timeline(
         }
 
         grid_ns += grid_spacing_ns;
+    }
+}
+
+fn grid_text(grid_ns: NanoSecond) -> String {
+    let grid_ms = to_ms(grid_ns);
+    if grid_ns % 1_000_000 == 0 {
+        format!("{:.0} ms", grid_ms)
+    } else if grid_ns % 100_000 == 0 {
+        format!("{:.1} ms", grid_ms)
+    } else if grid_ns % 10_000 == 0 {
+        format!("{:.2} ms", grid_ms)
+    } else {
+        format!("{:.3} ms", grid_ms)
     }
 }
 
@@ -527,8 +531,12 @@ fn paint_scope(
             let ui = painter.ui;
             ui.tooltip(|| {
                 ui.text(&format!("id:       {}", scope.record.id));
+                if !scope.record.location.is_empty() {
                 ui.text(&format!("location: {}", scope.record.location));
+                }
+                if !scope.record.data.is_empty() {
                 ui.text(&format!("data:     {}", scope.record.data));
+                }
                 ui.text(&format!(
                     "duration: {:6.3} ms",
                     to_ms(scope.record.duration_ns)
