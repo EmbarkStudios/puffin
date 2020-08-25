@@ -55,13 +55,13 @@ impl Stream {
     /// Returns position where to write scope size once the scope is closed
     pub fn begin_scope(
         &mut self,
-        time_ns: NanoSecond,
+        start_ns: NanoSecond,
         id: &str,
         location: &str,
         data: &str,
     ) -> usize {
         self.0.push(SCOPE_BEGIN);
-        self.0.write_i64::<LE>(time_ns).expect("can't fail");
+        self.0.write_i64::<LE>(start_ns).expect("can't fail");
         self.write_str(id);
         self.write_str(location);
         self.write_str(data);
@@ -72,7 +72,7 @@ impl Stream {
         offset as usize
     }
 
-    pub fn end_scope(&mut self, start_offset: usize, time_ns: NanoSecond) {
+    pub fn end_scope(&mut self, start_offset: usize, stop_ns: NanoSecond) {
         // Write total scope size where scope was started:
         let scope_size = self.0.len() - (start_offset + size_of::<ScopeSize>());
         assert!(start_offset + size_of::<ScopeSize>() <= self.0.len());
@@ -84,7 +84,7 @@ impl Stream {
 
         // Write scope end:
         self.0.push(SCOPE_END);
-        self.write_nanos(time_ns);
+        self.write_nanos(stop_ns);
     }
 
     fn write_nanos(&mut self, nanos: NanoSecond) {
@@ -161,7 +161,7 @@ impl<'s> Reader<'s> {
         Ok(Some(Scope {
             record: Record {
                 start_ns,
-                stop_ns,
+                duration_ns: stop_ns - start_ns,
                 id,
                 location,
                 data,
@@ -257,7 +257,7 @@ fn test_profile_data() {
         top_scopes[0].record,
         Record {
             start_ns: 100,
-            stop_ns: 400,
+            duration_ns: 300,
             id: "top",
             location: "top.rs",
             data: "data_top",
@@ -274,7 +274,7 @@ fn test_profile_data() {
         middle_scopes[0].record,
         Record {
             start_ns: 200,
-            stop_ns: 300,
+            duration_ns: 100,
             id: "middle_0",
             location: "middle.rs",
             data: "data_middle_0",
@@ -284,7 +284,7 @@ fn test_profile_data() {
         middle_scopes[1].record,
         Record {
             start_ns: 300,
-            stop_ns: 400,
+            duration_ns: 100,
             id: "middle_1",
             location: "middle.rs:42",
             data: "data_middle_1",
