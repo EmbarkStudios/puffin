@@ -8,7 +8,7 @@
 
 ![Puffin photo by Richard Bartz](puffin.jpg)
 
-Puffin is an instrumentation profiler written in Rust where you opt-in to profile parts of you code:
+Puffin is an instrumentation profiler written in Rust where you opt-in to profile parts of your code:
 
 ``` rust
 fn my_function() {
