@@ -16,7 +16,6 @@ include = [ "**/*.rs", "Cargo.toml"]
 doctest = false
 
 [dependencies]
-glam = { version = "0.9", default-features = false } # TODO: remove? almost unused.
 imgui = { version = "0.5.0" }
 puffin = { version = "0.3.1-alpha", path = "../puffin" }
 serde = { version = "1", features = ["derive"] }

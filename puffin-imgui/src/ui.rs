@@ -1,7 +1,58 @@
-use glam::Vec2;
 use imgui::*;
 use puffin::*;
 use serde::{Deserialize, Serialize};
+
+// ----------------------------------------------------------------------------
+
+#[derive(Clone, Copy, Debug)]
+struct Vec2 {
+    pub x: f32,
+    pub y: f32,
+}
+
+impl Vec2 {
+    pub fn new(x: f32, y: f32) -> Self {
+        Self { x, y }
+    }
+
+    pub fn min(self, other: Self) -> Self {
+        Self {
+            x: self.x.min(other.x),
+            y: self.y.min(other.y),
+        }
+    }
+
+    pub fn max(self, other: Self) -> Self {
+        Self {
+            x: self.x.max(other.x),
+            y: self.y.max(other.y),
+        }
+    }
+}
+
+impl From<[f32; 2]> for Vec2 {
+    fn from(v: [f32; 2]) -> Self {
+        Self::new(v[0], v[1])
+    }
+}
+
+impl From<Vec2> for [f32; 2] {
+    fn from(v: Vec2) -> Self {
+        [v.x, v.y]
+    }
+}
+
+impl std::ops::Add<Vec2> for Vec2 {
+    type Output = Vec2;
+    fn add(self, rhs: Vec2) -> Self::Output {
+        Self {
+            x: self.x + rhs.x,
+            y: self.y + rhs.y,
+        }
+    }
+}
+
+// ----------------------------------------------------------------------------
 
 const ERROR_COLOR: [f32; 4] = [1.0, 0.0, 0.0, 1.0];
 
@@ -98,11 +149,11 @@ enum PaintResult {
 
 impl<'ui> Painter<'ui> {
     fn canvas_width(&self) -> f32 {
-        self.canvas_max.x() - self.canvas_min.x()
+        self.canvas_max.x - self.canvas_min.x
     }
 
     fn pixel_from_ns(&self, options: &Options, ns: NanoSecond) -> f32 {
-        self.canvas_min.x()
+        self.canvas_min.x
             + options.sideways_pan_in_pixels
             + ((ns - options.start_ns) as f32) * options.pixels_per_ns
     }
@@ -224,7 +275,7 @@ impl ProfilerUi {
         paint_timeline(&painter, options, min_ns, max_ns);
 
         // We paint the threads bottom up
-        let mut cursor_y = painter.canvas_max[1];
+        let mut cursor_y = painter.canvas_max.y;
         cursor_y -= painter.font_size; // Leave room for time labels
 
         for (info, stream) in &profile_data.0 {
@@ -232,16 +283,16 @@ impl ProfilerUi {
             painter
                 .draw_list
                 .add_line(
-                    [painter.canvas_min.x(), cursor_y],
-                    [painter.canvas_max.x(), cursor_y],
+                    [painter.canvas_min.x, cursor_y],
+                    [painter.canvas_max.x, cursor_y],
                     [1.0, 1.0, 1.0, 0.5],
                 )
                 .build();
 
             cursor_y -= painter.font_size;
-            let text_pos = [content_min[0], cursor_y];
+            let text_pos = [content_min.x, cursor_y];
             paint_thread_info(&painter, info, stream, text_pos);
-            painter.canvas_max[1] = cursor_y;
+            painter.canvas_max.y = cursor_y;
 
             let mut paint_stream = || -> Result<()> {
                 let top_scopes = Reader::from_start(stream).read_top_scopes()?;
@@ -261,7 +312,7 @@ impl ProfilerUi {
                 let text = format!("Profiler stream error: {:?}", err);
                 painter
                     .draw_list
-                    .add_text([painter.canvas_min.x(), cursor_y], ERROR_COLOR, &text);
+                    .add_text([painter.canvas_min.x, cursor_y], ERROR_COLOR, &text);
             }
 
             cursor_y -= painter.font_size; // Extra spacing between threads
@@ -299,7 +350,7 @@ impl ProfilerUi {
             };
 
             self.options.pixels_per_ns *= zoom_factor;
-            let zoom_center = painter.mouse_pos.x() - painter.canvas_min.x();
+            let zoom_center = painter.mouse_pos.x - painter.canvas_min.x;
             self.options.sideways_pan_in_pixels =
                 (self.options.sideways_pan_in_pixels - zoom_center) * zoom_factor + zoom_center;
         }
@@ -341,11 +392,11 @@ fn paint_timeline(
             break; // stop grid where data stops
         }
         let line_x = painter.pixel_from_ns(options, start_ns + grid_ns);
-        if line_x > painter.canvas_max.x() {
+        if line_x > painter.canvas_max.x {
             break;
         }
 
-        if painter.canvas_min.x() <= line_x {
+        if painter.canvas_min.x <= line_x {
             let big_line = grid_ns % (grid_spacing_ns * 100) == 0;
             let medium_line = grid_ns % (grid_spacing_ns * 10) == 0;
 
@@ -361,8 +412,8 @@ fn paint_timeline(
             painter
                 .draw_list
                 .add_line(
-                    [line_x, painter.canvas_min.y()],
-                    [line_x, painter.canvas_max.y()],
+                    [line_x, painter.canvas_min.y],
+                    [line_x, painter.canvas_max.y],
                     line_color,
                 )
                 .build();
@@ -383,11 +434,11 @@ fn paint_timeline(
                 // Text at top:
                 painter
                     .draw_list
-                    .add_text([text_x, painter.canvas_min.y()], text_color, &text);
+                    .add_text([text_x, painter.canvas_min.y], text_color, &text);
 
                 // Text at bottom:
                 painter.draw_list.add_text(
-                    [text_x, painter.canvas_max.y() - painter.font_size],
+                    [text_x, painter.canvas_max.y - painter.font_size],
                     text_color,
                     &text,
                 );
@@ -421,19 +472,17 @@ fn paint_record(
     let start_x = painter.pixel_from_ns(options, record.start_ns);
     let stop_x = painter.pixel_from_ns(options, record.stop_ns());
     let width = stop_x - start_x;
-    if painter.canvas_max.x() < start_x
-        || stop_x < painter.canvas_min.x()
-        || width < options.cull_width
+    if painter.canvas_max.x < start_x || stop_x < painter.canvas_min.x || width < options.cull_width
     {
         return PaintResult::Culled;
     }
 
     let bottom_y = top_y + options.rect_height;
 
-    let is_hovered = start_x <= painter.mouse_pos.x()
-        && painter.mouse_pos.x() <= stop_x
-        && top_y <= painter.mouse_pos.y()
-        && painter.mouse_pos.y() <= bottom_y;
+    let is_hovered = start_x <= painter.mouse_pos.x
+        && painter.mouse_pos.x <= stop_x
+        && top_y <= painter.mouse_pos.y
+        && painter.mouse_pos.y <= bottom_y;
 
     let rect_min = Vec2::new(start_x, top_y);
     let rect_max = Vec2::new(stop_x, bottom_y);
@@ -532,7 +581,7 @@ fn paint_scope(
     min_y: &mut f32,
 ) -> Result<PaintResult> {
     let top_y =
-        painter.canvas_max.y() - (1.0 + depth as f32) * (options.rect_height + options.spacing);
+        painter.canvas_max.y - (1.0 + depth as f32) * (options.rect_height + options.spacing);
     *min_y = min_y.min(top_y);
 
     let result = paint_record(painter, options, "", &scope.record, top_y);
@@ -575,7 +624,7 @@ fn paint_merge_scope(
     min_y: &mut f32,
 ) -> Result<PaintResult> {
     let top_y =
-        painter.canvas_max.y() - (1.0 + depth as f32) * (options.rect_height + options.spacing);
+        painter.canvas_max.y - (1.0 + depth as f32) * (options.rect_height + options.spacing);
     *min_y = min_y.min(top_y);
 
     let prefix = if merge.pieces.len() <= 1 {
