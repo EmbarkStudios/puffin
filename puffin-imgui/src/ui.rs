@@ -136,7 +136,7 @@ struct Painter<'ui> {
     mouse_pos: Vec2,
 
     ui: &'ui Ui<'ui>,
-    draw_list: WindowDrawList<'ui>,
+    draw_list: DrawListMut<'ui>,
     font_size: f32,
 }
 
