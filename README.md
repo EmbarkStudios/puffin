@@ -57,7 +57,7 @@ fn main() {
 
 ## Other
 
-[Puffin photo by Richard Bartz](https://en.wikipedia.org/wiki/File:Papageitaucher_Fratercula_arctica.jpg)
+Also check out the crate [`profiling`](https://crates.io/crates/profiling) which provides a unifying layer of abstraction on top of `puffin` and other profiling crates. It also has a working example of `puffin-imgui`.
 
 ## Contributing
 
@@ -75,6 +75,8 @@ Licensed under either of
 * MIT license ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
 
 at your option.
+
+[Puffin photo by Richard Bartz](https://en.wikipedia.org/wiki/File:Papageitaucher_Fratercula_arctica.jpg)
 
 ### Contribution
 
