@@ -70,13 +70,13 @@ pub struct ProfilerUi {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Deserialize, Serialize)]
-pub enum View {
+enum View {
     Latest,
     Spike,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize)]
-pub struct Options {
+struct Options {
     // --------------------
     // View:
     /// Time of first event
@@ -160,6 +160,8 @@ impl<'ui> Painter<'ui> {
 }
 
 impl ProfilerUi {
+    /// Show a [`imgui::Window`] with the profiler contents.
+    /// If you want to control the window yourself, use [`Self::ui`] instead.
     pub fn window(&mut self, ui: &Ui<'_>) -> bool {
         let mut open = true;
         imgui::Window::new(im_str!("Profiler"))
@@ -172,7 +174,7 @@ impl ProfilerUi {
         open
     }
 
-    pub fn get_latest_data(&self) -> FullProfileData {
+    fn get_latest_data(&self) -> FullProfileData {
         let profiler = GlobalProfiler::lock();
         match self.options.view {
             View::Latest => profiler.past_frame().clone(),
@@ -180,6 +182,9 @@ impl ProfilerUi {
         }
     }
 
+    /// Show the profiler.
+    ///
+    /// Call this from within an [`imgui::Window`], or use [`Self::window`] instead.
     pub fn ui(&mut self, ui: &Ui<'_>) {
         #![allow(clippy::collapsible_if)]
 

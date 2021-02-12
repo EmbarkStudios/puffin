@@ -13,10 +13,10 @@ Puffin is an instrumentation profiler written in Rust where you opt-in to profil
 
 ``` rust
 fn my_function() {
-    puffin::profile_function!():
+    puffin::profile_function!();
     ...
     if ... {
-        puffin::profile_scope_data!("load_image", image_name):
+        puffin::profile_scope_data!("load_image", image_name);
         ...
     }
 }
@@ -26,11 +26,34 @@ The Puffin macros write data to a thread-local data stream. When the outermost s
 
 You have to turn on the profiler before it captures any data with a call to `puffin::set_scopes_on(true);`. When the profiler is off the profiler scope macros only has an overhead of 1-2 ns (and some stack space);
 
+Once per frame you need to call `puffin::GlobalProfiler::lock().new_frame();`.
+
 ## UI
 
 If you want to view a nice flamegraph of your profile data, you can use the crate `puffin-imgui` in this repo. It looks like this:
 
 ![Puffin Flamegraph UI](puffin-imgui/flamegraph.png)
+
+A full example is something like this:
+
+``` rust
+fn main() {
+    puffin::set_scopes_on(true); // you may want to control this with a flag
+    let mut puffin_ui = puffin_imgui::ProfilerUi::default();
+
+    // game loop
+    loop {
+        puffin::GlobalProfiler::lock().new_frame();
+
+        {
+            puffin::profile_scope!("slow_code");
+            slow_code();
+        }
+
+        puffin_ui.window(ui);
+    }
+}
+```
 
 ## Other
 

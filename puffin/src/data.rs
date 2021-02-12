@@ -39,6 +39,7 @@ impl ScopeSize {
     }
 }
 
+/// Errors that can happen when parsing a [`Stream`] of profile data.
 #[derive(Debug)]
 pub enum Error {
     PrematureEnd,
@@ -106,6 +107,7 @@ impl Stream {
 
 // ----------------------------------------------------------------------------
 
+/// Parses a [`Stream`] of profiler data.
 pub struct Reader<'s>(std::io::Cursor<&'s [u8]>);
 
 impl<'s> Reader<'s> {

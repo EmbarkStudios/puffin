@@ -1,3 +1,24 @@
+//! Usage:
+//!
+//! ``` no_run
+//! fn main() {
+//!     puffin::set_scopes_on(true); // you may want to control this with a flag
+//!
+//!     // game loop
+//!     loop {
+//!         puffin::GlobalProfiler::lock().new_frame();
+//!
+//!         {
+//!             puffin::profile_scope!("slow_code");
+//!             slow_code();
+//!         }
+//!
+//!     }
+//! }
+//!
+//! # fn slow_code(){}
+//! ```
+
 #![forbid(unsafe_code)]
 #![warn(
     clippy::all,
@@ -356,6 +377,7 @@ impl Drop for ProfilerScope {
     }
 }
 
+#[doc(hidden)]
 pub fn type_name_of<T>(_: T) -> &'static str {
     std::any::type_name::<T>()
 }
@@ -372,6 +394,7 @@ macro_rules! current_function_name {
     }};
 }
 
+#[doc(hidden)]
 pub fn clean_function_name(name: &str) -> &str {
     if let Some(colon) = name.rfind("::") {
         if let Some(colon) = name[..colon].rfind("::") {
@@ -403,6 +426,7 @@ macro_rules! current_file_name {
 }
 
 /// Removes long path prefix to focus on the last parts of the path (and the file name).
+#[doc(hidden)]
 pub fn short_file_name(name: &str) -> &str {
     // TODO: "foo/bar/src/lib.rs" -> "bar/src/lib.rs"
     if let Some(slash) = name.rfind('/') {

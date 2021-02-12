@@ -1,3 +1,28 @@
+//! An [imgui-rs](https://crates.io/crates/imgui-rs) interface for [`puffin`].
+//!
+//! Usage:
+//!
+//! ``` ignored
+//! fn main() {
+//!     puffin::set_scopes_on(true); // you may want to control this with a flag
+//!     let mut puffin_ui = puffin_imgui::ProfilerUi::default();
+//!
+//!     // game loop
+//!     loop {
+//!         puffin::GlobalProfiler::lock().new_frame();
+//!
+//!         {
+//!             puffin::profile_scope!("slow_code");
+//!             slow_code();
+//!         }
+//!
+//!         puffin_ui.window(ui);
+//!     }
+//! }
+//!
+//! # fn slow_code(){}
+//! ```
+
 #![forbid(unsafe_code)]
 #![warn(
     clippy::all,
