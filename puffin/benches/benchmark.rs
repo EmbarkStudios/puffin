@@ -11,7 +11,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
     });
     c.bench_function("profile_function_data", |b| {
         b.iter(|| {
-            puffin::profile_function_data!("my_mesh.obj");
+            puffin::profile_function!("my_mesh.obj");
         })
     });
     c.bench_function("profile_scope", |b| {
@@ -21,7 +21,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
     });
     c.bench_function("profile_scope_data", |b| {
         b.iter(|| {
-            puffin::profile_scope_data!("my longish scope name", "my_mesh.obj");
+            puffin::profile_scope!("my longish scope name", "my_mesh.obj");
         })
     });
 
@@ -33,7 +33,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
     });
     c.bench_function("profile_function_data_off", |b| {
         b.iter(|| {
-            puffin::profile_function_data!("my_mesh.obj");
+            puffin::profile_function!("my_mesh.obj");
         })
     });
     c.bench_function("profile_scope_off", |b| {
@@ -43,7 +43,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
     });
     c.bench_function("profile_scope_data_off", |b| {
         b.iter(|| {
-            puffin::profile_scope_data!("my longish scope name", "my_mesh.obj");
+            puffin::profile_scope!("my longish scope name", "my_mesh.obj");
         })
     });
 }

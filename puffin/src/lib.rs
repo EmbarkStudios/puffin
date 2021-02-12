@@ -446,29 +446,38 @@ fn test_short_file_name() {
 }
 
 /// Automatically name the profiling scope based on function name.
-/// Example: `profile_function!();`
+///
+/// Names should be descriptive, ASCII and without spaces.
+///
+/// Example:
+/// ```
+/// # struct Image {};
+/// fn load_image(path: &str) -> Image {
+///     puffin::profile_function!();
+///     /* … */
+///     # let image = Image {};
+///     image
+/// }
+/// ```
+///
+/// An optional argument can be a string describing e.g. an argument, to help diagnose what was slow.
+///
+/// ```
+/// # struct Image {};
+/// fn load_image(path: &str) -> Image {
+///     puffin::profile_function!(path);
+///     /* … */
+///     # let image = Image {};
+///     image
+/// }
+/// ```
+///
 /// Overhead: around 210 ns on 2020 MacBook Pro
 #[macro_export]
 macro_rules! profile_function {
     () => {
-        let _profiler_scope = if $crate::are_scopes_on() {
-            Some($crate::ProfilerScope::new(
-                $crate::current_function_name!(),
-                $crate::current_file_name!(),
-                "",
-            ))
-        } else {
-            None
-        };
+        $crate::profile_function!("");
     };
-}
-
-/// Automatically name the profiling scope based on function name.
-/// Additionally provide some data (e.g. a mesh name) to help diagnose what was slow.
-/// Example: `profile_function_data!(mesh_name);`
-/// Overhead: around 210 ns on 2020 MacBook Pro
-#[macro_export]
-macro_rules! profile_function_data {
     ($data:expr) => {
         let _profiler_scope = if $crate::are_scopes_on() {
             Some($crate::ProfilerScope::new(
@@ -482,32 +491,29 @@ macro_rules! profile_function_data {
     };
 }
 
-/// Profile the current scope with the given name (unique in the parent scope).
-/// Names should be descriptive, ASCII and without spaces.
-/// Example: `profile_scope!("load_mesh");`
-/// Overhead: around 140 ns on 2020 MacBook Pro
+#[deprecated = "Use puffin::profile_function!(data); instead"]
 #[macro_export]
-macro_rules! profile_scope {
-    ($id:expr) => {
-        let _profiler_scope = if $crate::are_scopes_on() {
-            Some($crate::ProfilerScope::new(
-                $id,
-                $crate::current_file_name!(),
-                "",
-            ))
-        } else {
-            None
-        };
+macro_rules! profile_function_data {
+    ($data:expr) => {
+        $crate::profile_function($data);
     };
 }
 
 /// Profile the current scope with the given name (unique in the parent scope).
+///
 /// Names should be descriptive, ASCII and without spaces.
-/// Additionally provide some data (e.g. a mesh name) to help diagnose what was slow.
-/// Example: `profile_scope_data!("load_mesh", mesh_name);`
-/// Overhead: around 150 ns on 2020 MacBook Pro
+///
+/// Example: `profile_scope!("load_mesh");`.
+///
+/// An optional second argument can be a string (e.g. a mesh name) to help diagnose what was slow.
+/// Example: `profile_scope!("load_mesh", mesh_name);`
+///
+/// Overhead: around 140 ns on 2020 MacBook Pro
 #[macro_export]
-macro_rules! profile_scope_data {
+macro_rules! profile_scope {
+    ($id:expr) => {
+        $crate::profile_scope!($id, "");
+    };
     ($id:expr, $data:expr) => {
         let _profiler_scope = if $crate::are_scopes_on() {
             Some($crate::ProfilerScope::new(
@@ -518,5 +524,13 @@ macro_rules! profile_scope_data {
         } else {
             None
         };
+    };
+}
+
+#[deprecated = "Use puffin::profile_scope!(id, data) instead"]
+#[macro_export]
+macro_rules! profile_scope_data {
+    ($id:expr, $data:expr) => {
+        $crate::profile_scope_function($id, $data);
     };
 }
