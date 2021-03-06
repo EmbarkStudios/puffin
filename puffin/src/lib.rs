@@ -60,9 +60,9 @@ mod merge;
 pub use data::*;
 pub use merge::*;
 
-use parking_lot::Mutex;
 use std::collections::BTreeMap;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Mutex;
 
 static MACROS_ON: AtomicBool = AtomicBool::new(false);
 
@@ -293,10 +293,10 @@ pub struct GlobalProfiler {
 
 impl GlobalProfiler {
     /// Access to the global profiler singleton.
-    pub fn lock() -> parking_lot::MutexGuard<'static, Self> {
+    pub fn lock() -> std::sync::MutexGuard<'static, Self> {
         use once_cell::sync::Lazy;
         static GLOBAL_PROFILER: Lazy<Mutex<GlobalProfiler>> = Lazy::new(Default::default);
-        GLOBAL_PROFILER.lock()
+        GLOBAL_PROFILER.lock().unwrap() // panic on mutex poisioning
     }
 
     /// You need to call once every frame.
