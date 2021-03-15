@@ -497,7 +497,7 @@ fn paint_record(
         // options.rect_color
         color_from_duration(record.duration_ns)
     };
-    let text_color = [0.1, 0.1, 0.1, 1.0];
+    let text_color = [0.0, 0.0, 0.0, 1.0];
 
     painter
         .draw_list
