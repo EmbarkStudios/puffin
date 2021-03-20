@@ -385,7 +385,7 @@ fn paint_timeline(
     // We fade in lines as we zoom in:
     let num_tiny_lines = canvas_width_ns / (grid_spacing_ns as f32);
     let zoom_factor = remap_clamp(num_tiny_lines, (0.1 * max_lines)..=max_lines, 1.0..=0.0);
-    let zoom_factor = zoom_factor.powi(2);
+    let zoom_factor = zoom_factor * zoom_factor;
     let big_alpha = remap_clamp(zoom_factor, 0.0..=1.0, 0.5..=1.0);
     let medium_alpha = remap_clamp(zoom_factor, 0.0..=1.0, 0.1..=0.5);
     let tiny_alpha = remap_clamp(zoom_factor, 0.0..=1.0, 0.0..=0.1);
