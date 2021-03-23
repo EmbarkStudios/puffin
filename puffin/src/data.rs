@@ -129,14 +129,11 @@ impl<'s> Reader<'s> {
     /// and advance to the next sibling scope (if any).
     fn parse_scope(&mut self) -> Result<Option<Scope<'s>>> {
         match self.peek_u8() {
-            None => {
-                return Ok(None);
-            }
             Some(SCOPE_BEGIN) => {
                 self.parse_u8()
                     .expect("swallowing already peeked SCOPE_BEGIN");
             }
-            Some(_) => {
+            Some(_) | None => {
                 return Ok(None);
             }
         }
@@ -193,22 +190,22 @@ impl<'s> Reader<'s> {
     }
 
     fn parse_u8(&mut self) -> Result<u8> {
-        self.0.read_u8().map_err(|_| Error::PrematureEnd)
+        self.0.read_u8().map_err(|_err| Error::PrematureEnd)
     }
 
     fn parse_nanos(&mut self) -> Result<NanoSecond> {
-        self.0.read_i64::<LE>().map_err(|_| Error::PrematureEnd)
+        self.0.read_i64::<LE>().map_err(|_err| Error::PrematureEnd)
     }
 
     fn parse_scope_size(&mut self) -> Result<ScopeSize> {
         self.0
             .read_u64::<LE>()
-            .map_err(|_| Error::PrematureEnd)
+            .map_err(|_err| Error::PrematureEnd)
             .map(ScopeSize)
     }
 
     fn parse_string(&mut self) -> Result<&'s str> {
-        let len = self.parse_u8().map_err(|_| Error::PrematureEnd)? as usize;
+        let len = self.parse_u8().map_err(|_err| Error::PrematureEnd)? as usize;
         let data = self.0.get_ref();
         let begin = self.0.position() as usize;
         let end = begin + len;
