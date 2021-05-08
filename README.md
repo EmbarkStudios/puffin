@@ -16,7 +16,7 @@ fn my_function() {
     puffin::profile_function!();
     ...
     if ... {
-        puffin::profile_scope_data!("load_image", image_name);
+        puffin::profile_scope!("load_image", image_name);
         ...
     }
 }
@@ -30,30 +30,11 @@ Once per frame you need to call `puffin::GlobalProfiler::lock().new_frame();`.
 
 ## UI
 
-If you want to view a nice flamegraph of your profile data, you can use the crate `puffin-imgui` in this repo. It looks like this:
+To view the profile data in-game you can use [`puffin_egui`](https://crates.io/crates/puffin_egui).
 
-![Puffin Flamegraph UI](puffin-imgui/flamegraph.png)
+![Puffin Flamegraph using puffin_egui](puffin_egui.gif)
 
-A full example is something like this:
-
-``` rust
-fn main() {
-    puffin::set_scopes_on(true); // you may want to control this with a flag
-    let mut puffin_ui = puffin_imgui::ProfilerUi::default();
-
-    // game loop
-    loop {
-        puffin::GlobalProfiler::lock().new_frame();
-
-        {
-            puffin::profile_scope!("slow_code");
-            slow_code();
-        }
-
-        puffin_ui.window(ui);
-    }
-}
-```
+If you are using the [`imgui`](https://crates.io/crates/imgui) crate, there is also [`puffin-imgui`](https://crates.io/crates/puffin-imgui).
 
 ## Other
 
