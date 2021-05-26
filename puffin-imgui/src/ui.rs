@@ -79,9 +79,6 @@ enum View {
 struct Options {
     // --------------------
     // View:
-    /// Time of first event
-    start_ns: NanoSecond,
-
     /// Controls zoom
     pixels_per_ns: f32,
 
@@ -110,7 +107,6 @@ struct Options {
 impl Default for Options {
     fn default() -> Self {
         Self {
-            start_ns: 0,
             pixels_per_ns: 0.0,
             sideways_pan_in_pixels: 0.0,
             view: View::Latest,
@@ -138,6 +134,9 @@ struct Painter<'ui> {
     ui: &'ui Ui<'ui>,
     draw_list: DrawListMut<'ui>,
     font_size: f32,
+
+    /// Time of first event
+    start_ns: NanoSecond,
 }
 
 #[derive(Clone, Copy, Eq, PartialEq)]
@@ -155,7 +154,7 @@ impl<'ui> Painter<'ui> {
     fn pixel_from_ns(&self, options: &Options, ns: NanoSecond) -> f32 {
         self.canvas_min.x
             + options.sideways_pan_in_pixels
-            + ((ns - options.start_ns) as f32) * options.pixels_per_ns
+            + ((ns - self.start_ns) as f32) * options.pixels_per_ns
     }
 }
 
@@ -259,6 +258,7 @@ impl ProfilerUi {
         let content_max = content_min + content_region_avail;
 
         let mut painter = Painter {
+            start_ns: min_ns,
             canvas_min: content_min,
             canvas_max: content_max,
             mouse_pos: ui.io().mouse_pos.into(),
@@ -269,8 +269,6 @@ impl ProfilerUi {
         // An invisible button for the canvas allows us to catch input for it.
         ui.invisible_button(im_str!("canvas"), content_region_avail.into());
         self.interact(&painter);
-
-        self.options.start_ns = min_ns;
 
         if self.options.pixels_per_ns <= 0.0 {
             self.options.pixels_per_ns = painter.canvas_width() / ((max_ns - min_ns) as f32);
