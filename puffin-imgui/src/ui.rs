@@ -124,7 +124,7 @@ impl Default for Options {
     }
 }
 
-struct Painter<'ui> {
+struct Info<'ui> {
     // Bounding box of canvas in pixels:
     canvas_min: Vec2,
     canvas_max: Vec2,
@@ -146,7 +146,7 @@ enum PaintResult {
     Normal,
 }
 
-impl<'ui> Painter<'ui> {
+impl<'ui> Info<'ui> {
     fn canvas_width(&self) -> f32 {
         self.canvas_max.x - self.canvas_min.x
     }
@@ -257,7 +257,7 @@ impl ProfilerUi {
         let content_region_avail: Vec2 = ui.content_region_avail().into();
         let content_max = content_min + content_region_avail;
 
-        let mut painter = Painter {
+        let mut info = Info {
             start_ns: min_ns,
             canvas_min: content_min,
             canvas_max: content_max,
@@ -268,62 +268,60 @@ impl ProfilerUi {
         };
         // An invisible button for the canvas allows us to catch input for it.
         ui.invisible_button(im_str!("canvas"), content_region_avail.into());
-        self.interact(&painter);
+        self.interact(&info);
 
         if self.options.canvas_width_ns <= 0.0 {
             self.options.canvas_width_ns = (max_ns - min_ns) as f32;
         }
 
         let options = &self.options;
-        paint_timeline(&painter, options, min_ns, max_ns);
+        paint_timeline(&info, options, min_ns, max_ns);
 
         // We paint the threads bottom up
-        let mut cursor_y = painter.canvas_max.y;
-        cursor_y -= painter.font_size; // Leave room for time labels
+        let mut cursor_y = info.canvas_max.y;
+        cursor_y -= info.font_size; // Leave room for time labels
 
-        for (info, stream) in &profile_data.0 {
+        for (thread_info, stream) in &profile_data.0 {
             // Visual separator between threads:
-            painter
-                .draw_list
+            info.draw_list
                 .add_line(
-                    [painter.canvas_min.x, cursor_y],
-                    [painter.canvas_max.x, cursor_y],
+                    [info.canvas_min.x, cursor_y],
+                    [info.canvas_max.x, cursor_y],
                     [1.0, 1.0, 1.0, 0.5],
                 )
                 .build();
 
-            cursor_y -= painter.font_size;
+            cursor_y -= info.font_size;
             let text_pos = [content_min.x, cursor_y];
-            paint_thread_info(&painter, info, stream, text_pos);
-            painter.canvas_max.y = cursor_y;
+            paint_thread_info(&info, thread_info, stream, text_pos);
+            info.canvas_max.y = cursor_y;
 
             let mut paint_stream = || -> Result<()> {
                 let top_scopes = Reader::from_start(stream).read_top_scopes()?;
                 if options.merge_scopes {
                     let merges = puffin::merge_top_scopes(&top_scopes);
                     for merge in merges {
-                        paint_merge_scope(&painter, options, stream, &merge, 0, &mut cursor_y)?;
+                        paint_merge_scope(&info, options, stream, &merge, 0, &mut cursor_y)?;
                     }
                 } else {
                     for scope in top_scopes {
-                        paint_scope(&painter, options, stream, &scope, 0, &mut cursor_y)?;
+                        paint_scope(&info, options, stream, &scope, 0, &mut cursor_y)?;
                     }
                 }
                 Ok(())
             };
             if let Err(err) = paint_stream() {
                 let text = format!("Profiler stream error: {:?}", err);
-                painter
-                    .draw_list
-                    .add_text([painter.canvas_min.x, cursor_y], ERROR_COLOR, &text);
+                info.draw_list
+                    .add_text([info.canvas_min.x, cursor_y], ERROR_COLOR, &text);
             }
 
-            cursor_y -= painter.font_size; // Extra spacing between threads
+            cursor_y -= info.font_size; // Extra spacing between threads
         }
     }
 
-    fn interact(&mut self, painter: &Painter<'_>) {
-        let ui = &painter.ui;
+    fn interact(&mut self, info: &Info<'_>) {
+        let ui = &info.ui;
 
         let pan_button = MouseButton::Left;
         self.is_panning |= ui.is_item_hovered() && ui.is_mouse_clicked(pan_button);
@@ -353,19 +351,14 @@ impl ProfilerUi {
             };
 
             self.options.canvas_width_ns /= zoom_factor;
-            let zoom_center = painter.mouse_pos.x - painter.canvas_min.x;
+            let zoom_center = info.mouse_pos.x - info.canvas_min.x;
             self.options.sideways_pan_in_pixels =
                 (self.options.sideways_pan_in_pixels - zoom_center) * zoom_factor + zoom_center;
         }
     }
 }
 
-fn paint_timeline(
-    painter: &Painter<'_>,
-    options: &Options,
-    start_ns: NanoSecond,
-    stop_ns: NanoSecond,
-) {
+fn paint_timeline(info: &Info<'_>, options: &Options, start_ns: NanoSecond, stop_ns: NanoSecond) {
     if options.canvas_width_ns <= 0.0 {
         return;
     }
@@ -392,12 +385,12 @@ fn paint_timeline(
         if start_ns + grid_ns > stop_ns {
             break; // stop grid where data stops
         }
-        let line_x = painter.pixel_from_ns(options, start_ns + grid_ns);
-        if line_x > painter.canvas_max.x {
+        let line_x = info.pixel_from_ns(options, start_ns + grid_ns);
+        if line_x > info.canvas_max.x {
             break;
         }
 
-        if painter.canvas_min.x <= line_x {
+        if info.canvas_min.x <= line_x {
             let big_line = grid_ns % (grid_spacing_ns * 100) == 0;
             let medium_line = grid_ns % (grid_spacing_ns * 10) == 0;
 
@@ -410,11 +403,10 @@ fn paint_timeline(
             };
             let line_color = [1.0, 1.0, 1.0, line_alpha];
 
-            painter
-                .draw_list
+            info.draw_list
                 .add_line(
-                    [line_x, painter.canvas_min.y],
-                    [line_x, painter.canvas_max.y],
+                    [line_x, info.canvas_min.y],
+                    [line_x, info.canvas_max.y],
                     line_color,
                 )
                 .build();
@@ -433,13 +425,12 @@ fn paint_timeline(
                 let text_color = [1.0, 1.0, 1.0, (text_alpha * 2.0).min(1.0)];
 
                 // Text at top:
-                painter
-                    .draw_list
-                    .add_text([text_x, painter.canvas_min.y], text_color, &text);
+                info.draw_list
+                    .add_text([text_x, info.canvas_min.y], text_color, &text);
 
                 // Text at bottom:
-                painter.draw_list.add_text(
-                    [text_x, painter.canvas_max.y - painter.font_size],
+                info.draw_list.add_text(
+                    [text_x, info.canvas_max.y - info.font_size],
                     text_color,
                     &text,
                 );
@@ -464,26 +455,25 @@ fn grid_text(grid_ns: NanoSecond) -> String {
 }
 
 fn paint_record(
-    painter: &Painter<'_>,
+    info: &Info<'_>,
     options: &Options,
     prefix: &str,
     record: &Record<'_>,
     top_y: f32,
 ) -> PaintResult {
-    let start_x = painter.pixel_from_ns(options, record.start_ns);
-    let stop_x = painter.pixel_from_ns(options, record.stop_ns());
+    let start_x = info.pixel_from_ns(options, record.start_ns);
+    let stop_x = info.pixel_from_ns(options, record.stop_ns());
     let width = stop_x - start_x;
-    if painter.canvas_max.x < start_x || stop_x < painter.canvas_min.x || width < options.cull_width
-    {
+    if info.canvas_max.x < start_x || stop_x < info.canvas_min.x || width < options.cull_width {
         return PaintResult::Culled;
     }
 
     let bottom_y = top_y + options.rect_height;
 
-    let is_hovered = start_x <= painter.mouse_pos.x
-        && painter.mouse_pos.x <= stop_x
-        && top_y <= painter.mouse_pos.y
-        && painter.mouse_pos.y <= bottom_y;
+    let is_hovered = start_x <= info.mouse_pos.x
+        && info.mouse_pos.x <= stop_x
+        && top_y <= info.mouse_pos.y
+        && info.mouse_pos.y <= bottom_y;
 
     let rect_min = Vec2::new(start_x, top_y);
     let rect_max = Vec2::new(stop_x, bottom_y);
@@ -495,8 +485,7 @@ fn paint_record(
     };
     let text_color = [0.0, 0.0, 0.0, 1.0];
 
-    painter
-        .draw_list
+    info.draw_list
         .add_rect(rect_min.into(), rect_max.into(), rect_color)
         .filled(true)
         .rounding(options.rounding)
@@ -504,11 +493,10 @@ fn paint_record(
 
     let wide_enough_for_text = width > 32.0;
     if wide_enough_for_text {
-        let rect_min = rect_min.max(painter.canvas_min);
-        let rect_max = rect_max.min(painter.canvas_max);
+        let rect_min = rect_min.max(info.canvas_min);
+        let rect_max = rect_max.min(info.canvas_max);
 
-        painter
-            .draw_list
+        info.draw_list
             .with_clip_rect_intersect(rect_min.into(), rect_max.into(), || {
                 let duration_ms = to_ms(record.duration_ns);
                 let text = if record.data.is_empty() {
@@ -519,10 +507,10 @@ fn paint_record(
                         prefix, record.id, record.data, duration_ms
                     )
                 };
-                painter.draw_list.add_text(
+                info.draw_list.add_text(
                     [
                         start_x + 4.0,
-                        top_y + 0.5 * (options.rect_height - painter.font_size),
+                        top_y + 0.5 * (options.rect_height - info.font_size),
                     ],
                     text_color,
                     text,
@@ -574,28 +562,27 @@ fn remap_clamp(x: f32, from: RangeInclusive<f32>, to: RangeInclusive<f32>) -> f3
 }
 
 fn paint_scope(
-    painter: &Painter<'_>,
+    info: &Info<'_>,
     options: &Options,
     stream: &Stream,
     scope: &Scope<'_>,
     depth: usize,
     min_y: &mut f32,
 ) -> Result<PaintResult> {
-    let top_y =
-        painter.canvas_max.y - (1.0 + depth as f32) * (options.rect_height + options.spacing);
+    let top_y = info.canvas_max.y - (1.0 + depth as f32) * (options.rect_height + options.spacing);
     *min_y = min_y.min(top_y);
 
-    let result = paint_record(painter, options, "", &scope.record, top_y);
+    let result = paint_record(info, options, "", &scope.record, top_y);
 
     if result != PaintResult::Culled {
         let mut num_children = 0;
         for child_scope in Reader::with_offset(stream, scope.child_begin_position)? {
-            paint_scope(painter, options, stream, &child_scope?, depth + 1, min_y)?;
+            paint_scope(info, options, stream, &child_scope?, depth + 1, min_y)?;
             num_children += 1;
         }
 
         if result == PaintResult::Hovered {
-            let ui = painter.ui;
+            let ui = info.ui;
             ui.tooltip(|| {
                 ui.text(&format!("id:       {}", scope.record.id));
                 if !scope.record.location.is_empty() {
@@ -617,15 +604,14 @@ fn paint_scope(
 }
 
 fn paint_merge_scope(
-    painter: &Painter<'_>,
+    info: &Info<'_>,
     options: &Options,
     stream: &Stream,
     merge: &MergeScope<'_>,
     depth: usize,
     min_y: &mut f32,
 ) -> Result<PaintResult> {
-    let top_y =
-        painter.canvas_max.y - (1.0 + depth as f32) * (options.rect_height + options.spacing);
+    let top_y = info.canvas_max.y - (1.0 + depth as f32) * (options.rect_height + options.spacing);
     *min_y = min_y.min(top_y);
 
     let prefix = if merge.pieces.len() <= 1 {
@@ -633,15 +619,15 @@ fn paint_merge_scope(
     } else {
         format!("{}x ", merge.pieces.len())
     };
-    let result = paint_record(painter, options, &prefix, &merge.record, top_y);
+    let result = paint_record(info, options, &prefix, &merge.record, top_y);
 
     if result != PaintResult::Culled {
         for merged_child in merge_children_of_pieces(stream, merge)? {
-            paint_merge_scope(painter, options, stream, &merged_child, depth + 1, min_y)?;
+            paint_merge_scope(info, options, stream, &merged_child, depth + 1, min_y)?;
         }
 
         if result == PaintResult::Hovered {
-            let ui = painter.ui;
+            let ui = info.ui;
             ui.tooltip(|| merge_scope_tooltip(ui, merge));
         }
     }
@@ -684,16 +670,15 @@ fn merge_scope_tooltip(ui: &Ui<'_>, merge: &MergeScope<'_>) {
     }
 }
 
-fn paint_thread_info(painter: &Painter<'_>, info: &ThreadInfo, stream: &Stream, pos: [f32; 2]) {
+fn paint_thread_info(info: &Info<'_>, thread_info: &ThreadInfo, stream: &Stream, pos: [f32; 2]) {
     let text = format!(
         "{} ({:.1} kiB profiler data)",
-        info.name,
+        thread_info.name,
         stream.len() as f32 / 1024.0
     );
-    let text_size = painter.ui.calc_text_size(&ImString::new(&text), false, 0.0);
+    let text_size = info.ui.calc_text_size(&ImString::new(&text), false, 0.0);
 
-    painter
-        .draw_list
+    info.draw_list
         .add_rect(
             pos,
             [pos[0] + text_size[0], pos[1] + text_size[1]],
@@ -703,5 +688,5 @@ fn paint_thread_info(painter: &Painter<'_>, info: &ThreadInfo, stream: &Stream, 
         .rounding(0.0)
         .build();
 
-    painter.draw_list.add_text(pos, [0.9, 0.9, 0.9, 1.0], &text);
+    info.draw_list.add_text(pos, [0.9, 0.9, 0.9, 1.0], &text);
 }
