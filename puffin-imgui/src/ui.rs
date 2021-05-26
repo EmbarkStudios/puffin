@@ -1,6 +1,7 @@
 use imgui::*;
 use puffin::*;
 use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 
 // ----------------------------------------------------------------------------
 
@@ -55,8 +56,22 @@ impl std::ops::Add<Vec2> for Vec2 {
 // ----------------------------------------------------------------------------
 
 const ERROR_COLOR: [f32; 4] = [1.0, 0.0, 0.0, 1.0];
+const HOVER_COLOR: [f32; 4] = [0.85, 0.85, 0.85, 1.0];
 
-#[derive(Clone, Default, Deserialize, Serialize)]
+/// The frames we can select between
+#[derive(Clone)]
+pub struct Frames {
+    pub recent: Vec<Arc<FullProfileData>>,
+    pub slowest: Vec<Arc<FullProfileData>>,
+}
+
+#[derive(Clone)]
+enum Selected {
+    Latest,
+    Specific(Arc<FullProfileData>),
+}
+
+#[derive(Clone, Deserialize, Serialize)]
 #[serde(default)]
 pub struct ProfilerUi {
     options: Options,
@@ -66,16 +81,25 @@ pub struct ProfilerUi {
     is_panning: bool,
 
     #[serde(skip)]
-    paused_data: Option<FullProfileData>,
+    selected: Selected,
+
+    /// If `None`, we show the latest frames
+    #[serde(skip)]
+    paused_frames: Option<Frames>,
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Deserialize, Serialize)]
-enum View {
-    Latest,
-    Spike,
+impl Default for ProfilerUi {
+    fn default() -> Self {
+        Self {
+            options: Options::default(),
+            is_panning: false,
+            selected: Selected::Latest,
+            paused_frames: None,
+        }
+    }
 }
 
-#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(default)]
 struct Options {
     // --------------------
@@ -85,8 +109,6 @@ struct Options {
 
     /// How much we have panned sideways:
     sideways_pan_in_pixels: f32,
-
-    view: View,
 
     // --------------------
     // Interact:
@@ -109,7 +131,6 @@ impl Default for Options {
         Self {
             canvas_width_ns: 0.0,
             sideways_pan_in_pixels: 0.0,
-            view: View::Latest,
 
             scroll_zoom_speed: 0.01,
 
@@ -131,7 +152,7 @@ struct Info<'ui> {
     mouse_pos: Vec2,
 
     ui: &'ui Ui<'ui>,
-    draw_list: DrawListMut<'ui>,
+    draw_list: &'ui DrawListMut<'ui>,
     font_size: f32,
 
     /// Time of first event
@@ -172,12 +193,26 @@ impl ProfilerUi {
         open
     }
 
-    fn get_latest_data(&self) -> FullProfileData {
-        let profiler = GlobalProfiler::lock();
-        match self.options.view {
-            View::Latest => profiler.past_frame().clone(),
-            View::Spike => profiler.spike_frame().clone(),
+    /// The frames we can select between
+    fn frames(&self) -> Frames {
+        self.paused_frames.clone().unwrap_or_else(|| {
+            let profiler = GlobalProfiler::lock();
+            Frames {
+                recent: profiler.recent_frames().cloned().collect(),
+                slowest: profiler.slowest_frames_chronological(),
+            }
+        })
+    }
+
+    fn selected_frame(&self) -> Option<Arc<FullProfileData>> {
+        match &self.selected {
+            Selected::Latest => GlobalProfiler::lock().latest_frame(),
+            Selected::Specific(frame) => Some(frame.clone()),
         }
+    }
+
+    fn selected_frame_index(&self) -> Option<FrameIndex> {
+        self.selected_frame().map(|frame| frame.frame_index)
     }
 
     /// Show the profiler.
@@ -190,46 +225,53 @@ impl ProfilerUi {
             ui.text_colored(ERROR_COLOR, im_str!("The puffin profiler is OFF!"));
         }
 
-        {
-            let mut view = self.options.view;
-            ui.text("Show:");
-            ui.same_line(0.0);
-            ui.radio_button(im_str!("Latest frame"), &mut view, View::Latest);
-            ui.same_line(0.0);
-            ui.radio_button(im_str!("Frame spike"), &mut view, View::Spike);
-            if view != self.options.view {
-                self.options.view = view;
-                self.paused_data = None;
-            }
-        }
-        ui.same_line(0.0);
-        if self.paused_data.is_none() {
+        if self.paused_frames.is_none() {
+            // showing latest data
             if ui.button(im_str!("Pause"), Default::default()) {
-                self.paused_data = Some(self.get_latest_data());
+                self.paused_frames = Some(self.frames());
+                if matches!(&self.selected, Selected::Latest) {
+                    if let Some(latest) = GlobalProfiler::lock().latest_frame() {
+                        self.selected = Selected::Specific(latest);
+                    }
+                }
+            }
+            ui.same_line(0.0);
+            if ui.button(im_str!("Clear slowest frames"), Default::default()) {
+                GlobalProfiler::lock().clear_slowest();
+                self.paused_frames = None;
             }
         } else {
-            if ui.button(im_str!("Resume"), Default::default()) {
-                self.paused_data = None;
-            }
-        }
-        ui.same_line(0.0);
-        ui.checkbox(
-            im_str!("Merge children with same ID"),
-            &mut self.options.merge_scopes,
-        );
-
-        if self.options.view == View::Spike {
+            ui.text("(paused)");
             ui.same_line(0.0);
-            if ui.button(im_str!("Clear current spike"), Default::default()) {
-                GlobalProfiler::lock().clear_spike_frame();
-                self.paused_data = None;
+            if ui.button(im_str!("Resume"), Default::default()) {
+                self.paused_frames = None;
             }
         }
 
-        let profile_data = self
-            .paused_data
-            .clone()
-            .unwrap_or_else(|| self.get_latest_data());
+        let mut hovered_frame = self.show_frames(ui);
+
+        match &self.selected {
+            Selected::Latest => {
+                ui.text("Latest frame selected");
+            }
+            Selected::Specific(_frame) => {
+                if ui.button(im_str!("Select latest frame"), Default::default()) {
+                    self.selected = Selected::Latest;
+                    self.paused_frames = None;
+                }
+                if ui.is_item_hovered() {
+                    hovered_frame = GlobalProfiler::lock().latest_frame();
+                }
+            }
+        }
+
+        let profile_data = match hovered_frame.or_else(|| self.selected_frame()) {
+            Some(frame) => frame,
+            None => {
+                ui.text("No profiling data");
+                return;
+            }
+        };
 
         // TODO: show age of data
 
@@ -245,78 +287,201 @@ impl ProfilerUi {
             }
         };
 
+        ui.text(im_str!(
+            "Current frame: {:.1} ms",
+            (max_ns - min_ns) as f64 * 1e-6
+        ));
+
         ui.text("Drag to pan. Scroll to zoom.");
         ui.same_line(0.0);
         if ui.button(im_str!("Reset view"), Default::default()) {
             self.options.canvas_width_ns = 0.0;
             self.options.sideways_pan_in_pixels = 0.0;
         }
+        ui.same_line(0.0);
+        ui.checkbox(
+            im_str!("Merge children with same ID"),
+            &mut self.options.merge_scopes,
+        );
+        ui.separator();
 
         let content_min: Vec2 = ui.cursor_screen_pos().into();
         let content_region_avail: Vec2 = ui.content_region_avail().into();
         let content_max = content_min + content_region_avail;
 
-        let mut info = Info {
-            start_ns: min_ns,
-            canvas_min: content_min,
-            canvas_max: content_max,
-            mouse_pos: ui.io().mouse_pos.into(),
-            ui,
-            draw_list: ui.get_window_draw_list(),
-            font_size: ui.current_font_size(),
-        };
-        // An invisible button for the canvas allows us to catch input for it.
-        ui.invisible_button(im_str!("canvas"), content_region_avail.into());
-        self.interact(&info);
+        let draw_list = ui.get_window_draw_list();
 
-        if self.options.canvas_width_ns <= 0.0 {
-            self.options.canvas_width_ns = (max_ns - min_ns) as f32;
-        }
-
-        let options = &self.options;
-        paint_timeline(&info, options, min_ns, max_ns);
-
-        // We paint the threads bottom up
-        let mut cursor_y = info.canvas_max.y;
-        cursor_y -= info.font_size; // Leave room for time labels
-
-        for (thread_info, stream) in &profile_data.0 {
-            // Visual separator between threads:
-            info.draw_list
-                .add_line(
-                    [info.canvas_min.x, cursor_y],
-                    [info.canvas_max.x, cursor_y],
-                    [1.0, 1.0, 1.0, 0.5],
-                )
-                .build();
-
-            cursor_y -= info.font_size;
-            let text_pos = [content_min.x, cursor_y];
-            paint_thread_info(&info, thread_info, stream, text_pos);
-            info.canvas_max.y = cursor_y;
-
-            let mut paint_stream = || -> Result<()> {
-                let top_scopes = Reader::from_start(stream).read_top_scopes()?;
-                if options.merge_scopes {
-                    let merges = puffin::merge_top_scopes(&top_scopes);
-                    for merge in merges {
-                        paint_merge_scope(&info, options, stream, &merge, 0, &mut cursor_y)?;
-                    }
-                } else {
-                    for scope in top_scopes {
-                        paint_scope(&info, options, stream, &scope, 0, &mut cursor_y)?;
-                    }
-                }
-                Ok(())
+        draw_list.with_clip_rect_intersect(content_min.into(), content_max.into(), || {
+            let mut info = Info {
+                start_ns: min_ns,
+                canvas_min: content_min,
+                canvas_max: content_max,
+                mouse_pos: ui.io().mouse_pos.into(),
+                ui,
+                draw_list: &draw_list,
+                font_size: ui.current_font_size(),
             };
-            if let Err(err) = paint_stream() {
-                let text = format!("Profiler stream error: {:?}", err);
-                info.draw_list
-                    .add_text([info.canvas_min.x, cursor_y], ERROR_COLOR, &text);
+            // An invisible button for the canvas allows us to catch input for it.
+            ui.invisible_button(im_str!("canvas"), content_region_avail.into());
+            self.interact(&info);
+
+            if self.options.canvas_width_ns <= 0.0 {
+                self.options.canvas_width_ns = (max_ns - min_ns) as f32;
             }
 
-            cursor_y -= info.font_size; // Extra spacing between threads
+            let options = &self.options;
+            paint_timeline(&info, options, min_ns, max_ns);
+
+            // We paint the threads bottom up
+            let mut cursor_y = info.canvas_max.y;
+            cursor_y -= info.font_size; // Leave room for time labels
+
+            for (thread_info, stream) in &profile_data.thread_streams {
+                // Visual separator between threads:
+                info.draw_list
+                    .add_line(
+                        [info.canvas_min.x, cursor_y],
+                        [info.canvas_max.x, cursor_y],
+                        [1.0, 1.0, 1.0, 0.5],
+                    )
+                    .build();
+
+                cursor_y -= info.font_size;
+                let text_pos = [content_min.x, cursor_y];
+                paint_thread_info(&info, thread_info, stream, text_pos);
+                info.canvas_max.y = cursor_y;
+
+                let mut paint_stream = || -> Result<()> {
+                    let top_scopes = Reader::from_start(stream).read_top_scopes()?;
+                    if options.merge_scopes {
+                        let merges = puffin::merge_top_scopes(&top_scopes);
+                        for merge in merges {
+                            paint_merge_scope(&info, options, stream, &merge, 0, &mut cursor_y)?;
+                        }
+                    } else {
+                        for scope in top_scopes {
+                            paint_scope(&info, options, stream, &scope, 0, &mut cursor_y)?;
+                        }
+                    }
+                    Ok(())
+                };
+                if let Err(err) = paint_stream() {
+                    let text = format!("Profiler stream error: {:?}", err);
+                    info.draw_list
+                        .add_text([info.canvas_min.x, cursor_y], ERROR_COLOR, &text);
+                }
+
+                cursor_y -= info.font_size; // Extra spacing between threads
+            }
+        });
+    }
+
+    /// Returns hovered, if any
+    fn show_frames(&mut self, ui: &Ui<'_>) -> Option<Arc<FullProfileData>> {
+        let frames = self.frames();
+
+        let mut hovered_frame = None;
+
+        let longest_count = frames.recent.len().max(frames.slowest.len());
+
+        ui.text("Recent history:");
+        self.show_frame_list(
+            ui,
+            "Recent frames",
+            &frames.recent,
+            longest_count,
+            &mut hovered_frame,
+        );
+        ui.text("Slowest frames:");
+        self.show_frame_list(
+            ui,
+            "Slow spikes",
+            &frames.slowest,
+            longest_count,
+            &mut hovered_frame,
+        );
+
+        hovered_frame
+    }
+
+    fn show_frame_list(
+        &mut self,
+        ui: &Ui<'_>,
+        label: &str,
+        frames: &[Arc<FullProfileData>],
+        longest_count: usize,
+        hovered_frame: &mut Option<Arc<FullProfileData>>,
+    ) {
+        let mut slowest_frame = 0;
+        for frame in frames {
+            slowest_frame = frame.duration_ns().unwrap_or(0).max(slowest_frame);
         }
+
+        let min: Vec2 = ui.cursor_screen_pos().into();
+        let size = Vec2::new(ui.content_region_avail()[0], 48.0);
+        let max = min + size;
+
+        let frame_width_including_spacing = (size.x / (longest_count as f32)).max(4.0).min(20.0);
+        let frame_spacing = 2.0;
+        let frame_width = frame_width_including_spacing - frame_spacing;
+
+        ui.invisible_button(&ImString::new(label), size.into());
+        let draw_list = ui.get_window_draw_list();
+
+        let selected_frame_index = self.selected_frame_index();
+
+        let mouse_pos: Vec2 = ui.io().mouse_pos.into();
+
+        draw_list.with_clip_rect_intersect(min.into(), max.into(), || {
+            for (i, frame) in frames.iter().enumerate() {
+                let x = max.x - (frames.len() as f32 - i as f32) * frame_width_including_spacing;
+                let mut rect_min = Vec2::new(x, min.y);
+                let rect_max = Vec2::new(x + frame_width, max.y);
+
+                let duration = frame.duration_ns().unwrap_or(0);
+
+                let is_selected = Some(frame.frame_index) == selected_frame_index;
+
+                let is_hovered = rect_min.x - 0.5 * frame_spacing <= mouse_pos.x
+                    && mouse_pos.x < rect_max.x + 0.5 * frame_spacing
+                    && rect_min.y <= mouse_pos.y
+                    && mouse_pos.y <= rect_max.y;
+
+                if is_hovered {
+                    *hovered_frame = Some(frame.clone());
+                }
+                if is_hovered && ui.is_mouse_clicked(MouseButton::Left) {
+                    self.selected = Selected::Specific(frame.clone());
+                }
+
+                let mut color = if is_selected {
+                    [1.0; 4]
+                } else if is_hovered {
+                    HOVER_COLOR
+                } else {
+                    color_from_duration(duration)
+                };
+
+                // Transparent, full height:
+                color[3] = if is_selected || is_hovered {
+                    0.75
+                } else {
+                    0.25
+                };
+                draw_list
+                    .add_rect(rect_min.into(), rect_max.into(), color)
+                    .filled(true)
+                    .build();
+
+                // Opaque, height based on duration:
+                color[3] = 1.0;
+                rect_min.y = lerp(max.y..=min.y, duration as f32 / slowest_frame as f32);
+                draw_list
+                    .add_rect(rect_min.into(), rect_max.into(), color)
+                    .filled(true)
+                    .build();
+            }
+        });
     }
 
     fn interact(&mut self, info: &Info<'_>) {
@@ -473,7 +638,7 @@ fn paint_record(
     let rect_min = Vec2::new(start_x, top_y);
     let rect_max = Vec2::new(stop_x, bottom_y);
     let rect_color = if is_hovered {
-        [1.0, 0.5, 0.5, 1.0]
+        HOVER_COLOR
     } else {
         // options.rect_color
         color_from_duration(record.duration_ns)

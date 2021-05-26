@@ -79,6 +79,7 @@ pub use merge::*;
 
 use std::collections::BTreeMap;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 use std::sync::Mutex;
 
 static MACROS_ON: AtomicBool = AtomicBool::new(false);
@@ -176,16 +177,28 @@ pub struct ThreadInfo {
 
 // ----------------------------------------------------------------------------
 
+pub type FrameIndex = u64;
+
 /// Collected profile data from many sources.
-#[derive(Clone, Default)]
-pub struct FullProfileData(pub BTreeMap<ThreadInfo, Stream>);
+#[derive(Clone)]
+pub struct FullProfileData {
+    pub frame_index: FrameIndex,
+    pub thread_streams: BTreeMap<ThreadInfo, Stream>,
+}
 
 impl FullProfileData {
+    pub fn new(frame_index: FrameIndex) -> Self {
+        Self {
+            frame_index,
+            thread_streams: Default::default(),
+        }
+    }
+
     /// Returns the min/max nanosecond in the profile data, or None if empty.
     pub fn range_ns(&self) -> Result<Option<(NanoSecond, NanoSecond)>> {
         let mut min_ns = NanoSecond::MAX;
         let mut max_ns = NanoSecond::MIN;
-        for stream in self.0.values() {
+        for stream in self.thread_streams.values() {
             let top_scopes = Reader::from_start(stream).read_top_scopes()?;
             if !top_scopes.is_empty() {
                 min_ns = min_ns.min(top_scopes.first().unwrap().record.start_ns);
@@ -209,7 +222,7 @@ impl FullProfileData {
     }
 
     pub fn insert(&mut self, info: ThreadInfo, stream: Stream) {
-        self.0.entry(info).or_default().append(stream);
+        self.thread_streams.entry(info).or_default().append(stream);
     }
 }
 
@@ -300,12 +313,60 @@ impl ThreadProfiler {
 
 // ----------------------------------------------------------------------------
 
+struct OrderedData(Arc<FullProfileData>);
+
+impl OrderedData {
+    fn duration_ns(&self) -> NanoSecond {
+        self.0.duration_ns().unwrap_or(0)
+    }
+}
+
+impl PartialEq for OrderedData {
+    fn eq(&self, other: &Self) -> bool {
+        self.duration_ns().eq(&other.duration_ns())
+    }
+}
+impl Eq for OrderedData {}
+
+impl PartialOrd for OrderedData {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for OrderedData {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.duration_ns().cmp(&other.duration_ns()).reverse()
+    }
+}
+
 /// Singleton. Collects profiling data from multiple threads.
-#[derive(Default)]
 pub struct GlobalProfiler {
-    spike_frame: FullProfileData,
-    past_frame: FullProfileData,
+    next_frame_index: FrameIndex,
     current_frame: FullProfileData,
+
+    /// newest first
+    recent_frames: std::collections::VecDeque<Arc<FullProfileData>>,
+    max_recent: usize,
+
+    slowest_frames: std::collections::BinaryHeap<OrderedData>,
+    max_slow: usize,
+}
+
+impl Default for GlobalProfiler {
+    fn default() -> Self {
+        let max_recent = 128;
+        let max_slow = 128;
+
+        Self {
+            next_frame_index: 1,
+            current_frame: FullProfileData::new(0),
+            recent_frames: std::collections::VecDeque::with_capacity(max_recent),
+            max_recent,
+            slowest_frames: std::collections::BinaryHeap::with_capacity(max_slow),
+            max_slow,
+        }
+    }
 }
 
 impl GlobalProfiler {
@@ -313,16 +374,34 @@ impl GlobalProfiler {
     pub fn lock() -> std::sync::MutexGuard<'static, Self> {
         use once_cell::sync::Lazy;
         static GLOBAL_PROFILER: Lazy<Mutex<GlobalProfiler>> = Lazy::new(Default::default);
-        GLOBAL_PROFILER.lock().unwrap() // panic on mutex poisioning
+        GLOBAL_PROFILER.lock().unwrap() // panic on mutex poisoning
     }
 
     /// You need to call once every frame.
     pub fn new_frame(&mut self) {
-        self.past_frame = std::mem::take(&mut self.current_frame);
-        if self.past_frame.duration_ns().unwrap_or_default()
-            > self.spike_frame.duration_ns().unwrap_or_default()
-        {
-            self.spike_frame = self.past_frame.clone();
+        let next_frame = FullProfileData::new(self.next_frame_index);
+        self.next_frame_index += 1;
+        let new_frame = std::mem::replace(&mut self.current_frame, next_frame);
+        let new_frame = Arc::new(new_frame);
+
+        let add_to_slowest = if self.slowest_frames.len() < self.max_slow {
+            true
+        } else if let Some(fastest_of_the_slow) = self.slowest_frames.peek() {
+            new_frame.duration_ns().unwrap_or(0) > fastest_of_the_slow.duration_ns()
+        } else {
+            false
+        };
+
+        if add_to_slowest {
+            self.slowest_frames.push(OrderedData(new_frame.clone()));
+            while self.slowest_frames.len() > self.max_slow {
+                self.slowest_frames.pop();
+            }
+        }
+
+        self.recent_frames.push_back(new_frame);
+        while self.recent_frames.len() > self.max_recent {
+            self.recent_frames.pop_front();
         }
     }
 
@@ -331,19 +410,39 @@ impl GlobalProfiler {
         self.current_frame.insert(info, stream);
     }
 
-    /// Latest full frame
-    pub fn past_frame(&self) -> &FullProfileData {
-        &self.past_frame
+    pub fn latest_frame(&self) -> Option<Arc<FullProfileData>> {
+        self.recent_frames.back().cloned()
     }
 
-    /// The slowest frame so far (or since last call to `clear_spike_frame()`)
-    pub fn spike_frame(&self) -> &FullProfileData {
-        &self.spike_frame
+    /// oldest first
+    pub fn recent_frames(&self) -> impl Iterator<Item = &Arc<FullProfileData>> {
+        self.recent_frames.iter()
     }
 
-    /// Clean current spike frame.
-    pub fn clear_spike_frame(&mut self) {
-        self.spike_frame = Default::default();
+    /// The slowest frames so far (or since last call to [`Self::clear_slowest`])
+    /// in chronological order
+    pub fn slowest_frames_chronological(&self) -> Vec<Arc<FullProfileData>> {
+        let mut frames: Vec<_> = self.slowest_frames.iter().map(|f| f.0.clone()).collect();
+        frames.sort_by_key(|frame| frame.frame_index);
+        frames
+    }
+
+    /// Clean history of the slowest frames
+    pub fn clear_slowest(&mut self) {
+        self.slowest_frames.clear();
+    }
+
+    pub fn max_recent(&self) -> usize {
+        self.max_recent
+    }
+    pub fn set_max_history(&mut self, max_recent: usize) {
+        self.max_recent = max_recent
+    }
+    pub fn max_slow(&self) -> usize {
+        self.max_slow
+    }
+    pub fn set_max_slow(&mut self, max_slow: usize) {
+        self.max_slow = max_slow
     }
 }
 
