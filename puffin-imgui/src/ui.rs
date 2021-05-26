@@ -80,7 +80,7 @@ struct Options {
     // --------------------
     // View:
     /// Controls zoom
-    pixels_per_ns: f32,
+    canvas_width_ns: f32,
 
     /// How much we have panned sideways:
     sideways_pan_in_pixels: f32,
@@ -107,7 +107,7 @@ struct Options {
 impl Default for Options {
     fn default() -> Self {
         Self {
-            pixels_per_ns: 0.0,
+            canvas_width_ns: 0.0,
             sideways_pan_in_pixels: 0.0,
             view: View::Latest,
 
@@ -154,7 +154,7 @@ impl<'ui> Painter<'ui> {
     fn pixel_from_ns(&self, options: &Options, ns: NanoSecond) -> f32 {
         self.canvas_min.x
             + options.sideways_pan_in_pixels
-            + ((ns - self.start_ns) as f32) * options.pixels_per_ns
+            + self.canvas_width() * ((ns - self.start_ns) as f32) / options.canvas_width_ns
     }
 }
 
@@ -249,7 +249,7 @@ impl ProfilerUi {
         ui.text("Pan using left mouse button. Drag up/down to zoom, or use scroll.");
         ui.same_line(0.0);
         if ui.button(im_str!("Reset view"), Default::default()) {
-            self.options.pixels_per_ns = 0.0;
+            self.options.canvas_width_ns = 0.0;
             self.options.sideways_pan_in_pixels = 0.0;
         }
 
@@ -270,8 +270,8 @@ impl ProfilerUi {
         ui.invisible_button(im_str!("canvas"), content_region_avail.into());
         self.interact(&painter);
 
-        if self.options.pixels_per_ns <= 0.0 {
-            self.options.pixels_per_ns = painter.canvas_width() / ((max_ns - min_ns) as f32);
+        if self.options.canvas_width_ns <= 0.0 {
+            self.options.canvas_width_ns = (max_ns - min_ns) as f32;
         }
 
         let options = &self.options;
@@ -352,7 +352,7 @@ impl ProfilerUi {
                 (-ui.io().mouse_wheel * self.options.scroll_zoom_speed).exp()
             };
 
-            self.options.pixels_per_ns *= zoom_factor;
+            self.options.canvas_width_ns /= zoom_factor;
             let zoom_center = painter.mouse_pos.x - painter.canvas_min.x;
             self.options.sideways_pan_in_pixels =
                 (self.options.sideways_pan_in_pixels - zoom_center) * zoom_factor + zoom_center;
@@ -366,22 +366,20 @@ fn paint_timeline(
     start_ns: NanoSecond,
     stop_ns: NanoSecond,
 ) {
-    if options.pixels_per_ns <= 0.0 {
+    if options.canvas_width_ns <= 0.0 {
         return;
     }
-
-    let canvas_width_ns = painter.canvas_width() / options.pixels_per_ns;
 
     // We show all measurements relative to start_ns
 
     let max_lines = 300.0;
     let mut grid_spacing_ns = 1_000;
-    while canvas_width_ns / (grid_spacing_ns as f32) > max_lines {
+    while options.canvas_width_ns / (grid_spacing_ns as f32) > max_lines {
         grid_spacing_ns *= 10;
     }
 
     // We fade in lines as we zoom in:
-    let num_tiny_lines = canvas_width_ns / (grid_spacing_ns as f32);
+    let num_tiny_lines = options.canvas_width_ns / (grid_spacing_ns as f32);
     let zoom_factor = remap_clamp(num_tiny_lines, (0.1 * max_lines)..=max_lines, 1.0..=0.0);
     let zoom_factor = zoom_factor * zoom_factor;
     let big_alpha = remap_clamp(zoom_factor, 0.0..=1.0, 0.5..=1.0);
