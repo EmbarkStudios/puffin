@@ -184,7 +184,7 @@ impl ProfilerUi {
     ///
     /// Call this from within an [`imgui::Window`], or use [`Self::window`] instead.
     pub fn ui(&mut self, ui: &Ui<'_>) {
-        #![allow(clippy::collapsible_if)]
+        #![allow(clippy::collapsible_else_if)]
 
         if !puffin::are_scopes_on() {
             ui.text_colored(ERROR_COLOR, im_str!("The puffin profiler is OFF!"));
