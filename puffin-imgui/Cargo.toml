@@ -17,5 +17,5 @@ doctest = false
 
 [dependencies]
 imgui = { version = "0.7" }
-puffin = { version = "0.3.1", path = "../puffin" }
+puffin = { version = "0.4.0", path = "../puffin" }
 serde = { version = "1", features = ["derive"] }
