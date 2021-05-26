@@ -76,6 +76,7 @@ enum View {
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize)]
+#[serde(default)]
 struct Options {
     // --------------------
     // View:
