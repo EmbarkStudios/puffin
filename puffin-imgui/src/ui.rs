@@ -89,7 +89,6 @@ struct Options {
 
     // --------------------
     // Interact:
-    scroll_speed: f32,
     scroll_zoom_speed: f32,
 
     // --------------------
@@ -111,8 +110,7 @@ impl Default for Options {
             sideways_pan_in_pixels: 0.0,
             view: View::Latest,
 
-            scroll_speed: 10.0,
-            scroll_zoom_speed: 0.05,
+            scroll_zoom_speed: 0.01,
 
             cull_width: 0.5,
             rect_height: 16.0,
@@ -246,7 +244,7 @@ impl ProfilerUi {
             }
         };
 
-        ui.text("Pan using left mouse button. Drag up/down to zoom, or use scroll.");
+        ui.text("Drag to pan. Scroll to zoom.");
         ui.same_line(0.0);
         if ui.button(im_str!("Reset view"), Default::default()) {
             self.options.canvas_width_ns = 0.0;
@@ -340,15 +338,11 @@ impl ProfilerUi {
         }
 
         if ui.is_item_hovered() {
-            // Sideways pan with e.g. a touch pad:
-            self.options.sideways_pan_in_pixels +=
-                ui.io().mouse_wheel_h * self.options.scroll_speed;
+            // note: imgui scroll coordinates are not pixels.
+            // for `mouse_wheel` one unit scrolls "about 5 lines of text",
+            // and `mouse_wheel_h` is unspecified.
 
-            let zoom_factor = if self.is_panning {
-                (-pan_delta[1] * 0.01).exp()
-            } else {
-                (-ui.io().mouse_wheel * self.options.scroll_zoom_speed).exp()
-            };
+            let zoom_factor = (ui.io().mouse_wheel * self.options.scroll_zoom_speed).exp();
 
             self.options.canvas_width_ns /= zoom_factor;
             let zoom_center = info.mouse_pos.x - info.canvas_min.x;
