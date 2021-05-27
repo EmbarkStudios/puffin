@@ -458,7 +458,7 @@ impl ProfilerUi {
                 } else if is_hovered {
                     HOVER_COLOR
                 } else {
-                    color_from_duration(duration)
+                    [0.6, 0.6, 0.4, 1.0]
                 };
 
                 // Transparent, full height:
