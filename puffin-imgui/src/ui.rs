@@ -241,28 +241,33 @@ impl ProfilerUi {
                 self.paused_frames = None;
             }
         } else {
-            ui.text("(paused)");
-            ui.same_line(0.0);
             if ui.button(im_str!("Resume"), Default::default()) {
                 self.paused_frames = None;
             }
         }
+        let mut hovered_frame = None;
+        if imgui::CollapsingHeader::new(im_str!("Frames"))
+            .default_open(true)
+            .build(ui)
+        {
+            ui.indent();
+            hovered_frame = self.show_frames(ui);
 
-        let mut hovered_frame = self.show_frames(ui);
-
-        match &self.selected {
-            Selected::Latest => {
-                ui.text("Latest frame selected");
-            }
-            Selected::Specific(_frame) => {
-                if ui.button(im_str!("Select latest frame"), Default::default()) {
-                    self.selected = Selected::Latest;
-                    self.paused_frames = None;
+            match &self.selected {
+                Selected::Latest => {
+                    ui.text("Latest frame selected");
                 }
-                if ui.is_item_hovered() {
-                    hovered_frame = GlobalProfiler::lock().latest_frame();
+                Selected::Specific(_frame) => {
+                    if ui.button(im_str!("Show latest frame"), Default::default()) {
+                        self.selected = Selected::Latest;
+                        self.paused_frames = None;
+                    }
+                    if ui.is_item_hovered() {
+                        hovered_frame = GlobalProfiler::lock().latest_frame();
+                    }
                 }
             }
+            ui.unindent();
         }
 
         let frame = match hovered_frame.or_else(|| self.selected_frame()) {
