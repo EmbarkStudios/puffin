@@ -6,6 +6,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+
+## [0.8.0]
+
 * Select frames from recent history or from among the slowest ever.
 * Nicer colors.
 * Simpler interaction (drag to pan, scroll to zoom, click to focus, double-click to reset).
