@@ -695,7 +695,7 @@ fn color_from_duration(ns: NanoSecond) -> [f32; 4] {
     // So we start with dark colors (blue) and later bright colors (green).
     let b = remap_clamp(ms, 0.0..=5.0, 1.0..=0.3);
     let r = remap_clamp(ms, 0.0..=10.0, 0.5..=0.8);
-    let g = remap_clamp(ms, 10.0..=20.0, 0.1..=0.8);
+    let g = remap_clamp(ms, 10.0..=33.3, 0.1..=0.8);
     let a = 0.9;
     [r, g, b, a]
 }
