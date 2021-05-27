@@ -25,6 +25,7 @@ pub struct MergePiece<'s> {
     pub scope: Scope<'s>,
 }
 
+/// Merge sibling scopes with the same id.
 pub fn merge_top_scopes<'s>(scopes: &[Scope<'s>]) -> Vec<MergeScope<'s>> {
     merge_pieces(scopes.iter().map(|scope| MergePiece {
         relative_start_ns: scope.record.start_ns,
@@ -32,6 +33,7 @@ pub fn merge_top_scopes<'s>(scopes: &[Scope<'s>]) -> Vec<MergeScope<'s>> {
     }))
 }
 
+/// Merge sibling scopes with the same id.
 pub fn merge_children_of_pieces<'s>(
     stream: &'s Stream,
     parent: &MergeScope<'s>,

@@ -79,6 +79,7 @@ pub use merge::*;
 
 use std::collections::BTreeMap;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 use std::sync::Mutex;
 
 static MACROS_ON: AtomicBool = AtomicBool::new(false);
@@ -176,16 +177,32 @@ pub struct ThreadInfo {
 
 // ----------------------------------------------------------------------------
 
-/// Collected profile data from many sources.
-#[derive(Clone, Default)]
-pub struct FullProfileData(pub BTreeMap<ThreadInfo, Stream>);
+pub type FrameIndex = u64;
 
-impl FullProfileData {
-    /// Returns the min/max nanosecond in the profile data, or None if empty.
-    pub fn range_ns(&self) -> Result<Option<(NanoSecond, NanoSecond)>> {
+/// One frame worth of profile data, collected from many sources.
+#[derive(Clone)]
+pub struct FrameData {
+    pub frame_index: FrameIndex,
+    pub thread_streams: BTreeMap<ThreadInfo, Stream>,
+    pub range_ns: (NanoSecond, NanoSecond),
+    pub num_bytes: usize,
+    pub num_scopes: usize,
+}
+
+impl FrameData {
+    pub fn new(
+        frame_index: FrameIndex,
+        thread_streams: BTreeMap<ThreadInfo, Stream>,
+    ) -> Result<Self> {
+        let mut num_bytes = 0;
+        let mut num_scopes = 0;
+
         let mut min_ns = NanoSecond::MAX;
         let mut max_ns = NanoSecond::MIN;
-        for stream in self.0.values() {
+        for stream in thread_streams.values() {
+            num_bytes += stream.len();
+            num_scopes += Reader::count_all_scopes(stream)?;
+
             let top_scopes = Reader::from_start(stream).read_top_scopes()?;
             if !top_scopes.is_empty() {
                 min_ns = min_ns.min(top_scopes.first().unwrap().record.start_ns);
@@ -193,23 +210,22 @@ impl FullProfileData {
             }
         }
 
-        Ok(if min_ns < max_ns {
-            Some((min_ns, max_ns))
+        if min_ns <= max_ns {
+            Ok(Self {
+                frame_index,
+                thread_streams,
+                range_ns: (min_ns, max_ns),
+                num_bytes,
+                num_scopes,
+            })
         } else {
-            None
-        })
-    }
-
-    pub fn duration_ns(&self) -> Result<NanoSecond> {
-        if let Some((min, max)) = self.range_ns()? {
-            Ok(max - min)
-        } else {
-            Ok(0)
+            Err(Error::Empty)
         }
     }
 
-    pub fn insert(&mut self, info: ThreadInfo, stream: Stream) {
-        self.0.entry(info).or_default().append(stream);
+    pub fn duration_ns(&self) -> NanoSecond {
+        let (min, max) = self.range_ns;
+        max - min
     }
 }
 
@@ -273,7 +289,7 @@ impl ThreadProfiler {
         if self.depth > 0 {
             self.depth -= 1;
         } else {
-            eprintln!("ERROR: Mismatched scope begin/end calls");
+            eprintln!("puffin ERROR: Mismatched scope begin/end calls");
         }
         self.stream.end_scope(start_offset, (self.now_ns)());
 
@@ -300,12 +316,54 @@ impl ThreadProfiler {
 
 // ----------------------------------------------------------------------------
 
+struct OrderedData(Arc<FrameData>);
+
+impl PartialEq for OrderedData {
+    fn eq(&self, other: &Self) -> bool {
+        self.0.duration_ns().eq(&other.0.duration_ns())
+    }
+}
+impl Eq for OrderedData {}
+
+impl PartialOrd for OrderedData {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for OrderedData {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.0.duration_ns().cmp(&other.0.duration_ns()).reverse()
+    }
+}
+
 /// Singleton. Collects profiling data from multiple threads.
-#[derive(Default)]
 pub struct GlobalProfiler {
-    spike_frame: FullProfileData,
-    past_frame: FullProfileData,
-    current_frame: FullProfileData,
+    current_frame_index: FrameIndex,
+    current_frame: BTreeMap<ThreadInfo, Stream>,
+
+    /// newest first
+    recent_frames: std::collections::VecDeque<Arc<FrameData>>,
+    max_recent: usize,
+
+    slowest_frames: std::collections::BinaryHeap<OrderedData>,
+    max_slow: usize,
+}
+
+impl Default for GlobalProfiler {
+    fn default() -> Self {
+        let max_recent = 128;
+        let max_slow = 128;
+
+        Self {
+            current_frame_index: 0,
+            current_frame: Default::default(),
+            recent_frames: std::collections::VecDeque::with_capacity(max_recent),
+            max_recent,
+            slowest_frames: std::collections::BinaryHeap::with_capacity(max_slow),
+            max_slow,
+        }
+    }
 }
 
 impl GlobalProfiler {
@@ -313,37 +371,91 @@ impl GlobalProfiler {
     pub fn lock() -> std::sync::MutexGuard<'static, Self> {
         use once_cell::sync::Lazy;
         static GLOBAL_PROFILER: Lazy<Mutex<GlobalProfiler>> = Lazy::new(Default::default);
-        GLOBAL_PROFILER.lock().unwrap() // panic on mutex poisioning
+        GLOBAL_PROFILER.lock().unwrap() // panic on mutex poisoning
     }
 
-    /// You need to call once every frame.
+    /// You need to call this once at the start of every frame.
+    ///
+    /// It is fine to call this from within a profile scope.
     pub fn new_frame(&mut self) {
-        self.past_frame = std::mem::take(&mut self.current_frame);
-        if self.past_frame.duration_ns().unwrap_or_default()
-            > self.spike_frame.duration_ns().unwrap_or_default()
-        {
-            self.spike_frame = self.past_frame.clone();
+        let current_frame_index = self.current_frame_index;
+        self.current_frame_index += 1;
+        let new_frame =
+            match FrameData::new(current_frame_index, std::mem::take(&mut self.current_frame)) {
+                Ok(new_frame) => Arc::new(new_frame),
+                Err(err) => {
+                    eprintln!("puffin ERROR: Bad frame: {:?}", err);
+                    return;
+                }
+            };
+
+        let add_to_slowest = if self.slowest_frames.len() < self.max_slow {
+            true
+        } else if let Some(fastest_of_the_slow) = self.slowest_frames.peek() {
+            new_frame.duration_ns() > fastest_of_the_slow.0.duration_ns()
+        } else {
+            false
+        };
+
+        if add_to_slowest {
+            self.slowest_frames.push(OrderedData(new_frame.clone()));
+            while self.slowest_frames.len() > self.max_slow {
+                self.slowest_frames.pop();
+            }
+        }
+
+        self.recent_frames.push_back(new_frame);
+        while self.recent_frames.len() > self.max_recent {
+            self.recent_frames.pop_front();
         }
     }
 
     /// Report some profiling data. Called from `ThreadProfiler`.
     pub fn report(&mut self, info: ThreadInfo, stream: Stream) {
-        self.current_frame.insert(info, stream);
+        self.current_frame.entry(info).or_default().append(stream);
     }
 
-    /// Latest full frame
-    pub fn past_frame(&self) -> &FullProfileData {
-        &self.past_frame
+    /// The latest fully captured frame of data.
+    pub fn latest_frame(&self) -> Option<Arc<FrameData>> {
+        self.recent_frames.back().cloned()
     }
 
-    /// The slowest frame so far (or since last call to `clear_spike_frame()`)
-    pub fn spike_frame(&self) -> &FullProfileData {
-        &self.spike_frame
+    /// Oldest first
+    pub fn recent_frames(&self) -> impl Iterator<Item = &Arc<FrameData>> {
+        self.recent_frames.iter()
     }
 
-    /// Clean current spike frame.
-    pub fn clear_spike_frame(&mut self) {
-        self.spike_frame = Default::default();
+    /// The slowest frames so far (or since last call to [`Self::clear_slowest`])
+    /// in chronological order.
+    pub fn slowest_frames_chronological(&self) -> Vec<Arc<FrameData>> {
+        let mut frames: Vec<_> = self.slowest_frames.iter().map(|f| f.0.clone()).collect();
+        frames.sort_by_key(|frame| frame.frame_index);
+        frames
+    }
+
+    /// Clean history of the slowest frames.
+    pub fn clear_slowest(&mut self) {
+        self.slowest_frames.clear();
+    }
+
+    /// How many frames of recent history to store.
+    pub fn max_recent(&self) -> usize {
+        self.max_recent
+    }
+
+    /// How many frames of recent history to store.
+    pub fn set_max_history(&mut self, max_recent: usize) {
+        self.max_recent = max_recent
+    }
+
+    /// How many slow "spike" frames to store.
+    pub fn max_slow(&self) -> usize {
+        self.max_slow
+    }
+
+    /// How many slow "spike" frames to store.
+    pub fn set_max_slow(&mut self, max_slow: usize) {
+        self.max_slow = max_slow
     }
 }
 
