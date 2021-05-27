@@ -225,33 +225,37 @@ impl ProfilerUi {
             ui.text_colored(ERROR_COLOR, im_str!("The puffin profiler is OFF!"));
         }
 
-        if self.paused_frames.is_none() {
-            // showing latest data
-            if ui.button(im_str!("Pause"), Default::default()) {
-                self.paused_frames = Some(self.frames());
-                if matches!(&self.selected, Selected::Latest) {
-                    if let Some(latest) = GlobalProfiler::lock().latest_frame() {
-                        self.selected = Selected::Specific(latest);
-                    }
-                }
-            }
-            ui.same_line(0.0);
-            if ui.button(im_str!("Clear slowest frames"), Default::default()) {
-                GlobalProfiler::lock().clear_slowest();
-                self.paused_frames = None;
-            }
-        } else {
-            if ui.button(im_str!("Resume"), Default::default()) {
-                self.paused_frames = None;
-            }
-        }
         let mut hovered_frame = None;
         if imgui::CollapsingHeader::new(im_str!("Frames"))
             .default_open(true)
             .build(ui)
         {
             ui.indent();
+
             hovered_frame = self.show_frames(ui);
+
+            if self.paused_frames.is_none() {
+                // showing latest data
+                if ui.button(im_str!("Pause"), Default::default()) {
+                    self.paused_frames = Some(self.frames());
+                    if matches!(&self.selected, Selected::Latest) {
+                        if let Some(latest) = GlobalProfiler::lock().latest_frame() {
+                            self.selected = Selected::Specific(latest);
+                        }
+                    }
+                }
+                ui.same_line(0.0);
+                if ui.button(im_str!("Clear slowest frames"), Default::default()) {
+                    GlobalProfiler::lock().clear_slowest();
+                    self.paused_frames = None;
+                }
+            } else {
+                if ui.button(im_str!("Resume"), Default::default()) {
+                    self.paused_frames = None;
+                }
+            }
+
+            ui.same_line(0.0);
 
             match &self.selected {
                 Selected::Latest => {
@@ -267,6 +271,7 @@ impl ProfilerUi {
                     }
                 }
             }
+
             ui.unindent();
         }
 
