@@ -6,6 +6,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+* Remove stderr warning about empty frames
+
 
 ## [0.5.0]
 

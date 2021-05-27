@@ -383,6 +383,9 @@ impl GlobalProfiler {
         let new_frame =
             match FrameData::new(current_frame_index, std::mem::take(&mut self.current_frame)) {
                 Ok(new_frame) => Arc::new(new_frame),
+                Err(Error::Empty) => {
+                    return; // don't warn about empty frames, just ignore them
+                }
                 Err(err) => {
                     eprintln!("puffin ERROR: Bad frame: {:?}", err);
                     return;
