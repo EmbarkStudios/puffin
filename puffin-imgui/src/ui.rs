@@ -175,6 +175,14 @@ impl<'ui> Info<'ui> {
     }
 }
 
+fn latest_frames() -> Frames {
+    let profiler = GlobalProfiler::lock();
+    Frames {
+        recent: profiler.recent_frames().cloned().collect(),
+        slowest: profiler.slowest_frames_chronological(),
+    }
+}
+
 impl ProfilerUi {
     /// Show a [`imgui::Window`] with the profiler contents.
     /// If you want to control the window yourself, use [`Self::ui`] instead.
@@ -194,16 +202,7 @@ impl ProfilerUi {
     fn frames(&self) -> Frames {
         self.paused
             .as_ref()
-            .map(|paused| paused.frames.clone())
-            .unwrap_or_else(|| self.latest_frames())
-    }
-
-    fn latest_frames(&self) -> Frames {
-        let profiler = GlobalProfiler::lock();
-        Frames {
-            recent: profiler.recent_frames().cloned().collect(),
-            slowest: profiler.slowest_frames_chronological(),
-        }
+            .map_or_else(latest_frames, |paused| paused.frames.clone())
     }
 
     /// Pause on the specific frame
@@ -872,8 +871,8 @@ fn merge_scope_tooltip(ui: &Ui<'_>, merge: &MergeScope<'_>) {
 }
 
 fn paint_thread_info(info: &mut Info<'_>, thread_info: &ThreadInfo, pos: [f32; 2]) {
-    let text = format!("{}", thread_info.name);
-    let text_size = info.ui.calc_text_size(&ImString::new(&text), false, 0.0);
+    let text = &thread_info.name;
+    let text_size = info.ui.calc_text_size(&ImString::new(text), false, 0.0);
 
     info.draw_list
         .add_rect(
@@ -885,5 +884,5 @@ fn paint_thread_info(info: &mut Info<'_>, thread_info: &ThreadInfo, pos: [f32; 2
         .rounding(0.0)
         .build();
 
-    info.draw_list.add_text(pos, [0.9, 0.9, 0.9, 1.0], &text);
+    info.draw_list.add_text(pos, [0.9, 0.9, 0.9, 1.0], text);
 }
