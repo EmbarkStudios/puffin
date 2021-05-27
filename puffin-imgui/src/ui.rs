@@ -56,7 +56,7 @@ impl std::ops::Add<Vec2> for Vec2 {
 // ----------------------------------------------------------------------------
 
 const ERROR_COLOR: [f32; 4] = [1.0, 0.0, 0.0, 1.0];
-const HOVER_COLOR: [f32; 4] = [0.85, 0.85, 0.85, 1.0];
+const HOVER_COLOR: [f32; 4] = [0.8, 0.8, 0.8, 1.0];
 
 /// The frames we can select between
 #[derive(Clone)]
@@ -457,11 +457,7 @@ impl ProfilerUi {
                 };
 
                 // Transparent, full height:
-                color[3] = if is_selected || is_hovered {
-                    0.75
-                } else {
-                    0.25
-                };
+                color[3] = if is_selected || is_hovered { 0.6 } else { 0.25 };
                 draw_list
                     .add_rect(rect_min.into(), rect_max.into(), color)
                     .filled(true)
