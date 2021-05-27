@@ -66,12 +66,13 @@ pub struct Frames {
 }
 
 #[derive(Clone)]
-enum Selected {
-    Latest,
-    Specific(Arc<FrameData>),
+pub struct Paused {
+    /// What we are viewing
+    selected: Arc<FrameData>,
+    frames: Frames,
 }
 
-#[derive(Clone, Deserialize, Serialize)]
+#[derive(Clone, Default, Deserialize, Serialize)]
 #[serde(default)]
 pub struct ProfilerUi {
     options: Options,
@@ -80,23 +81,9 @@ pub struct ProfilerUi {
     #[serde(skip)]
     is_panning: bool,
 
+    /// If `None`, we show the latest frames.
     #[serde(skip)]
-    selected: Selected,
-
-    /// If `None`, we show the latest frames
-    #[serde(skip)]
-    paused_frames: Option<Frames>,
-}
-
-impl Default for ProfilerUi {
-    fn default() -> Self {
-        Self {
-            options: Options::default(),
-            is_panning: false,
-            selected: Selected::Latest,
-            paused_frames: None,
-        }
-    }
+    paused: Option<Paused>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -205,20 +192,37 @@ impl ProfilerUi {
 
     /// The frames we can select between
     fn frames(&self) -> Frames {
-        self.paused_frames.clone().unwrap_or_else(|| {
-            let profiler = GlobalProfiler::lock();
-            Frames {
-                recent: profiler.recent_frames().cloned().collect(),
-                slowest: profiler.slowest_frames_chronological(),
-            }
-        })
+        self.paused
+            .as_ref()
+            .map(|paused| paused.frames.clone())
+            .unwrap_or_else(|| self.latest_frames())
+    }
+
+    fn latest_frames(&self) -> Frames {
+        let profiler = GlobalProfiler::lock();
+        Frames {
+            recent: profiler.recent_frames().cloned().collect(),
+            slowest: profiler.slowest_frames_chronological(),
+        }
+    }
+
+    /// Pause on the specific frame
+    fn pause_and_select(&mut self, selected: Arc<FrameData>) {
+        if let Some(paused) = &mut self.paused {
+            paused.selected = selected;
+        } else {
+            self.paused = Some(Paused {
+                selected,
+                frames: self.frames(),
+            });
+        }
     }
 
     fn selected_frame(&self) -> Option<Arc<FrameData>> {
-        match &self.selected {
-            Selected::Latest => GlobalProfiler::lock().latest_frame(),
-            Selected::Specific(frame) => Some(frame.clone()),
-        }
+        self.paused
+            .as_ref()
+            .map(|paused| paused.selected.clone())
+            .or_else(|| GlobalProfiler::lock().latest_frame())
     }
 
     fn selected_frame_index(&self) -> Option<FrameIndex> {
@@ -244,41 +248,20 @@ impl ProfilerUi {
 
             hovered_frame = self.show_frames(ui);
 
-            if self.paused_frames.is_none() {
-                // showing latest data
+            if self.paused.is_some() {
+                if ui.button(im_str!("Resume / Show latest"), Default::default()) {
+                    self.paused = None;
+                }
+            } else {
                 if ui.button(im_str!("Pause"), Default::default()) {
-                    self.paused_frames = Some(self.frames());
-                    if matches!(&self.selected, Selected::Latest) {
-                        if let Some(latest) = GlobalProfiler::lock().latest_frame() {
-                            self.selected = Selected::Specific(latest);
-                        }
+                    let latest = GlobalProfiler::lock().latest_frame();
+                    if let Some(latest) = latest {
+                        self.pause_and_select(latest);
                     }
                 }
                 ui.same_line(0.0);
-                if ui.button(im_str!("Clear slowest frames"), Default::default()) {
+                if ui.button(im_str!("Forget slowest frames"), Default::default()) {
                     GlobalProfiler::lock().clear_slowest();
-                    self.paused_frames = None;
-                }
-            } else {
-                if ui.button(im_str!("Resume"), Default::default()) {
-                    self.paused_frames = None;
-                }
-            }
-
-            ui.same_line(0.0);
-
-            match &self.selected {
-                Selected::Latest => {
-                    ui.text("Latest frame selected");
-                }
-                Selected::Specific(_frame) => {
-                    if ui.button(im_str!("Show latest frame"), Default::default()) {
-                        self.selected = Selected::Latest;
-                        self.paused_frames = None;
-                    }
-                    if ui.is_item_hovered() {
-                        hovered_frame = GlobalProfiler::lock().latest_frame();
-                    }
                 }
             }
 
@@ -462,7 +445,7 @@ impl ProfilerUi {
                     ui.tooltip_text(im_str!("{:.1} ms", frame.duration_ns() as f64 * 1e-6));
                 }
                 if is_hovered && ui.is_mouse_clicked(MouseButton::Left) {
-                    self.selected = Selected::Specific(frame.clone());
+                    self.pause_and_select(frame.clone());
                 }
 
                 let mut color = if is_selected {
