@@ -46,6 +46,7 @@ pub enum Error {
     InvalidStream,
     ScopeNeverEnded,
     InvalidOffset,
+    Empty,
 }
 
 pub type Result<T> = std::result::Result<T, Error>;
@@ -216,6 +217,19 @@ impl<'s> Reader<'s> {
         } else {
             Err(Error::PrematureEnd)
         }
+    }
+
+    /// Recursively count all profile scopes in a stream
+    pub fn count_all_scopes(stream: &Stream) -> Result<usize> {
+        Self::count_all_scopes_at_offset(stream, 0)
+    }
+
+    pub fn count_all_scopes_at_offset(stream: &Stream, offset: u64) -> Result<usize> {
+        let mut sum = 0;
+        for child_scope in Reader::with_offset(stream, offset)? {
+            sum += 1 + Self::count_all_scopes_at_offset(stream, child_scope?.child_begin_position)?;
+        }
+        Ok(sum)
     }
 }
 

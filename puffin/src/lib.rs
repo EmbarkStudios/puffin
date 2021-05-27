@@ -179,26 +179,30 @@ pub struct ThreadInfo {
 
 pub type FrameIndex = u64;
 
-/// Collected profile data from many sources.
+/// One frame worth of profile data, collected from many sources.
 #[derive(Clone)]
-pub struct FullProfileData {
+pub struct FrameData {
     pub frame_index: FrameIndex,
     pub thread_streams: BTreeMap<ThreadInfo, Stream>,
+    pub range_ns: (NanoSecond, NanoSecond),
+    pub num_bytes: usize,
+    pub num_scopes: usize,
 }
 
-impl FullProfileData {
-    pub fn new(frame_index: FrameIndex) -> Self {
-        Self {
-            frame_index,
-            thread_streams: Default::default(),
-        }
-    }
+impl FrameData {
+    pub fn new(
+        frame_index: FrameIndex,
+        thread_streams: BTreeMap<ThreadInfo, Stream>,
+    ) -> Result<Self> {
+        let mut num_bytes = 0;
+        let mut num_scopes = 0;
 
-    /// Returns the min/max nanosecond in the profile data, or None if empty.
-    pub fn range_ns(&self) -> Result<Option<(NanoSecond, NanoSecond)>> {
         let mut min_ns = NanoSecond::MAX;
         let mut max_ns = NanoSecond::MIN;
-        for stream in self.thread_streams.values() {
+        for stream in thread_streams.values() {
+            num_bytes += stream.len();
+            num_scopes += Reader::count_all_scopes(stream)?;
+
             let top_scopes = Reader::from_start(stream).read_top_scopes()?;
             if !top_scopes.is_empty() {
                 min_ns = min_ns.min(top_scopes.first().unwrap().record.start_ns);
@@ -206,23 +210,22 @@ impl FullProfileData {
             }
         }
 
-        Ok(if min_ns < max_ns {
-            Some((min_ns, max_ns))
+        if min_ns <= max_ns {
+            Ok(Self {
+                frame_index,
+                thread_streams,
+                range_ns: (min_ns, max_ns),
+                num_bytes,
+                num_scopes,
+            })
         } else {
-            None
-        })
-    }
-
-    pub fn duration_ns(&self) -> Result<NanoSecond> {
-        if let Some((min, max)) = self.range_ns()? {
-            Ok(max - min)
-        } else {
-            Ok(0)
+            Err(Error::Empty)
         }
     }
 
-    pub fn insert(&mut self, info: ThreadInfo, stream: Stream) {
-        self.thread_streams.entry(info).or_default().append(stream);
+    pub fn duration_ns(&self) -> NanoSecond {
+        let (min, max) = self.range_ns;
+        max - min
     }
 }
 
@@ -286,7 +289,7 @@ impl ThreadProfiler {
         if self.depth > 0 {
             self.depth -= 1;
         } else {
-            eprintln!("ERROR: Mismatched scope begin/end calls");
+            eprintln!("puffin ERROR: Mismatched scope begin/end calls");
         }
         self.stream.end_scope(start_offset, (self.now_ns)());
 
@@ -313,17 +316,11 @@ impl ThreadProfiler {
 
 // ----------------------------------------------------------------------------
 
-struct OrderedData(Arc<FullProfileData>);
-
-impl OrderedData {
-    fn duration_ns(&self) -> NanoSecond {
-        self.0.duration_ns().unwrap_or(0)
-    }
-}
+struct OrderedData(Arc<FrameData>);
 
 impl PartialEq for OrderedData {
     fn eq(&self, other: &Self) -> bool {
-        self.duration_ns().eq(&other.duration_ns())
+        self.0.duration_ns().eq(&other.0.duration_ns())
     }
 }
 impl Eq for OrderedData {}
@@ -336,17 +333,17 @@ impl PartialOrd for OrderedData {
 
 impl Ord for OrderedData {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.duration_ns().cmp(&other.duration_ns()).reverse()
+        self.0.duration_ns().cmp(&other.0.duration_ns()).reverse()
     }
 }
 
 /// Singleton. Collects profiling data from multiple threads.
 pub struct GlobalProfiler {
-    next_frame_index: FrameIndex,
-    current_frame: FullProfileData,
+    current_frame_index: FrameIndex,
+    current_frame: BTreeMap<ThreadInfo, Stream>,
 
     /// newest first
-    recent_frames: std::collections::VecDeque<Arc<FullProfileData>>,
+    recent_frames: std::collections::VecDeque<Arc<FrameData>>,
     max_recent: usize,
 
     slowest_frames: std::collections::BinaryHeap<OrderedData>,
@@ -359,8 +356,8 @@ impl Default for GlobalProfiler {
         let max_slow = 128;
 
         Self {
-            next_frame_index: 1,
-            current_frame: FullProfileData::new(0),
+            current_frame_index: 0,
+            current_frame: Default::default(),
             recent_frames: std::collections::VecDeque::with_capacity(max_recent),
             max_recent,
             slowest_frames: std::collections::BinaryHeap::with_capacity(max_slow),
@@ -379,15 +376,21 @@ impl GlobalProfiler {
 
     /// You need to call once every frame.
     pub fn new_frame(&mut self) {
-        let next_frame = FullProfileData::new(self.next_frame_index);
-        self.next_frame_index += 1;
-        let new_frame = std::mem::replace(&mut self.current_frame, next_frame);
-        let new_frame = Arc::new(new_frame);
+        let current_frame_index = self.current_frame_index;
+        self.current_frame_index += 1;
+        let new_frame =
+            match FrameData::new(current_frame_index, std::mem::take(&mut self.current_frame)) {
+                Ok(new_frame) => Arc::new(new_frame),
+                Err(err) => {
+                    eprintln!("puffin ERROR: Bad frame: {:?}", err);
+                    return;
+                }
+            };
 
         let add_to_slowest = if self.slowest_frames.len() < self.max_slow {
             true
         } else if let Some(fastest_of_the_slow) = self.slowest_frames.peek() {
-            new_frame.duration_ns().unwrap_or(0) > fastest_of_the_slow.duration_ns()
+            new_frame.duration_ns() > fastest_of_the_slow.0.duration_ns()
         } else {
             false
         };
@@ -407,21 +410,21 @@ impl GlobalProfiler {
 
     /// Report some profiling data. Called from `ThreadProfiler`.
     pub fn report(&mut self, info: ThreadInfo, stream: Stream) {
-        self.current_frame.insert(info, stream);
+        self.current_frame.entry(info).or_default().append(stream);
     }
 
-    pub fn latest_frame(&self) -> Option<Arc<FullProfileData>> {
+    pub fn latest_frame(&self) -> Option<Arc<FrameData>> {
         self.recent_frames.back().cloned()
     }
 
     /// oldest first
-    pub fn recent_frames(&self) -> impl Iterator<Item = &Arc<FullProfileData>> {
+    pub fn recent_frames(&self) -> impl Iterator<Item = &Arc<FrameData>> {
         self.recent_frames.iter()
     }
 
     /// The slowest frames so far (or since last call to [`Self::clear_slowest`])
     /// in chronological order
-    pub fn slowest_frames_chronological(&self) -> Vec<Arc<FullProfileData>> {
+    pub fn slowest_frames_chronological(&self) -> Vec<Arc<FrameData>> {
         let mut frames: Vec<_> = self.slowest_frames.iter().map(|f| f.0.clone()).collect();
         frames.sort_by_key(|frame| frame.frame_index);
         frames

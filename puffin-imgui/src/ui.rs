@@ -61,14 +61,14 @@ const HOVER_COLOR: [f32; 4] = [0.85, 0.85, 0.85, 1.0];
 /// The frames we can select between
 #[derive(Clone)]
 pub struct Frames {
-    pub recent: Vec<Arc<FullProfileData>>,
-    pub slowest: Vec<Arc<FullProfileData>>,
+    pub recent: Vec<Arc<FrameData>>,
+    pub slowest: Vec<Arc<FrameData>>,
 }
 
 #[derive(Clone)]
 enum Selected {
     Latest,
-    Specific(Arc<FullProfileData>),
+    Specific(Arc<FrameData>),
 }
 
 #[derive(Clone, Deserialize, Serialize)]
@@ -204,7 +204,7 @@ impl ProfilerUi {
         })
     }
 
-    fn selected_frame(&self) -> Option<Arc<FullProfileData>> {
+    fn selected_frame(&self) -> Option<Arc<FrameData>> {
         match &self.selected {
             Selected::Latest => GlobalProfiler::lock().latest_frame(),
             Selected::Specific(frame) => Some(frame.clone()),
@@ -265,7 +265,7 @@ impl ProfilerUi {
             }
         }
 
-        let profile_data = match hovered_frame.or_else(|| self.selected_frame()) {
+        let frame = match hovered_frame.or_else(|| self.selected_frame()) {
             Some(frame) => frame,
             None => {
                 ui.text("No profiling data");
@@ -275,21 +275,14 @@ impl ProfilerUi {
 
         // TODO: show age of data
 
-        let (min_ns, max_ns) = match profile_data.range_ns() {
-            Err(err) => {
-                ui.text_colored(ERROR_COLOR, im_str!("Profile data error: {:?}", err));
-                return;
-            }
-            Ok(Some(bounds)) => bounds,
-            Ok(None) => {
-                ui.text("No profiling data");
-                return;
-            }
-        };
+        let (min_ns, max_ns) = frame.range_ns;
 
         ui.text(im_str!(
-            "Current frame: {:.1} ms",
-            (max_ns - min_ns) as f64 * 1e-6
+            "Current frame: {:.1} ms, {} threads, {} scopes, {:.1} kB",
+            (max_ns - min_ns) as f64 * 1e-6,
+            frame.thread_streams.len(),
+            frame.num_scopes,
+            frame.num_bytes as f64 * 1e-3
         ));
 
         ui.text("Drag to pan. Scroll to zoom.");
@@ -336,7 +329,7 @@ impl ProfilerUi {
             let mut cursor_y = info.canvas_max.y;
             cursor_y -= info.font_size; // Leave room for time labels
 
-            for (thread_info, stream) in &profile_data.thread_streams {
+            for (thread_info, stream) in &frame.thread_streams {
                 // Visual separator between threads:
                 info.draw_list
                     .add_line(
@@ -348,7 +341,7 @@ impl ProfilerUi {
 
                 cursor_y -= info.font_size;
                 let text_pos = [content_min.x, cursor_y];
-                paint_thread_info(&info, thread_info, stream, text_pos);
+                paint_thread_info(&info, thread_info, text_pos);
                 info.canvas_max.y = cursor_y;
 
                 let mut paint_stream = || -> Result<()> {
@@ -377,7 +370,7 @@ impl ProfilerUi {
     }
 
     /// Returns hovered, if any
-    fn show_frames(&mut self, ui: &Ui<'_>) -> Option<Arc<FullProfileData>> {
+    fn show_frames(&mut self, ui: &Ui<'_>) -> Option<Arc<FrameData>> {
         let frames = self.frames();
 
         let mut hovered_frame = None;
@@ -408,13 +401,13 @@ impl ProfilerUi {
         &mut self,
         ui: &Ui<'_>,
         label: &str,
-        frames: &[Arc<FullProfileData>],
+        frames: &[Arc<FrameData>],
         longest_count: usize,
-        hovered_frame: &mut Option<Arc<FullProfileData>>,
+        hovered_frame: &mut Option<Arc<FrameData>>,
     ) {
         let mut slowest_frame = 0;
         for frame in frames {
-            slowest_frame = frame.duration_ns().unwrap_or(0).max(slowest_frame);
+            slowest_frame = frame.duration_ns().max(slowest_frame);
         }
 
         let min: Vec2 = ui.cursor_screen_pos().into();
@@ -438,7 +431,7 @@ impl ProfilerUi {
                 let mut rect_min = Vec2::new(x, min.y);
                 let rect_max = Vec2::new(x + frame_width, max.y);
 
-                let duration = frame.duration_ns().unwrap_or(0);
+                let duration = frame.duration_ns();
 
                 let is_selected = Some(frame.frame_index) == selected_frame_index;
 
@@ -449,6 +442,7 @@ impl ProfilerUi {
 
                 if is_hovered {
                     *hovered_frame = Some(frame.clone());
+                    ui.tooltip_text(im_str!("{:.1} ms", frame.duration_ns() as f64 * 1e-6));
                 }
                 if is_hovered && ui.is_mouse_clicked(MouseButton::Left) {
                     self.selected = Selected::Specific(frame.clone());
@@ -830,12 +824,8 @@ fn merge_scope_tooltip(ui: &Ui<'_>, merge: &MergeScope<'_>) {
     }
 }
 
-fn paint_thread_info(info: &Info<'_>, thread_info: &ThreadInfo, stream: &Stream, pos: [f32; 2]) {
-    let text = format!(
-        "{} ({:.1} kiB profiler data)",
-        thread_info.name,
-        stream.len() as f32 / 1024.0
-    );
+fn paint_thread_info(info: &Info<'_>, thread_info: &ThreadInfo, pos: [f32; 2]) {
+    let text = format!("{}", thread_info.name);
     let text_size = info.ui.calc_text_size(&ImString::new(&text), false, 0.0);
 
     info.draw_list
