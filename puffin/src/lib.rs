@@ -374,7 +374,9 @@ impl GlobalProfiler {
         GLOBAL_PROFILER.lock().unwrap() // panic on mutex poisoning
     }
 
-    /// You need to call once every frame.
+    /// You need to call this once at the start of every frame.
+    ///
+    /// It is fine to call this from within a profile scope.
     pub fn new_frame(&mut self) {
         let current_frame_index = self.current_frame_index;
         self.current_frame_index += 1;
@@ -413,37 +415,45 @@ impl GlobalProfiler {
         self.current_frame.entry(info).or_default().append(stream);
     }
 
+    /// The latest fully captured frame of data.
     pub fn latest_frame(&self) -> Option<Arc<FrameData>> {
         self.recent_frames.back().cloned()
     }
 
-    /// oldest first
+    /// Oldest first
     pub fn recent_frames(&self) -> impl Iterator<Item = &Arc<FrameData>> {
         self.recent_frames.iter()
     }
 
     /// The slowest frames so far (or since last call to [`Self::clear_slowest`])
-    /// in chronological order
+    /// in chronological order.
     pub fn slowest_frames_chronological(&self) -> Vec<Arc<FrameData>> {
         let mut frames: Vec<_> = self.slowest_frames.iter().map(|f| f.0.clone()).collect();
         frames.sort_by_key(|frame| frame.frame_index);
         frames
     }
 
-    /// Clean history of the slowest frames
+    /// Clean history of the slowest frames.
     pub fn clear_slowest(&mut self) {
         self.slowest_frames.clear();
     }
 
+    /// How many frames of recent history to store.
     pub fn max_recent(&self) -> usize {
         self.max_recent
     }
+
+    /// How many frames of recent history to store.
     pub fn set_max_history(&mut self, max_recent: usize) {
         self.max_recent = max_recent
     }
+
+    /// How many slow "spike" frames to store.
     pub fn max_slow(&self) -> usize {
         self.max_slow
     }
+
+    /// How many slow "spike" frames to store.
     pub fn set_max_slow(&mut self, max_slow: usize) {
         self.max_slow = max_slow
     }
