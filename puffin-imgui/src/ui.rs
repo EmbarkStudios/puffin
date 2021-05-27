@@ -124,6 +124,11 @@ struct Options {
 
     /// Aggregate child scopes with the same id?
     merge_scopes: bool,
+
+    /// Set when user clicks a scope.
+    /// First part is `now()`, second is range.
+    #[serde(skip)]
+    zoom_to_relative_ns_range: Option<(f64, (NanoSecond, NanoSecond))>,
 }
 
 impl Default for Options {
@@ -140,6 +145,8 @@ impl Default for Options {
             rounding: 4.0,
 
             merge_scopes: true,
+
+            zoom_to_relative_ns_range: None,
         }
     }
 }
@@ -159,7 +166,7 @@ struct Info<'a> {
     /// Time of first event
     start_ns: NanoSecond,
 
-    options: &'a Options,
+    options: &'a mut Options,
 }
 
 #[derive(Clone, Copy, Eq, PartialEq)]
@@ -298,12 +305,7 @@ impl ProfilerUi {
             frame.num_bytes as f64 * 1e-3
         ));
 
-        ui.text("Drag to pan. Scroll to zoom.");
-        ui.same_line(0.0);
-        if ui.button(im_str!("Reset view"), Default::default()) {
-            self.options.canvas_width_ns = 0.0;
-            self.options.sideways_pan_in_pixels = 0.0;
-        }
+        ui.text("Drag to pan. Scroll to zoom. Click to focus. Double-click to reset.");
         ui.same_line(0.0);
         ui.checkbox(
             im_str!("Merge children with same ID"),
@@ -320,10 +322,11 @@ impl ProfilerUi {
         draw_list.with_clip_rect_intersect(content_min.into(), content_max.into(), || {
             // An invisible button for the canvas allows us to catch input for it.
             ui.invisible_button(im_str!("canvas"), content_region_avail.into());
-            self.interact(ui, content_min);
+            self.interact_with_canvas(ui, max_ns - min_ns, (content_min, content_max));
 
             if self.options.canvas_width_ns <= 0.0 {
                 self.options.canvas_width_ns = (max_ns - min_ns) as f32;
+                self.options.zoom_to_relative_ns_range = None;
             }
 
             let mut info = Info {
@@ -334,11 +337,10 @@ impl ProfilerUi {
                 ui,
                 draw_list: &draw_list,
                 font_size: ui.current_font_size(),
-                options: &self.options,
+                options: &mut self.options,
             };
 
-            let options = &self.options;
-            paint_timeline(&info, min_ns, max_ns);
+            paint_timeline(&mut info, min_ns, max_ns);
 
             // We paint the threads bottom up
             let mut cursor_y = info.canvas_max.y;
@@ -356,19 +358,19 @@ impl ProfilerUi {
 
                 cursor_y -= info.font_size;
                 let text_pos = [content_min.x, cursor_y];
-                paint_thread_info(&info, thread_info, text_pos);
+                paint_thread_info(&mut info, thread_info, text_pos);
                 info.canvas_max.y = cursor_y;
 
                 let mut paint_stream = || -> Result<()> {
                     let top_scopes = Reader::from_start(stream).read_top_scopes()?;
-                    if options.merge_scopes {
+                    if info.options.merge_scopes {
                         let merges = puffin::merge_top_scopes(&top_scopes);
                         for merge in merges {
-                            paint_merge_scope(&info, stream, &merge, 0, &mut cursor_y)?;
+                            paint_merge_scope(&mut info, stream, &merge, 0, &mut cursor_y)?;
                         }
                     } else {
                         for scope in top_scopes {
-                            paint_scope(&info, stream, &scope, 0, &mut cursor_y)?;
+                            paint_scope(&mut info, stream, &scope, 0, &mut cursor_y)?;
                         }
                     }
                     Ok(())
@@ -493,7 +495,12 @@ impl ProfilerUi {
         });
     }
 
-    fn interact(&mut self, ui: &Ui<'_>, canvas_min: Vec2) {
+    fn interact_with_canvas(
+        &mut self,
+        ui: &Ui<'_>,
+        duration_ns: NanoSecond,
+        (canvas_min, canvas_max): (Vec2, Vec2),
+    ) {
         let pan_button = MouseButton::Left;
         self.is_panning |= ui.is_item_hovered() && ui.is_mouse_clicked(pan_button);
         self.is_panning &= !ui.is_mouse_released(pan_button);
@@ -506,11 +513,12 @@ impl ProfilerUi {
             [0.0, 0.0]
         };
 
-        if self.is_panning {
+        if self.is_panning && pan_delta[0] != 0.0 {
             self.options.sideways_pan_in_pixels += pan_delta[0];
+            self.options.zoom_to_relative_ns_range = None;
         }
 
-        if ui.is_item_hovered() {
+        if ui.is_item_hovered() && ui.io().mouse_wheel != 0.0 {
             // note: imgui scroll coordinates are not pixels.
             // for `mouse_wheel` one unit scrolls "about 5 lines of text",
             // and `mouse_wheel_h` is unspecified.
@@ -522,11 +530,52 @@ impl ProfilerUi {
             let zoom_center = ui.io().mouse_pos[0] - canvas_min.x;
             self.options.sideways_pan_in_pixels =
                 (self.options.sideways_pan_in_pixels - zoom_center) * zoom_factor + zoom_center;
+
+            self.options.zoom_to_relative_ns_range = None;
+        }
+
+        if ui.is_item_hovered() && ui.is_mouse_double_clicked(MouseButton::Left) {
+            // Reset view
+            self.options.zoom_to_relative_ns_range = Some((now(), (0, duration_ns)));
+        }
+
+        if let Some((start_time, (start_ns, end_ns))) = self.options.zoom_to_relative_ns_range {
+            const ZOOM_DURATION: f32 = 0.75;
+            let t = ((now() - start_time) as f32 / ZOOM_DURATION).min(1.0);
+
+            let canvas_width = canvas_max.x - canvas_min.x;
+
+            let target_canvas_width_ns = (end_ns - start_ns) as f32;
+            let target_pan_in_pixels = -canvas_width * start_ns as f32 / target_canvas_width_ns;
+
+            // self.options.canvas_width_ns =
+            //     lerp(self.options.canvas_width_ns..=target_canvas_width_ns, t);
+            self.options.canvas_width_ns = lerp(
+                self.options.canvas_width_ns.recip()..=target_canvas_width_ns.recip(),
+                t,
+            )
+            .recip();
+            self.options.sideways_pan_in_pixels = lerp(
+                self.options.sideways_pan_in_pixels..=target_pan_in_pixels,
+                t,
+            );
+
+            if t >= 1.0 {
+                self.options.zoom_to_relative_ns_range = None;
+            }
         }
     }
 }
 
-fn paint_timeline(info: &Info<'_>, start_ns: NanoSecond, stop_ns: NanoSecond) {
+/// Current time in seconds
+fn now() -> f64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs_f64()
+}
+
+fn paint_timeline(info: &mut Info<'_>, start_ns: NanoSecond, stop_ns: NanoSecond) {
     if info.options.canvas_width_ns <= 0.0 {
         return;
     }
@@ -622,7 +671,7 @@ fn grid_text(grid_ns: NanoSecond) -> String {
     }
 }
 
-fn paint_record(info: &Info<'_>, prefix: &str, record: &Record<'_>, top_y: f32) -> PaintResult {
+fn paint_record(info: &mut Info<'_>, prefix: &str, record: &Record<'_>, top_y: f32) -> PaintResult {
     let start_x = info.pixel_from_ns(info.options, record.start_ns);
     let stop_x = info.pixel_from_ns(info.options, record.stop_ns());
     let width = stop_x - start_x;
@@ -637,6 +686,16 @@ fn paint_record(info: &Info<'_>, prefix: &str, record: &Record<'_>, top_y: f32) 
         && info.mouse_pos.x <= stop_x
         && top_y <= info.mouse_pos.y
         && info.mouse_pos.y <= bottom_y;
+
+    if is_hovered && info.ui.is_mouse_clicked(MouseButton::Left) {
+        info.options.zoom_to_relative_ns_range = Some((
+            now(),
+            (
+                record.start_ns - info.start_ns,
+                record.stop_ns() - info.start_ns,
+            ),
+        ));
+    }
 
     let rect_min = Vec2::new(start_x, top_y);
     let rect_max = Vec2::new(stop_x, bottom_y);
@@ -725,7 +784,7 @@ fn remap_clamp(x: f32, from: RangeInclusive<f32>, to: RangeInclusive<f32>) -> f3
 }
 
 fn paint_scope(
-    info: &Info<'_>,
+    info: &mut Info<'_>,
     stream: &Stream,
     scope: &Scope<'_>,
     depth: usize,
@@ -767,7 +826,7 @@ fn paint_scope(
 }
 
 fn paint_merge_scope(
-    info: &Info<'_>,
+    info: &mut Info<'_>,
     stream: &Stream,
     merge: &MergeScope<'_>,
     depth: usize,
@@ -833,7 +892,7 @@ fn merge_scope_tooltip(ui: &Ui<'_>, merge: &MergeScope<'_>) {
     }
 }
 
-fn paint_thread_info(info: &Info<'_>, thread_info: &ThreadInfo, pos: [f32; 2]) {
+fn paint_thread_info(info: &mut Info<'_>, thread_info: &ThreadInfo, pos: [f32; 2]) {
     let text = format!("{}", thread_info.name);
     let text_size = info.ui.calc_text_size(&ImString::new(&text), false, 0.0);
 
