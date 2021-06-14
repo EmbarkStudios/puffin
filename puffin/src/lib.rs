@@ -102,6 +102,7 @@ pub type NanoSecond = i64;
 
 /// Stream of profiling events from one thread.
 #[derive(Clone, Default)]
+#[cfg_attr(feature = "with_serde", derive(serde::Deserialize, serde::Serialize))]
 pub struct Stream(Vec<u8>);
 
 impl Stream {
@@ -168,6 +169,7 @@ pub struct Scope<'s> {
 
 /// Used to identify one source of profiling data.
 #[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
+#[cfg_attr(feature = "with_serde", derive(serde::Deserialize, serde::Serialize))]
 pub struct ThreadInfo {
     /// Useful for ordering threads.
     pub start_time_ns: Option<NanoSecond>,
@@ -181,6 +183,7 @@ pub type FrameIndex = u64;
 
 /// One frame worth of profile data, collected from many sources.
 #[derive(Clone)]
+#[cfg_attr(feature = "with_serde", derive(serde::Deserialize, serde::Serialize))]
 pub struct FrameData {
     pub frame_index: FrameIndex,
     pub thread_streams: BTreeMap<ThreadInfo, Stream>,
@@ -392,6 +395,11 @@ impl GlobalProfiler {
                 }
             };
 
+        self.add_frame(new_frame);
+    }
+
+    /// Manually add frame data.
+    pub fn add_frame(&mut self, new_frame: Arc<FrameData>) {
         let add_to_slowest = if self.slowest_frames.len() < self.max_slow {
             true
         } else if let Some(fastest_of_the_slow) = self.slowest_frames.peek() {
