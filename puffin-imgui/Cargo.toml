@@ -14,5 +14,5 @@ include = [ "**/*.rs", "Cargo.toml"]
 
 [dependencies]
 imgui = { version = "0.7" }
-puffin = { version = "0.5.0", path = "../puffin" }
+puffin = { version = "0.5.2", path = "../puffin" }
 serde = { version = "1", features = ["derive"] }

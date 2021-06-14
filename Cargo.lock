@@ -1926,7 +1926,7 @@ dependencies = [
 
 [[package]]
 name = "puffin"
-version = "0.5.1"
+version = "0.5.2"
 dependencies = [
  "byteorder",
  "criterion",
@@ -1958,7 +1958,7 @@ dependencies = [
 
 [[package]]
 name = "puffin_http"
-version = "0.5.2"
+version = "0.1.0"
 dependencies = [
  "anyhow",
  "bincode",
@@ -1973,7 +1973,7 @@ dependencies = [
 
 [[package]]
 name = "puffin_viewer"
-version = "0.5.2"
+version = "0.1.0"
 dependencies = [
  "argh",
  "eframe",
