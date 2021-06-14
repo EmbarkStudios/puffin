@@ -75,4 +75,4 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: test
-          args: -p puffin puffin_egui -p puffin-imgui -p puffin_server -p --all-features
+          args: -p puffin puffin_egui -p puffin_http -p puffin-imgui -p --all-features
