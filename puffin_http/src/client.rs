@@ -8,6 +8,7 @@
 /// puffin_http::start_client("localhost:8585");
 /// ```
 pub fn start_client(addr: &str) -> anyhow::Result<()> {
+    log::info!("Receiving to {}…", addr);
     let mut stream = std::net::TcpStream::connect(addr)?;
     log::info!("Receiving profile data from {}", addr);
 
