@@ -5,7 +5,7 @@
 /// [`puffin_egui`](https://crates.io/crates/puffin_egui) or [`puffin-imgui`](https://crates.io/crates/puffin-imgui).
 ///
 /// ``` no_run
-/// puffin_http::start_client("localhost:8585");
+/// puffin_http::start_client("0.0.0.0:8585");
 /// ```
 pub fn start_client(addr: &str) -> anyhow::Result<()> {
     log::info!("Receiving to {}…", addr);

@@ -7,13 +7,13 @@ use eframe::{egui, epi};
 /// Connect to a puffin server and show its profile data.
 #[derive(argh::FromArgs)]
 struct Arguments {
-    /// which server to connect to, e.g. `localhost:8585`.
+    /// which server to connect to, e.g. `0.0.0.0:8585`.
     #[argh(option, default = "default_url()")]
     url: String,
 }
 
 fn default_url() -> String {
-    format!("localhost:{}", puffin_http::DEFAULT_PORT)
+    format!("0.0.0.0:{}", puffin_http::DEFAULT_PORT)
 }
 
 fn main() {

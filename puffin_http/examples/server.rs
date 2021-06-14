@@ -5,7 +5,7 @@ fn main() {
         .init()
         .unwrap();
 
-    let server_addr = format!("localhost:{}", puffin_http::DEFAULT_PORT);
+    let server_addr = format!("0.0.0.0:{}", puffin_http::DEFAULT_PORT);
     eprintln!("Serving demo profile data on {}", server_addr);
 
     let puffin_server = puffin_http::PuffinServer::new(&server_addr).unwrap();
