@@ -11,4 +11,4 @@ CARGO_INCREMENTAL=0 cargo clippy --all-targets --all-features --  -D warnings -W
 cargo test --all-targets --all-features
 cargo fmt --all -- --check
 
-cargo doc -p puffin_egui --lib --no-deps --all-features
+cargo doc -p puffin -p puffin_egui -p puffin-imgui -p puffin_http --lib --no-deps --all-features
