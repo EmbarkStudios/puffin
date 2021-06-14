@@ -1,8 +1,8 @@
 [package]
-name = "puffin-imgui"
-version = "0.8.0"
+name = "puffin_viewer"
+version = "0.1.0"
 authors = ["Embark <opensource@embark-studios.com>"]
-description = "ImGui GUI bindings for the Puffin profiler"
+description = "Viewer GUI for puffin profiler data"
 license = "MIT OR Apache-2.0"
 edition = "2018"
 homepage = "https://github.com/EmbarkStudios/puffin"
@@ -13,6 +13,10 @@ keywords = ["profiler", "instrumentation", "gamedev"]
 include = [ "**/*.rs", "Cargo.toml"]
 
 [dependencies]
-imgui = { version = "0.7" }
-puffin = { version = "0.5.2", path = "../puffin" }
-serde = { version = "1", features = ["derive"] }
+puffin = { version = "0.5.2", path = "../puffin", features = ["with_serde"] }
+puffin_http = { version = "0.1.0", path = "../puffin_http" }
+puffin_egui = { version = "0.3", path = "../puffin_egui" }
+
+argh = "0.1"
+eframe = { version = "0.12", features = ["persistence"] }
+stderrlog = "0.5"

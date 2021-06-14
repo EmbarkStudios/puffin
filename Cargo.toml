@@ -1,5 +1,8 @@
 [workspace]
 members = [
     "puffin",
+    "puffin_egui",
+    "puffin_http",
     "puffin-imgui",
+    "puffin_viewer",
 ]

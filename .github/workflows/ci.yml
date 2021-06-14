@@ -19,6 +19,12 @@ jobs:
           toolchain: stable
           override: true
 
+      - name: Install packages (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get -yq --no-install-suggests --no-install-recommends install libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev libasound2-dev # egui_glium dependencies
+
       # make sure all code has been formatted with rustfmt
       - run: rustup component add rustfmt
       - name: check rustfmt
@@ -55,6 +61,11 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: fetch
+      - name: Install packages (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get -yq --no-install-suggests --no-install-recommends install libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev libasound2-dev # egui_glium dependencies
       - name: cargo test build
         uses: actions-rs/cargo@v1
         with:
@@ -64,4 +75,4 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: test
-          args: --release
+          args: -p puffin puffin_egui -p puffin_http -p puffin-imgui -p --all-features

@@ -1,6 +1,6 @@
 [package]
 name = "puffin"
-version = "0.5.1"
+version = "0.5.2"
 authors = ["Embark <opensource@embark-studios.com>"]
 license = "MIT OR Apache-2.0"
 description = "Simple instrumentation profiler for games"
@@ -12,15 +12,17 @@ categories = ["development-tools::profiling"]
 keywords = ["profiler", "instrumentation", "gamedev"]
 include = [ "**/*.rs", "Cargo.toml"]
 
-[lib]
-doctest = false
-
 [dependencies]
 byteorder = { version = "1" }
 once_cell = "1"
+serde = { version = "1", features = ["derive"], optional = true }
 
 [dev-dependencies]
 criterion = "0.3"
+
+[features]
+default = []
+with_serde = ["serde"]
 
 [[bench]]
 name = "benchmark"
