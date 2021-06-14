@@ -1,5 +1,6 @@
 [workspace]
 members = [
     "puffin",
+    "puffin_egui",
     "puffin-imgui",
 ]
