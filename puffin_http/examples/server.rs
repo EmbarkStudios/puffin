@@ -1,14 +1,13 @@
 fn main() {
-    stderrlog::new()
-        .module(module_path!())
-        .verbosity(2) // 2 == info
+    simple_logger::SimpleLogger::new()
+        .with_level(log::LevelFilter::Info)
         .init()
-        .unwrap();
+        .ok();
 
     let server_addr = format!("0.0.0.0:{}", puffin_http::DEFAULT_PORT);
     eprintln!("Serving demo profile data on {}", server_addr);
 
-    let puffin_server = puffin_http::PuffinServer::new(&server_addr).unwrap();
+    let puffin_server = puffin_http::Server::new(&server_addr).unwrap();
 
     puffin::set_scopes_on(true);
 

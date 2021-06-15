@@ -55,8 +55,8 @@
 pub const PROTOCOL_VERSION: u16 = 1;
 pub const DEFAULT_PORT: u16 = 8585;
 
-pub mod client;
+mod client;
 mod server;
 
-pub use client::start_client;
-pub use server::PuffinServer;
+pub use client::Client;
+pub use server::Server;

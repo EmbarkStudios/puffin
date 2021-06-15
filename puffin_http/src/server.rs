@@ -7,11 +7,11 @@ use std::{
 
 /// Listens for incoming connections
 /// and streams them puffin profiler data.
-pub struct PuffinServer {
+pub struct Server {
     tx: std::sync::mpsc::Sender<Arc<puffin::FrameData>>,
 }
 
-impl PuffinServer {
+impl Server {
     /// Start listening for connections on this addr (e.g. "0.0.0.0:8585")
     pub fn new(bind_addr: &str) -> anyhow::Result<Self> {
         let tcp_listener = TcpListener::bind(bind_addr).context("binding server TCP socket")?;
@@ -21,7 +21,7 @@ impl PuffinServer {
 
         let (tx, rx) = std::sync::mpsc::channel();
 
-        let server = PuffinServer { tx };
+        let server = Server { tx };
 
         std::thread::spawn(move || {
             let mut server_impl = PuffinServerImpl {
