@@ -346,6 +346,10 @@ impl ProfilerUi {
     ) {
         puffin::profile_function!();
 
+        if self.paused.is_none() {
+            ui.ctx().request_repaint(); // keep refreshing to see latest data
+        }
+
         let (response, painter) =
             ui.allocate_painter(ui.available_size_before_wrap_finite(), Sense::drag());
 

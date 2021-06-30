@@ -51,7 +51,5 @@ impl epi::App for PuffinViewer {
         });
 
         egui::CentralPanel::default().show(ctx, puffin_egui::profiler_ui);
-
-        ctx.request_repaint(); // we get new profiling data all the time, so let's constantly refresh
     }
 }
