@@ -142,10 +142,6 @@ struct Options {
     sideways_pan_in_points: f32,
 
     // --------------------
-    // Interact:
-    scroll_zoom_speed: f32,
-
-    // --------------------
     // Visuals:
     /// Events shorter than this many points aren't painted
     cull_width: f32,
@@ -167,8 +163,6 @@ impl Default for Options {
         Self {
             canvas_width_ns: 0.0,
             sideways_pan_in_points: 0.0,
-
-            scroll_zoom_speed: 0.01,
 
             cull_width: 0.5,
             rect_height: 16.0,
@@ -325,7 +319,9 @@ impl ProfilerUi {
         ));
 
         ui.horizontal(|ui| {
-            ui.label("Drag to pan. Scroll to zoom. Click to focus. Double-click to reset.");
+            ui.label(
+                "Drag to pan. Ctrl/cmd + scroll to zoom. Click to focus. Double-click to reset.",
+            );
 
             ui.checkbox(
                 &mut self.options.merge_scopes,
@@ -333,43 +329,55 @@ impl ProfilerUi {
             );
         });
 
-        Frame::dark_canvas(ui.style()).show(ui, |ui| {
-            self.ui_canvas(ui, &frame, (min_ns, max_ns));
+        if self.paused.is_none() {
+            ui.ctx().request_repaint(); // keep refreshing to see latest data
+        }
+
+        ScrollArea::auto_sized().show(ui, |ui| {
+            Frame::dark_canvas(ui.style()).show(ui, |ui| {
+                let canvas = ui.available_rect_before_wrap();
+                let response = ui.interact(canvas, ui.id(), Sense::click_and_drag());
+
+                let mut info = Info {
+                    ctx: ui.ctx().clone(),
+                    canvas,
+                    response,
+                    painter: ui.painter_at(canvas),
+                    text_height: 15.0, // TODO
+                    start_ns: min_ns,
+                    stop_ns: max_ns,
+                };
+                self.interact_with_canvas(&info.response, &info);
+
+                let where_to_put_timeline = info.painter.add(Shape::Noop);
+
+                self.ui_canvas(&mut info, &frame, (min_ns, max_ns));
+
+                let mut used_rect = canvas;
+                used_rect.max.y = info.canvas.max.y;
+
+                info.canvas = used_rect;
+
+                let shapes = paint_timeline(&info, &self.options, min_ns, max_ns);
+                info.painter.set(where_to_put_timeline, Shape::Vec(shapes));
+
+                ui.allocate_rect(used_rect, Sense::click_and_drag());
+            });
         });
     }
 
     fn ui_canvas(
         &mut self,
-        ui: &mut egui::Ui,
+        info: &mut Info,
         frame: &FrameData,
         (min_ns, max_ns): (NanoSecond, NanoSecond),
     ) {
         puffin::profile_function!();
 
-        if self.paused.is_none() {
-            ui.ctx().request_repaint(); // keep refreshing to see latest data
-        }
-
-        let (response, painter) =
-            ui.allocate_painter(ui.available_size_before_wrap_finite(), Sense::drag());
-
-        let mut info = Info {
-            ctx: ui.ctx().clone(),
-            canvas: response.rect,
-            response,
-            painter,
-            text_height: 15.0, // TODO
-            start_ns: min_ns,
-            stop_ns: max_ns,
-        };
-        self.interact_with_canvas(&info);
-
         if self.options.canvas_width_ns <= 0.0 {
             self.options.canvas_width_ns = (max_ns - min_ns) as f32;
             self.options.zoom_to_relative_ns_range = None;
         }
-
-        paint_timeline(&info, &self.options, min_ns, max_ns);
 
         // We paint the threads top-down
         let mut cursor_y = info.canvas.top();
@@ -431,6 +439,8 @@ impl ProfilerUi {
 
             cursor_y += info.text_height; // Extra spacing between threads
         }
+
+        info.canvas.max.y = cursor_y;
     }
 
     /// Returns hovered, if any
@@ -528,27 +538,25 @@ impl ProfilerUi {
         }
     }
 
-    fn interact_with_canvas(&mut self, info: &Info) {
-        if info.response.drag_delta().x != 0.0 {
-            self.options.sideways_pan_in_points += info.response.drag_delta().x;
+    fn interact_with_canvas(&mut self, response: &Response, info: &Info) {
+        if response.drag_delta().x != 0.0 {
+            self.options.sideways_pan_in_points += response.drag_delta().x;
             self.options.zoom_to_relative_ns_range = None;
         }
 
-        if info.response.hovered() {
+        if response.hovered() {
             // Sideways pan with e.g. a touch pad:
             if info.ctx.input().scroll_delta.x != 0.0 {
                 self.options.sideways_pan_in_points += info.ctx.input().scroll_delta.x;
                 self.options.zoom_to_relative_ns_range = None;
             }
 
-            let scroll_zoom =
-                (info.ctx.input().scroll_delta.y * self.options.scroll_zoom_speed).exp();
-            let zoom_factor = scroll_zoom * info.ctx.input().zoom_delta_2d().x;
+            let zoom_factor = info.ctx.input().zoom_delta_2d().x;
 
             if zoom_factor != 1.0 {
                 self.options.canvas_width_ns /= zoom_factor;
 
-                if let Some(mouse_pos) = info.response.hover_pos() {
+                if let Some(mouse_pos) = response.hover_pos() {
                     let zoom_center = mouse_pos.x - info.canvas.min.x;
                     self.options.sideways_pan_in_points =
                         (self.options.sideways_pan_in_points - zoom_center) * zoom_factor
@@ -558,7 +566,7 @@ impl ProfilerUi {
             }
         }
 
-        if info.response.double_clicked() {
+        if response.double_clicked() {
             // Reset view
             self.options.zoom_to_relative_ns_range =
                 Some((info.ctx.input().time, (0, info.stop_ns - info.start_ns)));
@@ -568,13 +576,11 @@ impl ProfilerUi {
             const ZOOM_DURATION: f32 = 0.75;
             let t = ((info.ctx.input().time - start_time) as f32 / ZOOM_DURATION).min(1.0);
 
-            let canvas_width = info.response.rect.width();
+            let canvas_width = response.rect.width();
 
             let target_canvas_width_ns = (end_ns - start_ns) as f32;
             let target_pan_in_points = -canvas_width * start_ns as f32 / target_canvas_width_ns;
 
-            // self.options.canvas_width_ns =
-            //     lerp(self.options.canvas_width_ns..=target_canvas_width_ns, t);
             self.options.canvas_width_ns = lerp(
                 self.options.canvas_width_ns.recip()..=target_canvas_width_ns.recip(),
                 t,
@@ -594,9 +600,16 @@ impl ProfilerUi {
     }
 }
 
-fn paint_timeline(info: &Info, options: &Options, start_ns: NanoSecond, stop_ns: NanoSecond) {
+fn paint_timeline(
+    info: &Info,
+    options: &Options,
+    start_ns: NanoSecond,
+    stop_ns: NanoSecond,
+) -> Vec<egui::Shape> {
+    let mut shapes = vec![];
+
     if options.canvas_width_ns <= 0.0 {
-        return;
+        return shapes;
     }
 
     // We show all measurements relative to start_ns
@@ -638,13 +651,13 @@ fn paint_timeline(info: &Info, options: &Options, start_ns: NanoSecond, stop_ns:
                 tiny_alpha
             };
 
-            info.painter.line_segment(
+            shapes.push(egui::Shape::line_segment(
                 [
                     pos2(line_x, info.canvas.min.y),
-                    pos2(line_x, info.canvas.max.y),
+                    pos2(line_x, info.canvas.max.y.at_most(1e10)),
                 ],
                 Stroke::new(1.0, Rgba::from_white_alpha(line_alpha)),
-            );
+            ));
 
             let text_alpha = if big_line {
                 medium_alpha
@@ -660,27 +673,31 @@ fn paint_timeline(info: &Info, options: &Options, start_ns: NanoSecond, stop_ns:
                 let text_color = Rgba::from_white_alpha((text_alpha * 2.0).min(1.0)).into();
 
                 // Text at top:
-                info.painter.text(
+                shapes.push(egui::Shape::text(
+                    info.painter.fonts(),
                     pos2(text_x, info.canvas.min.y),
                     Align2::LEFT_TOP,
                     &text,
                     TEXT_STYLE,
                     text_color,
-                );
+                ));
 
                 // Text at bottom:
-                info.painter.text(
+                shapes.push(egui::Shape::text(
+                    info.painter.fonts(),
                     pos2(text_x, info.canvas.max.y - info.text_height),
                     Align2::LEFT_TOP,
                     &text,
                     TEXT_STYLE,
                     text_color,
-                );
+                ));
             }
         }
 
         grid_ns += grid_spacing_ns;
     }
+
+    shapes
 }
 
 fn grid_text(grid_ns: NanoSecond) -> String {
