@@ -333,8 +333,9 @@ impl ProfilerUi {
             ui.ctx().request_repaint(); // keep refreshing to see latest data
         }
 
-        ScrollArea::auto_sized().show(ui, |ui| {
-            Frame::dark_canvas(ui.style()).show(ui, |ui| {
+        Frame::dark_canvas(ui.style()).show(ui, |ui| {
+            let available_height = ui.max_rect().bottom() - ui.min_rect().bottom();
+            ScrollArea::auto_sized().show(ui, |ui| {
                 let canvas = ui.available_rect_before_wrap();
                 let response = ui.interact(canvas, ui.id(), Sense::click_and_drag());
 
@@ -355,6 +356,9 @@ impl ProfilerUi {
 
                 let mut used_rect = canvas;
                 used_rect.max.y = max_y;
+
+                // Fill out space that we don't use so that the `ScrollArea` doesn't collapse in height:
+                used_rect.max.y = used_rect.max.y.max(used_rect.min.y + available_height);
 
                 let timeline = paint_timeline(&info, used_rect, &self.options, min_ns);
                 info.painter
