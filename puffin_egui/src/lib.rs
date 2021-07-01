@@ -338,7 +338,7 @@ impl ProfilerUi {
                 let canvas = ui.available_rect_before_wrap();
                 let response = ui.interact(canvas, ui.id(), Sense::click_and_drag());
 
-                let mut info = Info {
+                let info = Info {
                     ctx: ui.ctx().clone(),
                     canvas,
                     response,
@@ -351,15 +351,14 @@ impl ProfilerUi {
 
                 let where_to_put_timeline = info.painter.add(Shape::Noop);
 
-                self.ui_canvas(&mut info, &frame, (min_ns, max_ns));
+                let max_y = self.ui_canvas(&info, &frame, (min_ns, max_ns));
 
                 let mut used_rect = canvas;
-                used_rect.max.y = info.canvas.max.y;
+                used_rect.max.y = max_y;
 
-                info.canvas = used_rect;
-
-                let shapes = paint_timeline(&info, &self.options, min_ns, max_ns);
-                info.painter.set(where_to_put_timeline, Shape::Vec(shapes));
+                let timeline = paint_timeline(&info, used_rect, &self.options, min_ns, max_ns);
+                info.painter
+                    .set(where_to_put_timeline, Shape::Vec(timeline));
 
                 ui.allocate_rect(used_rect, Sense::click_and_drag());
             });
@@ -368,10 +367,10 @@ impl ProfilerUi {
 
     fn ui_canvas(
         &mut self,
-        info: &mut Info,
+        info: &Info,
         frame: &FrameData,
         (min_ns, max_ns): (NanoSecond, NanoSecond),
-    ) {
+    ) -> f32 {
         puffin::profile_function!();
 
         if self.options.canvas_width_ns <= 0.0 {
@@ -402,7 +401,7 @@ impl ProfilerUi {
                 Stroke::new(1.0, Rgba::from_white_alpha(0.5)),
             );
 
-            info.canvas.min.y = cursor_y;
+            let min_y = cursor_y;
 
             let mut paint_stream = || -> Result<()> {
                 let top_scopes = Reader::from_start(stream).read_top_scopes()?;
@@ -415,12 +414,21 @@ impl ProfilerUi {
                             stream,
                             &merge,
                             0,
+                            min_y,
                             &mut cursor_y,
                         )?;
                     }
                 } else {
                     for scope in top_scopes {
-                        paint_scope(&info, &mut self.options, stream, &scope, 0, &mut cursor_y)?;
+                        paint_scope(
+                            &info,
+                            &mut self.options,
+                            stream,
+                            &scope,
+                            0,
+                            min_y,
+                            &mut cursor_y,
+                        )?;
                     }
                 }
                 Ok(())
@@ -440,7 +448,7 @@ impl ProfilerUi {
             cursor_y += info.text_height; // Extra spacing between threads
         }
 
-        info.canvas.max.y = cursor_y;
+        cursor_y
     }
 
     /// Returns hovered, if any
@@ -602,6 +610,7 @@ impl ProfilerUi {
 
 fn paint_timeline(
     info: &Info,
+    canvas: Rect,
     options: &Options,
     start_ns: NanoSecond,
     stop_ns: NanoSecond,
@@ -614,7 +623,7 @@ fn paint_timeline(
 
     // We show all measurements relative to start_ns
 
-    let max_lines = info.canvas.width() / 4.0;
+    let max_lines = canvas.width() / 4.0;
     let mut grid_spacing_ns = 1_000;
     while options.canvas_width_ns / (grid_spacing_ns as f32) > max_lines {
         grid_spacing_ns *= 10;
@@ -635,11 +644,11 @@ fn paint_timeline(
             break; // stop grid where data stops
         }
         let line_x = info.point_from_ns(options, start_ns + grid_ns);
-        if line_x > info.canvas.max.x {
+        if line_x > canvas.max.x {
             break;
         }
 
-        if info.canvas.min.x <= line_x {
+        if canvas.min.x <= line_x {
             let big_line = grid_ns % (grid_spacing_ns * 100) == 0;
             let medium_line = grid_ns % (grid_spacing_ns * 10) == 0;
 
@@ -652,10 +661,7 @@ fn paint_timeline(
             };
 
             shapes.push(egui::Shape::line_segment(
-                [
-                    pos2(line_x, info.canvas.min.y),
-                    pos2(line_x, info.canvas.max.y.at_most(1e10)),
-                ],
+                [pos2(line_x, canvas.min.y), pos2(line_x, canvas.max.y)],
                 Stroke::new(1.0, Rgba::from_white_alpha(line_alpha)),
             ));
 
@@ -675,7 +681,7 @@ fn paint_timeline(
                 // Text at top:
                 shapes.push(egui::Shape::text(
                     info.painter.fonts(),
-                    pos2(text_x, info.canvas.min.y),
+                    pos2(text_x, canvas.min.y),
                     Align2::LEFT_TOP,
                     &text,
                     TEXT_STYLE,
@@ -685,7 +691,7 @@ fn paint_timeline(
                 // Text at bottom:
                 shapes.push(egui::Shape::text(
                     info.painter.fonts(),
-                    pos2(text_x, info.canvas.max.y - info.text_height),
+                    pos2(text_x, canvas.max.y - info.text_height),
                     Align2::LEFT_TOP,
                     &text,
                     TEXT_STYLE,
@@ -818,9 +824,10 @@ fn paint_scope(
     stream: &Stream,
     scope: &Scope<'_>,
     depth: usize,
+    min_y: f32,
     max_y: &mut f32,
 ) -> Result<PaintResult> {
-    let top_y = info.canvas.min.y + (depth as f32) * (options.rect_height + options.spacing);
+    let top_y = min_y + (depth as f32) * (options.rect_height + options.spacing);
     *max_y = max_y.max(top_y + info.text_height);
 
     let result = paint_record(info, options, "", &scope.record, top_y);
@@ -828,7 +835,15 @@ fn paint_scope(
     if result != PaintResult::Culled {
         let mut num_children = 0;
         for child_scope in Reader::with_offset(stream, scope.child_begin_position)? {
-            paint_scope(info, options, stream, &child_scope?, depth + 1, max_y)?;
+            paint_scope(
+                info,
+                options,
+                stream,
+                &child_scope?,
+                depth + 1,
+                min_y,
+                max_y,
+            )?;
             num_children += 1;
         }
 
@@ -859,9 +874,10 @@ fn paint_merge_scope(
     stream: &Stream,
     merge: &MergeScope<'_>,
     depth: usize,
+    min_y: f32,
     max_y: &mut f32,
 ) -> Result<PaintResult> {
-    let top_y = info.canvas.min.y + (depth as f32) * (options.rect_height + options.spacing);
+    let top_y = min_y + (depth as f32) * (options.rect_height + options.spacing);
     *max_y = max_y.max(top_y + info.text_height);
 
     let prefix = if merge.pieces.len() <= 1 {
@@ -873,7 +889,15 @@ fn paint_merge_scope(
 
     if result != PaintResult::Culled {
         for merged_child in merge_children_of_pieces(stream, merge)? {
-            paint_merge_scope(info, options, stream, &merged_child, depth + 1, max_y)?;
+            paint_merge_scope(
+                info,
+                options,
+                stream,
+                &merged_child,
+                depth + 1,
+                min_y,
+                max_y,
+            )?;
         }
 
         if result == PaintResult::Hovered {
