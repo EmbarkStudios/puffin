@@ -371,24 +371,30 @@ impl ProfilerUi {
 
         paint_timeline(&info, &self.options, min_ns, max_ns);
 
-        // We paint the threads bottom up
-        let mut cursor_y = info.canvas.max.y;
-        cursor_y -= info.text_height; // Leave room for time labels
+        // We paint the threads top-down
+        let mut cursor_y = info.canvas.top();
+        cursor_y += info.text_height; // Leave room for time labels
 
         for (thread, stream) in &frame.thread_streams {
             // Visual separator between threads:
+            cursor_y += 2.0;
+            let line_y = cursor_y;
+            cursor_y += 2.0;
+
+            let text_pos = pos2(info.canvas.min.x, cursor_y);
+            paint_thread_info(&info, thread, text_pos);
+            cursor_y += info.text_height;
+
+            // draw on top of thread info background:
             info.painter.line_segment(
                 [
-                    pos2(info.canvas.min.x, cursor_y),
-                    pos2(info.canvas.max.x, cursor_y),
+                    pos2(info.canvas.min.x, line_y),
+                    pos2(info.canvas.max.x, line_y),
                 ],
                 Stroke::new(1.0, Rgba::from_white_alpha(0.5)),
             );
 
-            cursor_y -= info.text_height;
-            let text_pos = pos2(info.canvas.min.x, cursor_y);
-            paint_thread_info(&info, thread, text_pos);
-            info.canvas.max.y = cursor_y;
+            info.canvas.min.y = cursor_y;
 
             let mut paint_stream = || -> Result<()> {
                 let top_scopes = Reader::from_start(stream).read_top_scopes()?;
@@ -411,6 +417,7 @@ impl ProfilerUi {
                 }
                 Ok(())
             };
+
             if let Err(err) = paint_stream() {
                 let text = format!("Profiler stream error: {:?}", err);
                 info.painter.text(
@@ -422,7 +429,7 @@ impl ProfilerUi {
                 );
             }
 
-            cursor_y -= info.text_height; // Extra spacing between threads
+            cursor_y += info.text_height; // Extra spacing between threads
         }
     }
 
@@ -794,17 +801,17 @@ fn paint_scope(
     stream: &Stream,
     scope: &Scope<'_>,
     depth: usize,
-    min_y: &mut f32,
+    max_y: &mut f32,
 ) -> Result<PaintResult> {
-    let top_y = info.canvas.max.y - (1.0 + depth as f32) * (options.rect_height + options.spacing);
-    *min_y = min_y.min(top_y);
+    let top_y = info.canvas.min.y + (depth as f32) * (options.rect_height + options.spacing);
+    *max_y = max_y.max(top_y + info.text_height);
 
     let result = paint_record(info, options, "", &scope.record, top_y);
 
     if result != PaintResult::Culled {
         let mut num_children = 0;
         for child_scope in Reader::with_offset(stream, scope.child_begin_position)? {
-            paint_scope(info, options, stream, &child_scope?, depth + 1, min_y)?;
+            paint_scope(info, options, stream, &child_scope?, depth + 1, max_y)?;
             num_children += 1;
         }
 
@@ -835,10 +842,10 @@ fn paint_merge_scope(
     stream: &Stream,
     merge: &MergeScope<'_>,
     depth: usize,
-    min_y: &mut f32,
+    max_y: &mut f32,
 ) -> Result<PaintResult> {
-    let top_y = info.canvas.max.y - (1.0 + depth as f32) * (options.rect_height + options.spacing);
-    *min_y = min_y.min(top_y);
+    let top_y = info.canvas.min.y + (depth as f32) * (options.rect_height + options.spacing);
+    *max_y = max_y.max(top_y + info.text_height);
 
     let prefix = if merge.pieces.len() <= 1 {
         String::default()
@@ -849,7 +856,7 @@ fn paint_merge_scope(
 
     if result != PaintResult::Culled {
         for merged_child in merge_children_of_pieces(stream, merge)? {
-            paint_merge_scope(info, options, stream, &merged_child, depth + 1, min_y)?;
+            paint_merge_scope(info, options, stream, &merged_child, depth + 1, max_y)?;
         }
 
         if result == PaintResult::Hovered {

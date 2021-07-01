@@ -25,6 +25,14 @@ impl epi::App for ExampleApp {
         puffin_egui::profiler_window(ctx);
 
         // Give us something to inspect:
+
+        std::thread::Builder::new()
+            .name("Other thread".to_owned())
+            .spawn(|| {
+                sleep_ms(5);
+            })
+            .unwrap();
+
         sleep_ms(14);
         if self.frame_counter % 7 == 0 {
             puffin::profile_scope!("Spike");
