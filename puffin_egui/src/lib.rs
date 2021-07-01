@@ -356,7 +356,7 @@ impl ProfilerUi {
                 let mut used_rect = canvas;
                 used_rect.max.y = max_y;
 
-                let timeline = paint_timeline(&info, used_rect, &self.options, min_ns, max_ns);
+                let timeline = paint_timeline(&info, used_rect, &self.options, min_ns);
                 info.painter
                     .set(where_to_put_timeline, Shape::Vec(timeline));
 
@@ -613,7 +613,6 @@ fn paint_timeline(
     canvas: Rect,
     options: &Options,
     start_ns: NanoSecond,
-    stop_ns: NanoSecond,
 ) -> Vec<egui::Shape> {
     let mut shapes = vec![];
 
@@ -640,9 +639,6 @@ fn paint_timeline(
     let mut grid_ns = 0;
 
     loop {
-        if start_ns + grid_ns > stop_ns {
-            break; // stop grid where data stops
-        }
         let line_x = info.point_from_ns(options, start_ns + grid_ns);
         if line_x > canvas.max.x {
             break;
