@@ -18,6 +18,6 @@ puffin_http = { version = "0.2.0", path = "../puffin_http" }
 puffin_egui = { version = "0.3", path = "../puffin_egui" }
 
 argh = "0.1"
-eframe = { version = "0.12", features = ["persistence"] }
+eframe = { version = "0.13", features = ["persistence"] }
 log = "0.4"
 simple_logger = "1.11"

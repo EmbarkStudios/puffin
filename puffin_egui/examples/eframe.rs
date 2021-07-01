@@ -1,6 +1,8 @@
 use eframe::{egui, epi};
 
 fn main() {
+    puffin::set_scopes_on(true); // Remember to call this, or puffin will be disabled!
+
     let app = ExampleApp::default();
     let options = Default::default();
     eframe::run_native(Box::new(app), options);
@@ -14,10 +16,6 @@ pub struct ExampleApp {
 impl epi::App for ExampleApp {
     fn name(&self) -> &str {
         "puffin egui eframe"
-    }
-
-    fn setup(&mut self, _ctx: &egui::CtxRef) {
-        puffin::set_scopes_on(true); // Remember to call this, or puffin will be disabled!
     }
 
     fn update(&mut self, ctx: &egui::CtxRef, _frame: &mut epi::Frame<'_>) {

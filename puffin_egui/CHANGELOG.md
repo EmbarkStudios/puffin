@@ -5,6 +5,8 @@ All notable changes to the egui crate will be documented in this file.
 
 ## Unreleased
 
+* Update to egui 0.13
+
 
 ## 0.3.0 - 2021-05-27
 

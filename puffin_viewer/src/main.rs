@@ -42,7 +42,7 @@ impl epi::App for PuffinViewer {
     }
 
     fn update(&mut self, ctx: &egui::CtxRef, _frame: &mut epi::Frame<'_>) {
-        egui::TopPanel::top("top_panel").show(ctx, |ui| {
+        egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
             if self.client.connected() {
                 ui.label(format!("Connected to {}", self.client.addr()));
             } else {
