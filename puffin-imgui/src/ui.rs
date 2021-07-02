@@ -152,8 +152,6 @@ struct Info<'a> {
 
     /// Time of first event
     start_ns: NanoSecond,
-
-    options: &'a mut Options,
 }
 
 #[derive(Clone, Copy, Eq, PartialEq)]
@@ -311,7 +309,7 @@ impl ProfilerUi {
                 self.options.zoom_to_relative_ns_range = None;
             }
 
-            let mut info = Info {
+            let info = Info {
                 start_ns: min_ns,
                 canvas_min: content_min,
                 canvas_max: content_max,
@@ -319,10 +317,11 @@ impl ProfilerUi {
                 ui,
                 draw_list: &draw_list,
                 font_size: ui.current_font_size(),
-                options: &mut self.options,
             };
 
-            paint_timeline(&mut info, min_ns);
+            let options = &mut self.options;
+
+            paint_timeline(&info, options, min_ns);
 
             // We paint the threads top-down
             let mut cursor_y = info.canvas_min.y;
@@ -334,7 +333,7 @@ impl ProfilerUi {
                 cursor_y += 2.0;
 
                 let text_pos = [content_min.x, cursor_y];
-                paint_thread_info(&mut info, thread_info, text_pos);
+                paint_thread_info(&info, thread_info, text_pos);
                 cursor_y += info.font_size;
 
                 // Visual separator between threads:
@@ -346,18 +345,23 @@ impl ProfilerUi {
                     )
                     .build();
 
-                info.canvas_min.y = cursor_y;
-
                 let mut paint_stream = || -> Result<()> {
                     let top_scopes = Reader::from_start(&stream_info.stream).read_top_scopes()?;
-                    if info.options.merge_scopes {
+                    if options.merge_scopes {
                         let merges = puffin::merge_top_scopes(&top_scopes);
                         for merge in merges {
-                            paint_merge_scope(&mut info, &stream_info.stream, &merge, 0)?;
+                            paint_merge_scope(
+                                &info,
+                                options,
+                                &stream_info.stream,
+                                &merge,
+                                0,
+                                cursor_y,
+                            )?;
                         }
                     } else {
                         for scope in top_scopes {
-                            paint_scope(&mut info, &stream_info.stream, &scope, 0)?;
+                            paint_scope(&info, options, &stream_info.stream, &scope, 0, cursor_y)?;
                         }
                     }
                     Ok(())
@@ -368,8 +372,7 @@ impl ProfilerUi {
                         .add_text([info.canvas_min.x, cursor_y], ERROR_COLOR, &text);
                 }
 
-                cursor_y +=
-                    stream_info.depth as f32 * (info.options.rect_height + info.options.spacing);
+                cursor_y += stream_info.depth as f32 * (options.rect_height + options.spacing);
 
                 cursor_y += info.font_size; // Extra spacing between threads
             }
@@ -561,8 +564,8 @@ fn now() -> f64 {
         .as_secs_f64()
 }
 
-fn paint_timeline(info: &mut Info<'_>, start_ns: NanoSecond) {
-    if info.options.canvas_width_ns <= 0.0 {
+fn paint_timeline(info: &Info<'_>, options: &Options, start_ns: NanoSecond) {
+    if options.canvas_width_ns <= 0.0 {
         return;
     }
 
@@ -570,12 +573,12 @@ fn paint_timeline(info: &mut Info<'_>, start_ns: NanoSecond) {
 
     let max_lines = 300.0;
     let mut grid_spacing_ns = 1_000;
-    while info.options.canvas_width_ns / (grid_spacing_ns as f32) > max_lines {
+    while options.canvas_width_ns / (grid_spacing_ns as f32) > max_lines {
         grid_spacing_ns *= 10;
     }
 
     // We fade in lines as we zoom in:
-    let num_tiny_lines = info.options.canvas_width_ns / (grid_spacing_ns as f32);
+    let num_tiny_lines = options.canvas_width_ns / (grid_spacing_ns as f32);
     let zoom_factor = remap_clamp(num_tiny_lines, (0.1 * max_lines)..=max_lines, 1.0..=0.0);
     let zoom_factor = zoom_factor * zoom_factor;
     let big_alpha = remap_clamp(zoom_factor, 0.0..=1.0, 0.5..=1.0);
@@ -585,7 +588,7 @@ fn paint_timeline(info: &mut Info<'_>, start_ns: NanoSecond) {
     let mut grid_ns = 0;
 
     loop {
-        let line_x = info.pixel_from_ns(info.options, start_ns + grid_ns);
+        let line_x = info.pixel_from_ns(options, start_ns + grid_ns);
         if line_x > info.canvas_max.x {
             break;
         }
@@ -654,16 +657,21 @@ fn grid_text(grid_ns: NanoSecond) -> String {
     }
 }
 
-fn paint_record(info: &mut Info<'_>, prefix: &str, record: &Record<'_>, top_y: f32) -> PaintResult {
-    let start_x = info.pixel_from_ns(info.options, record.start_ns);
-    let stop_x = info.pixel_from_ns(info.options, record.stop_ns());
+fn paint_record(
+    info: &Info<'_>,
+    options: &mut Options,
+    prefix: &str,
+    record: &Record<'_>,
+    top_y: f32,
+) -> PaintResult {
+    let start_x = info.pixel_from_ns(options, record.start_ns);
+    let stop_x = info.pixel_from_ns(options, record.stop_ns());
     let width = stop_x - start_x;
-    if info.canvas_max.x < start_x || stop_x < info.canvas_min.x || width < info.options.cull_width
-    {
+    if info.canvas_max.x < start_x || stop_x < info.canvas_min.x || width < options.cull_width {
         return PaintResult::Culled;
     }
 
-    let bottom_y = top_y + info.options.rect_height;
+    let bottom_y = top_y + options.rect_height;
 
     let is_hovered = start_x <= info.mouse_pos.x
         && info.mouse_pos.x <= stop_x
@@ -671,7 +679,7 @@ fn paint_record(info: &mut Info<'_>, prefix: &str, record: &Record<'_>, top_y: f
         && info.mouse_pos.y <= bottom_y;
 
     if is_hovered && info.ui.is_mouse_clicked(MouseButton::Left) {
-        info.options.zoom_to_relative_ns_range = Some((
+        options.zoom_to_relative_ns_range = Some((
             now(),
             (
                 record.start_ns - info.start_ns,
@@ -685,7 +693,7 @@ fn paint_record(info: &mut Info<'_>, prefix: &str, record: &Record<'_>, top_y: f
     let rect_color = if is_hovered {
         HOVER_COLOR
     } else {
-        // info.options.rect_color
+        // options.rect_color
         color_from_duration(record.duration_ns)
     };
     let text_color = [0.0, 0.0, 0.0, 1.0];
@@ -693,7 +701,7 @@ fn paint_record(info: &mut Info<'_>, prefix: &str, record: &Record<'_>, top_y: f
     info.draw_list
         .add_rect(rect_min.into(), rect_max.into(), rect_color)
         .filled(true)
-        .rounding(info.options.rounding)
+        .rounding(options.rounding)
         .build();
 
     let wide_enough_for_text = width > 32.0;
@@ -715,7 +723,7 @@ fn paint_record(info: &mut Info<'_>, prefix: &str, record: &Record<'_>, top_y: f
                 info.draw_list.add_text(
                     [
                         start_x + 4.0,
-                        top_y + 0.5 * (info.options.rect_height - info.font_size),
+                        top_y + 0.5 * (options.rect_height - info.font_size),
                     ],
                     text_color,
                     text,
@@ -767,20 +775,21 @@ fn remap_clamp(x: f32, from: RangeInclusive<f32>, to: RangeInclusive<f32>) -> f3
 }
 
 fn paint_scope(
-    info: &mut Info<'_>,
+    info: &Info<'_>,
+    options: &mut Options,
     stream: &Stream,
     scope: &Scope<'_>,
     depth: usize,
+    min_y: f32,
 ) -> Result<PaintResult> {
-    let top_y =
-        info.canvas_max.y + (depth as f32) * (info.options.rect_height + info.options.spacing);
+    let top_y = min_y + (depth as f32) * (options.rect_height + options.spacing);
 
-    let result = paint_record(info, "", &scope.record, top_y);
+    let result = paint_record(info, options, "", &scope.record, top_y);
 
     if result != PaintResult::Culled {
         let mut num_children = 0;
         for child_scope in Reader::with_offset(stream, scope.child_begin_position)? {
-            paint_scope(info, stream, &child_scope?, depth + 1)?;
+            paint_scope(info, options, stream, &child_scope?, depth + 1, min_y)?;
             num_children += 1;
         }
 
@@ -807,24 +816,25 @@ fn paint_scope(
 }
 
 fn paint_merge_scope(
-    info: &mut Info<'_>,
+    info: &Info<'_>,
+    options: &mut Options,
     stream: &Stream,
     merge: &MergeScope<'_>,
     depth: usize,
+    min_y: f32,
 ) -> Result<PaintResult> {
-    let top_y =
-        info.canvas_min.y + (depth as f32) * (info.options.rect_height + info.options.spacing);
+    let top_y = min_y + (depth as f32) * (options.rect_height + options.spacing);
 
     let prefix = if merge.pieces.len() <= 1 {
         String::default()
     } else {
         format!("{}x ", merge.pieces.len())
     };
-    let result = paint_record(info, &prefix, &merge.record, top_y);
+    let result = paint_record(info, options, &prefix, &merge.record, top_y);
 
     if result != PaintResult::Culled {
         for merged_child in merge_children_of_pieces(stream, merge)? {
-            paint_merge_scope(info, stream, &merged_child, depth + 1)?;
+            paint_merge_scope(info, options, stream, &merged_child, depth + 1, min_y)?;
         }
 
         if result == PaintResult::Hovered {
@@ -871,7 +881,7 @@ fn merge_scope_tooltip(ui: &Ui<'_>, merge: &MergeScope<'_>) {
     }
 }
 
-fn paint_thread_info(info: &mut Info<'_>, thread_info: &ThreadInfo, pos: [f32; 2]) {
+fn paint_thread_info(info: &Info<'_>, thread_info: &ThreadInfo, pos: [f32; 2]) {
     let text = &thread_info.name;
     let text_size = info.ui.calc_text_size(&ImString::new(text), false, 0.0);
 
