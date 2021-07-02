@@ -378,13 +378,24 @@ impl ProfilerUi {
         let (min_ns, max_ns) = frame.range_ns;
 
         ui.horizontal(|ui| {
+            let play_pause_button_size = Vec2::splat(24.0);
             if self.paused.is_some() {
-                if ui.button("Resume").clicked() {
+                if ui
+                    .add_sized(play_pause_button_size, egui::Button::new("▶"))
+                    .on_hover_text("Show latest data. Toggle with space.")
+                    .clicked()
+                    || ui.input().key_pressed(egui::Key::Space)
+                {
                     self.paused = None;
                 }
             } else {
                 ui.horizontal(|ui| {
-                    if ui.button("Pause").clicked() {
+                    if ui
+                        .add_sized(play_pause_button_size, egui::Button::new("⏸"))
+                        .on_hover_text("Pause on this frame. Toggle with space.")
+                        .clicked()
+                        || ui.input().key_pressed(egui::Key::Space)
+                    {
                         let latest = GlobalProfiler::lock().latest_frame();
                         if let Some(latest) = latest {
                             self.pause_and_select(latest);
@@ -403,7 +414,8 @@ impl ProfilerUi {
                     "Drag to pan.\n\
                 Zoom: Ctrl/cmd + scroll, or drag with secondary mouse button.\n\
                 Click on a scope to zoom to it.\n\
-                Double-click to reset view.",
+                Double-click to reset view.\n\
+                Press spacebar to pause/resume.",
                 );
             ui.separator();
             ui.label(format!(
