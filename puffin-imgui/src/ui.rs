@@ -322,7 +322,7 @@ impl ProfilerUi {
                 options: &mut self.options,
             };
 
-            paint_timeline(&mut info, min_ns, max_ns);
+            paint_timeline(&mut info, min_ns);
 
             // We paint the threads bottom up
             let mut cursor_y = info.canvas_max.y;
@@ -559,7 +559,7 @@ fn now() -> f64 {
         .as_secs_f64()
 }
 
-fn paint_timeline(info: &mut Info<'_>, start_ns: NanoSecond, stop_ns: NanoSecond) {
+fn paint_timeline(info: &mut Info<'_>, start_ns: NanoSecond) {
     if info.options.canvas_width_ns <= 0.0 {
         return;
     }
@@ -583,9 +583,6 @@ fn paint_timeline(info: &mut Info<'_>, start_ns: NanoSecond, stop_ns: NanoSecond
     let mut grid_ns = 0;
 
     loop {
-        if start_ns + grid_ns > stop_ns {
-            break; // stop grid where data stops
-        }
         let line_x = info.pixel_from_ns(info.options, start_ns + grid_ns);
         if line_x > info.canvas_max.x {
             break;
