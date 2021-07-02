@@ -15,7 +15,7 @@ include = [ "**/*.rs", "Cargo.toml"]
 [dependencies]
 byteorder = { version = "1" }
 once_cell = "1"
-serde = { version = "1", features = ["derive"], optional = true }
+serde = { version = "1", features = ["derive", "rc"], optional = true }
 
 [dev-dependencies]
 criterion = "0.3"
