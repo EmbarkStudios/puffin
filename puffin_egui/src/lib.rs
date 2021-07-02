@@ -392,9 +392,13 @@ impl ProfilerUi {
                 "Merge children with same ID",
             );
             ui.separator();
-            ui.add(Label::new("Help!").text_color(ui.visuals().widgets.inactive.text_color())).on_hover_text(
-                "Drag to pan. Ctrl/cmd + scroll to zoom. Click to focus. Double-click to reset.",
-            );
+            ui.add(Label::new("Help!").text_color(ui.visuals().widgets.inactive.text_color()))
+                .on_hover_text(
+                    "Drag to pan.\n\
+                Zoom: Ctrl/cmd + scroll, or drag with secondary mouse button.\n\
+                Click on a scope to zoom to it.\n\
+                Double-click to reset view.",
+                );
             ui.separator();
             ui.label(format!(
                 "Current frame: {:.1} ms, {} threads, {} scopes, {:.1} kB",
@@ -656,7 +660,11 @@ impl ProfilerUi {
                 self.options.zoom_to_relative_ns_range = None;
             }
 
-            let zoom_factor = info.ctx.input().zoom_delta_2d().x;
+            let mut zoom_factor = info.ctx.input().zoom_delta_2d().x;
+
+            if response.dragged_by(PointerButton::Secondary) {
+                zoom_factor *= (response.drag_delta().y * 0.01).exp();
+            }
 
             if zoom_factor != 1.0 {
                 self.options.canvas_width_ns /= zoom_factor;
