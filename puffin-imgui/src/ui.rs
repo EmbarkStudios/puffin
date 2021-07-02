@@ -324,24 +324,29 @@ impl ProfilerUi {
 
             paint_timeline(&mut info, min_ns);
 
-            // We paint the threads bottom up
-            let mut cursor_y = info.canvas_max.y;
-            cursor_y -= info.font_size; // Leave room for time labels
+            // We paint the threads top-down
+            let mut cursor_y = info.canvas_min.y;
+            cursor_y += info.font_size; // Leave room for time labels
 
             for (thread_info, stream_info) in &frame.thread_streams {
+                cursor_y += 2.0;
+                let line_y = cursor_y;
+                cursor_y += 2.0;
+
+                let text_pos = [content_min.x, cursor_y];
+                paint_thread_info(&mut info, thread_info, text_pos);
+                cursor_y += info.font_size;
+
                 // Visual separator between threads:
                 info.draw_list
                     .add_line(
-                        [info.canvas_min.x, cursor_y],
-                        [info.canvas_max.x, cursor_y],
+                        [info.canvas_min.x, line_y],
+                        [info.canvas_max.x, line_y],
                         [1.0, 1.0, 1.0, 0.5],
                     )
                     .build();
 
-                cursor_y -= info.font_size;
-                let text_pos = [content_min.x, cursor_y];
-                paint_thread_info(&mut info, thread_info, text_pos);
-                info.canvas_max.y = cursor_y;
+                info.canvas_min.y = cursor_y;
 
                 let mut paint_stream = || -> Result<()> {
                     let top_scopes = Reader::from_start(&stream_info.stream).read_top_scopes()?;
@@ -363,10 +368,10 @@ impl ProfilerUi {
                         .add_text([info.canvas_min.x, cursor_y], ERROR_COLOR, &text);
                 }
 
-                cursor_y -=
+                cursor_y +=
                     stream_info.depth as f32 * (info.options.rect_height + info.options.spacing);
 
-                cursor_y -= info.font_size; // Extra spacing between threads
+                cursor_y += info.font_size; // Extra spacing between threads
             }
         });
     }
@@ -767,8 +772,8 @@ fn paint_scope(
     scope: &Scope<'_>,
     depth: usize,
 ) -> Result<PaintResult> {
-    let top_y = info.canvas_max.y
-        - (1.0 + depth as f32) * (info.options.rect_height + info.options.spacing);
+    let top_y =
+        info.canvas_max.y + (depth as f32) * (info.options.rect_height + info.options.spacing);
 
     let result = paint_record(info, "", &scope.record, top_y);
 
@@ -807,8 +812,8 @@ fn paint_merge_scope(
     merge: &MergeScope<'_>,
     depth: usize,
 ) -> Result<PaintResult> {
-    let top_y = info.canvas_max.y
-        - (1.0 + depth as f32) * (info.options.rect_height + info.options.spacing);
+    let top_y =
+        info.canvas_min.y + (depth as f32) * (info.options.rect_height + info.options.spacing);
 
     let prefix = if merge.pieces.len() <= 1 {
         String::default()
