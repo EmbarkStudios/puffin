@@ -190,7 +190,7 @@ impl ProfilerUi {
         let mut open = true;
         imgui::Window::new(im_str!("Profiler"))
             .position([10.0, 25.0], Condition::FirstUseEver)
-            .size([600.0, 250.0], Condition::FirstUseEver)
+            .size([800.0, 600.0], Condition::FirstUseEver)
             .bg_alpha(0.99) // Transparency can be distracting
             .always_auto_resize(false)
             .opened(&mut open)
@@ -240,7 +240,7 @@ impl ProfilerUi {
 
         let mut hovered_frame = None;
         if imgui::CollapsingHeader::new(im_str!("Frames"))
-            .default_open(true)
+            .default_open(false)
             .build(ui)
         {
             ui.indent();
