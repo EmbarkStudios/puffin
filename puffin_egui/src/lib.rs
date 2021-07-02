@@ -280,7 +280,7 @@ impl ProfilerUi {
                 hovered_frame = self.show_frames(ui);
 
                 if self.paused.is_some() {
-                    if ui.button("Resume / Show latest").clicked() {
+                    if ui.button("Resume").on_hover_text("Show latest").clicked() {
                         self.paused = None;
                     }
                 } else {
@@ -290,9 +290,6 @@ impl ProfilerUi {
                             if let Some(latest) = latest {
                                 self.pause_and_select(latest);
                             }
-                        }
-                        if ui.button("Forget slowest frames").clicked() {
-                            GlobalProfiler::lock().clear_slowest();
                         }
                     });
                 }
@@ -463,16 +460,25 @@ impl ProfilerUi {
 
         let longest_count = frames.recent.len().max(frames.slowest.len());
 
-        // TODO: in egui 0.14 we can do `egui::Grid::new("frame_grid").num_columns(2)` here
-        // and put the labels on the same row as the frame lists.
+        egui::Grid::new("frame_grid").num_columns(2).show(ui, |ui| {
+            ui.label("Recent:");
+            Frame::dark_canvas(ui.style()).show(ui, |ui| {
+                self.show_frame_list(ui, &frames.recent, longest_count, &mut hovered_frame);
+            });
+            ui.end_row();
 
-        ui.label("Recent history:");
-        Frame::dark_canvas(ui.style()).show(ui, |ui| {
-            self.show_frame_list(ui, &frames.recent, longest_count, &mut hovered_frame);
-        });
-        ui.label("Slowest frames:");
-        Frame::dark_canvas(ui.style()).show(ui, |ui| {
-            self.show_frame_list(ui, &frames.slowest, longest_count, &mut hovered_frame);
+            ui.vertical(|ui| {
+                ui.style_mut().wrap = Some(false);
+                ui.add_space(16.0); // make it a bit more centred
+                ui.label("Slowest:");
+                if ui.button("Clear").clicked() {
+                    GlobalProfiler::lock().clear_slowest();
+                }
+            });
+            Frame::dark_canvas(ui.style()).show(ui, |ui| {
+                self.show_frame_list(ui, &frames.slowest, longest_count, &mut hovered_frame);
+            });
+            ui.end_row();
         });
 
         hovered_frame
