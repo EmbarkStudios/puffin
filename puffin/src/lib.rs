@@ -186,7 +186,7 @@ pub type FrameIndex = u64;
 #[cfg_attr(feature = "with_serde", derive(serde::Deserialize, serde::Serialize))]
 pub struct FrameData {
     pub frame_index: FrameIndex,
-    pub thread_streams: BTreeMap<ThreadInfo, Stream>,
+    pub thread_streams: BTreeMap<ThreadInfo, Arc<Stream>>,
     pub range_ns: (NanoSecond, NanoSecond),
     pub num_bytes: usize,
     pub num_scopes: usize,
@@ -197,6 +197,11 @@ impl FrameData {
         frame_index: FrameIndex,
         thread_streams: BTreeMap<ThreadInfo, Stream>,
     ) -> Result<Self> {
+        let thread_streams: BTreeMap<_, _> = thread_streams
+            .into_iter()
+            .map(|(info, stream)| (info, Arc::new(stream)))
+            .collect();
+
         let mut num_bytes = 0;
         let mut num_scopes = 0;
 
@@ -383,6 +388,7 @@ impl GlobalProfiler {
     pub fn new_frame(&mut self) {
         let current_frame_index = self.current_frame_index;
         self.current_frame_index += 1;
+
         let new_frame =
             match FrameData::new(current_frame_index, std::mem::take(&mut self.current_frame)) {
                 Ok(new_frame) => Arc::new(new_frame),

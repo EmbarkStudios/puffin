@@ -67,8 +67,8 @@ pub use {egui, puffin};
 
 use egui::*;
 use puffin::*;
-use std::sync::Arc;
-use std::sync::Mutex;
+use std::collections::BTreeMap;
+use std::sync::{Arc, Mutex};
 
 // ----------------------------------------------------------------------------
 
@@ -103,6 +103,81 @@ pub fn profiler_ui(ui: &mut egui::Ui) {
 const ERROR_COLOR: Color32 = Color32::RED;
 const HOVER_COLOR: Rgba = Rgba::from_rgb(0.8, 0.8, 0.8);
 const TEXT_STYLE: TextStyle = TextStyle::Body;
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+pub enum SortBy {
+    Time,
+    Name,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+pub struct Sorting {
+    sort_by: SortBy,
+    reversed: bool,
+}
+
+impl Default for Sorting {
+    fn default() -> Self {
+        Self {
+            sort_by: SortBy::Time,
+            reversed: false,
+        }
+    }
+}
+
+impl Sorting {
+    fn sort(
+        self,
+        thread_streams: &BTreeMap<ThreadInfo, Arc<Stream>>,
+    ) -> Vec<(ThreadInfo, Arc<Stream>)> {
+        let mut vec: Vec<(ThreadInfo, Arc<Stream>)> = thread_streams
+            .iter()
+            .map(|(info, stream)| (info.clone(), stream.clone()))
+            .collect();
+
+        match self.sort_by {
+            SortBy::Time => {
+                vec.sort_by_key(|(info, _)| info.start_time_ns);
+            }
+            SortBy::Name => {
+                vec.sort_by(|(a, _), (b, _)| natord::compare_ignore_case(&a.name, &b.name));
+            }
+        }
+        if self.reversed {
+            vec.reverse();
+        }
+        vec
+    }
+
+    fn ui(&mut self, ui: &mut egui::Ui) {
+        ui.horizontal(|ui| {
+            ui.label("Sort threads by:");
+
+            let dir = if self.reversed { '⬆' } else { '⬇' };
+
+            for &sort_by in &[SortBy::Time, SortBy::Name] {
+                let selected = self.sort_by == sort_by;
+
+                let label = if selected {
+                    format!("{:?} {}", sort_by, dir)
+                } else {
+                    format!("{:?}", sort_by)
+                };
+
+                if ui.add(egui::RadioButton::new(selected, label)).clicked() {
+                    if selected {
+                        self.reversed = !self.reversed;
+                    } else {
+                        self.sort_by = sort_by;
+                        self.reversed = false;
+                    }
+                }
+            }
+        });
+    }
+}
 
 /// The frames we can select between
 #[derive(Clone)]
@@ -152,6 +227,8 @@ struct Options {
     /// Aggregate child scopes with the same id?
     merge_scopes: bool,
 
+    sorting: Sorting,
+
     /// Set when user clicks a scope.
     /// First part is `now()`, second is range.
     #[cfg_attr(feature = "serde", serde(skip))]
@@ -170,6 +247,8 @@ impl Default for Options {
             rounding: 4.0,
 
             merge_scopes: true,
+
+            sorting: Default::default(),
 
             zoom_to_relative_ns_range: None,
         }
@@ -326,6 +405,10 @@ impl ProfilerUi {
             ));
         });
 
+        if frame.thread_streams.len() > 1 {
+            self.options.sorting.ui(ui);
+        }
+
         if self.paused.is_none() {
             ui.ctx().request_repaint(); // keep refreshing to see latest data
         }
@@ -383,14 +466,16 @@ impl ProfilerUi {
         let mut cursor_y = info.canvas.top();
         cursor_y += info.text_height; // Leave room for time labels
 
-        for (thread, stream) in &frame.thread_streams {
+        let thread_streams = self.options.sorting.sort(&frame.thread_streams);
+
+        for (thread, stream) in &thread_streams {
             // Visual separator between threads:
             cursor_y += 2.0;
             let line_y = cursor_y;
             cursor_y += 2.0;
 
             let text_pos = pos2(info.canvas.min.x, cursor_y);
-            paint_thread_info(&info, thread, text_pos);
+            paint_thread_info(info, thread, text_pos);
             cursor_y += info.text_height;
 
             // draw on top of thread info background:
@@ -410,7 +495,7 @@ impl ProfilerUi {
                     let merges = puffin::merge_top_scopes(&top_scopes);
                     for merge in merges {
                         paint_merge_scope(
-                            &info,
+                            info,
                             &mut self.options,
                             stream,
                             &merge,
@@ -422,7 +507,7 @@ impl ProfilerUi {
                 } else {
                     for scope in top_scopes {
                         paint_scope(
-                            &info,
+                            info,
                             &mut self.options,
                             stream,
                             &scope,
