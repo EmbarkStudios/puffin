@@ -220,6 +220,9 @@ struct Options {
     // Visuals:
     /// Events shorter than this many points aren't painted
     cull_width: f32,
+    /// Draw each item with at least this width (only makes sense if [`cull_width`] is 0)
+    min_width: f32,
+
     rect_height: f32,
     spacing: f32,
     rounding: f32,
@@ -241,7 +244,10 @@ impl Default for Options {
             canvas_width_ns: 0.0,
             sideways_pan_in_points: 0.0,
 
-            cull_width: 0.5,
+            // cull_width: 0.5, // save some CPU?
+            cull_width: 0.0, // no culling
+            min_width: 0.5,
+
             rect_height: 16.0,
             spacing: 4.0,
             rounding: 4.0,
@@ -827,11 +833,20 @@ fn paint_record(
     record: &Record<'_>,
     top_y: f32,
 ) -> PaintResult {
-    let start_x = info.point_from_ns(options, record.start_ns);
-    let stop_x = info.point_from_ns(options, record.stop_ns());
-    let width = stop_x - start_x;
-    if info.canvas.max.x < start_x || stop_x < info.canvas.min.x || width < options.cull_width {
+    let mut start_x = info.point_from_ns(options, record.start_ns);
+    let mut stop_x = info.point_from_ns(options, record.stop_ns());
+    if info.canvas.max.x < start_x
+        || stop_x < info.canvas.min.x
+        || stop_x - start_x < options.cull_width
+    {
         return PaintResult::Culled;
+    }
+
+    if stop_x - start_x < options.min_width {
+        // Make sure it is visible:
+        let center = 0.5 * (start_x + stop_x);
+        start_x = center - 0.5 * options.min_width;
+        stop_x = center + 0.5 * options.min_width;
     }
 
     let bottom_y = top_y + options.rect_height;
@@ -870,7 +885,7 @@ fn paint_record(
         rect_color,
     );
 
-    let wide_enough_for_text = width > 32.0;
+    let wide_enough_for_text = stop_x - start_x > 32.0;
     if wide_enough_for_text {
         let rect_min = rect_min.max(info.canvas.min);
         let rect_max = rect_max.min(info.canvas.max);

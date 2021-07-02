@@ -39,6 +39,10 @@ impl epi::App for ExampleApp {
             std::thread::sleep(std::time::Duration::from_millis(10))
         }
 
+        for _ in 0..=1000 {
+            puffin::profile_scope!("very thin");
+        }
+
         self.frame_counter += 1;
     }
 }
