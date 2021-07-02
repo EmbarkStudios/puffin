@@ -130,9 +130,9 @@ impl Default for Sorting {
 impl Sorting {
     fn sort(
         self,
-        thread_streams: &BTreeMap<ThreadInfo, Arc<Stream>>,
-    ) -> Vec<(ThreadInfo, Arc<Stream>)> {
-        let mut vec: Vec<(ThreadInfo, Arc<Stream>)> = thread_streams
+        thread_streams: &BTreeMap<ThreadInfo, Arc<StreamInfo>>,
+    ) -> Vec<(ThreadInfo, Arc<StreamInfo>)> {
+        let mut vec: Vec<_> = thread_streams
             .iter()
             .map(|(info, stream)| (info.clone(), stream.clone()))
             .collect();
@@ -468,7 +468,7 @@ impl ProfilerUi {
 
         let thread_streams = self.options.sorting.sort(&frame.thread_streams);
 
-        for (thread, stream) in &thread_streams {
+        for (thread, stream_info) in &thread_streams {
             // Visual separator between threads:
             cursor_y += 2.0;
             let line_y = cursor_y;
@@ -487,21 +487,18 @@ impl ProfilerUi {
                 Stroke::new(1.0, Rgba::from_white_alpha(0.5)),
             );
 
-            let min_y = cursor_y;
-
             let mut paint_stream = || -> Result<()> {
-                let top_scopes = Reader::from_start(stream).read_top_scopes()?;
+                let top_scopes = Reader::from_start(&stream_info.stream).read_top_scopes()?;
                 if self.options.merge_scopes {
                     let merges = puffin::merge_top_scopes(&top_scopes);
                     for merge in merges {
                         paint_merge_scope(
                             info,
                             &mut self.options,
-                            stream,
+                            &stream_info.stream,
                             &merge,
                             0,
-                            min_y,
-                            &mut cursor_y,
+                            cursor_y,
                         )?;
                     }
                 } else {
@@ -509,11 +506,10 @@ impl ProfilerUi {
                         paint_scope(
                             info,
                             &mut self.options,
-                            stream,
+                            &stream_info.stream,
                             &scope,
                             0,
-                            min_y,
-                            &mut cursor_y,
+                            cursor_y,
                         )?;
                     }
                 }
@@ -530,6 +526,9 @@ impl ProfilerUi {
                     ERROR_COLOR,
                 );
             }
+
+            cursor_y +=
+                stream_info.depth as f32 * (self.options.rect_height + self.options.spacing);
 
             cursor_y += info.text_height; // Extra spacing between threads
         }
@@ -919,25 +918,15 @@ fn paint_scope(
     scope: &Scope<'_>,
     depth: usize,
     min_y: f32,
-    max_y: &mut f32,
 ) -> Result<PaintResult> {
     let top_y = min_y + (depth as f32) * (options.rect_height + options.spacing);
-    *max_y = max_y.max(top_y + info.text_height);
 
     let result = paint_record(info, options, "", &scope.record, top_y);
 
     if result != PaintResult::Culled {
         let mut num_children = 0;
         for child_scope in Reader::with_offset(stream, scope.child_begin_position)? {
-            paint_scope(
-                info,
-                options,
-                stream,
-                &child_scope?,
-                depth + 1,
-                min_y,
-                max_y,
-            )?;
+            paint_scope(info, options, stream, &child_scope?, depth + 1, min_y)?;
             num_children += 1;
         }
 
@@ -969,10 +958,8 @@ fn paint_merge_scope(
     merge: &MergeScope<'_>,
     depth: usize,
     min_y: f32,
-    max_y: &mut f32,
 ) -> Result<PaintResult> {
     let top_y = min_y + (depth as f32) * (options.rect_height + options.spacing);
-    *max_y = max_y.max(top_y + info.text_height);
 
     let prefix = if merge.pieces.len() <= 1 {
         String::default()
@@ -983,15 +970,7 @@ fn paint_merge_scope(
 
     if result != PaintResult::Culled {
         for merged_child in merge_children_of_pieces(stream, merge)? {
-            paint_merge_scope(
-                info,
-                options,
-                stream,
-                &merged_child,
-                depth + 1,
-                min_y,
-                max_y,
-            )?;
+            paint_merge_scope(info, options, stream, &merged_child, depth + 1, min_y)?;
         }
 
         if result == PaintResult::Hovered {

@@ -219,17 +219,33 @@ impl<'s> Reader<'s> {
         }
     }
 
-    /// Recursively count all profile scopes in a stream
-    pub fn count_all_scopes(stream: &Stream) -> Result<usize> {
-        Self::count_all_scopes_at_offset(stream, 0)
+    /// Recursively count all profile scopes in a stream.
+    /// Returns total number of scopes and maximum recursion depth.
+    pub fn count_scope_and_depth(stream: &Stream) -> Result<(usize, usize)> {
+        let mut max_depth = 0;
+        let num_scopes = Self::count_all_scopes_at_offset(stream, 0, 0, &mut max_depth)?;
+        Ok((num_scopes, max_depth))
     }
 
-    pub fn count_all_scopes_at_offset(stream: &Stream, offset: u64) -> Result<usize> {
-        let mut sum = 0;
+    fn count_all_scopes_at_offset(
+        stream: &Stream,
+        offset: u64,
+        depth: usize,
+        max_depth: &mut usize,
+    ) -> Result<usize> {
+        *max_depth = (*max_depth).max(depth);
+
+        let mut num_scopes = 0;
         for child_scope in Reader::with_offset(stream, offset)? {
-            sum += 1 + Self::count_all_scopes_at_offset(stream, child_scope?.child_begin_position)?;
+            num_scopes += 1 + Self::count_all_scopes_at_offset(
+                stream,
+                child_scope?.child_begin_position,
+                depth + 1,
+                max_depth,
+            )?;
         }
-        Ok(sum)
+
+        Ok(num_scopes)
     }
 }
 

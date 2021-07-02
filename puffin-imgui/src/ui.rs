@@ -328,7 +328,7 @@ impl ProfilerUi {
             let mut cursor_y = info.canvas_max.y;
             cursor_y -= info.font_size; // Leave room for time labels
 
-            for (thread_info, stream) in &frame.thread_streams {
+            for (thread_info, stream_info) in &frame.thread_streams {
                 // Visual separator between threads:
                 info.draw_list
                     .add_line(
@@ -344,15 +344,21 @@ impl ProfilerUi {
                 info.canvas_max.y = cursor_y;
 
                 let mut paint_stream = || -> Result<()> {
-                    let top_scopes = Reader::from_start(stream).read_top_scopes()?;
+                    let top_scopes = Reader::from_start(&stream_info.stream).read_top_scopes()?;
                     if info.options.merge_scopes {
                         let merges = puffin::merge_top_scopes(&top_scopes);
                         for merge in merges {
-                            paint_merge_scope(&mut info, stream, &merge, 0, &mut cursor_y)?;
+                            paint_merge_scope(
+                                &mut info,
+                                &stream_info.stream,
+                                &merge,
+                                0,
+                                &mut cursor_y,
+                            )?;
                         }
                     } else {
                         for scope in top_scopes {
-                            paint_scope(&mut info, stream, &scope, 0, &mut cursor_y)?;
+                            paint_scope(&mut info, &stream_info.stream, &scope, 0, &mut cursor_y)?;
                         }
                     }
                     Ok(())
