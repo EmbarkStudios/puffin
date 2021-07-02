@@ -463,6 +463,9 @@ impl ProfilerUi {
 
         let longest_count = frames.recent.len().max(frames.slowest.len());
 
+        // TODO: in egui 0.14 we can do `egui::Grid::new("frame_grid").num_columns(2)` here
+        // and put the labels on the same row as the frame lists.
+
         ui.label("Recent history:");
         Frame::dark_canvas(ui.style()).show(ui, |ui| {
             self.show_frame_list(ui, &frames.recent, longest_count, &mut hovered_frame);
