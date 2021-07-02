@@ -278,21 +278,6 @@ impl ProfilerUi {
             .default_open(true)
             .show(ui, |ui| {
                 hovered_frame = self.show_frames(ui);
-
-                if self.paused.is_some() {
-                    if ui.button("Resume").on_hover_text("Show latest").clicked() {
-                        self.paused = None;
-                    }
-                } else {
-                    ui.horizontal(|ui| {
-                        if ui.button("Pause").clicked() {
-                            let latest = GlobalProfiler::lock().latest_frame();
-                            if let Some(latest) = latest {
-                                self.pause_and_select(latest);
-                            }
-                        }
-                    });
-                }
             });
 
         let frame = match hovered_frame.or_else(|| self.selected_frame()) {
@@ -307,23 +292,38 @@ impl ProfilerUi {
 
         let (min_ns, max_ns) = frame.range_ns;
 
-        ui.label(format!(
-            "Current frame: {:.1} ms, {} threads, {} scopes, {:.1} kB",
-            (max_ns - min_ns) as f64 * 1e-6,
-            frame.thread_streams.len(),
-            frame.num_scopes,
-            frame.num_bytes as f64 * 1e-3
-        ));
-
         ui.horizontal(|ui| {
-            ui.label(
-                "Drag to pan. Ctrl/cmd + scroll to zoom. Click to focus. Double-click to reset.",
-            );
-
+            if self.paused.is_some() {
+                if ui.button("Resume").clicked() {
+                    self.paused = None;
+                }
+            } else {
+                ui.horizontal(|ui| {
+                    if ui.button("Pause").clicked() {
+                        let latest = GlobalProfiler::lock().latest_frame();
+                        if let Some(latest) = latest {
+                            self.pause_and_select(latest);
+                        }
+                    }
+                });
+            }
+            ui.separator();
             ui.checkbox(
                 &mut self.options.merge_scopes,
                 "Merge children with same ID",
             );
+            ui.separator();
+            ui.add(Label::new("Help!").text_color(ui.visuals().widgets.inactive.text_color())).on_hover_text(
+                "Drag to pan. Ctrl/cmd + scroll to zoom. Click to focus. Double-click to reset.",
+            );
+            ui.separator();
+            ui.label(format!(
+                "Current frame: {:.1} ms, {} threads, {} scopes, {:.1} kB",
+                (max_ns - min_ns) as f64 * 1e-6,
+                frame.thread_streams.len(),
+                frame.num_scopes,
+                frame.num_bytes as f64 * 1e-3
+            ));
         });
 
         if self.paused.is_none() {
