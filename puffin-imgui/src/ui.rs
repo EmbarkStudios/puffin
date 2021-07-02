@@ -348,17 +348,11 @@ impl ProfilerUi {
                     if info.options.merge_scopes {
                         let merges = puffin::merge_top_scopes(&top_scopes);
                         for merge in merges {
-                            paint_merge_scope(
-                                &mut info,
-                                &stream_info.stream,
-                                &merge,
-                                0,
-                                &mut cursor_y,
-                            )?;
+                            paint_merge_scope(&mut info, &stream_info.stream, &merge, 0)?;
                         }
                     } else {
                         for scope in top_scopes {
-                            paint_scope(&mut info, &stream_info.stream, &scope, 0, &mut cursor_y)?;
+                            paint_scope(&mut info, &stream_info.stream, &scope, 0)?;
                         }
                     }
                     Ok(())
@@ -368,6 +362,9 @@ impl ProfilerUi {
                     info.draw_list
                         .add_text([info.canvas_min.x, cursor_y], ERROR_COLOR, &text);
                 }
+
+                cursor_y -=
+                    stream_info.depth as f32 * (info.options.rect_height + info.options.spacing);
 
                 cursor_y -= info.font_size; // Extra spacing between threads
             }
@@ -769,18 +766,16 @@ fn paint_scope(
     stream: &Stream,
     scope: &Scope<'_>,
     depth: usize,
-    min_y: &mut f32,
 ) -> Result<PaintResult> {
     let top_y = info.canvas_max.y
         - (1.0 + depth as f32) * (info.options.rect_height + info.options.spacing);
-    *min_y = min_y.min(top_y);
 
     let result = paint_record(info, "", &scope.record, top_y);
 
     if result != PaintResult::Culled {
         let mut num_children = 0;
         for child_scope in Reader::with_offset(stream, scope.child_begin_position)? {
-            paint_scope(info, stream, &child_scope?, depth + 1, min_y)?;
+            paint_scope(info, stream, &child_scope?, depth + 1)?;
             num_children += 1;
         }
 
@@ -811,11 +806,9 @@ fn paint_merge_scope(
     stream: &Stream,
     merge: &MergeScope<'_>,
     depth: usize,
-    min_y: &mut f32,
 ) -> Result<PaintResult> {
     let top_y = info.canvas_max.y
         - (1.0 + depth as f32) * (info.options.rect_height + info.options.spacing);
-    *min_y = min_y.min(top_y);
 
     let prefix = if merge.pieces.len() <= 1 {
         String::default()
@@ -826,7 +819,7 @@ fn paint_merge_scope(
 
     if result != PaintResult::Culled {
         for merged_child in merge_children_of_pieces(stream, merge)? {
-            paint_merge_scope(info, stream, &merged_child, depth + 1, min_y)?;
+            paint_merge_scope(info, stream, &merged_child, depth + 1)?;
         }
 
         if result == PaintResult::Hovered {
