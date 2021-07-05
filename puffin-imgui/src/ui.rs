@@ -80,6 +80,8 @@ pub struct ProfilerUi {
     // interaction:
     #[serde(skip)]
     is_panning: bool,
+    #[serde(skip)]
+    is_zooming: bool,
 
     /// If `None`, we show the latest frames.
     #[serde(skip)]
@@ -96,10 +98,6 @@ struct Options {
 
     /// How much we have panned sideways:
     sideways_pan_in_pixels: f32,
-
-    // --------------------
-    // Interact:
-    scroll_zoom_speed: f32,
 
     // --------------------
     // Visuals:
@@ -123,8 +121,6 @@ impl Default for Options {
         Self {
             canvas_width_ns: 0.0,
             sideways_pan_in_pixels: 0.0,
-
-            scroll_zoom_speed: 0.01,
 
             cull_width: 0.5,
             rect_height: 16.0,
@@ -260,24 +256,38 @@ impl ProfilerUi {
 
         ui.button(im_str!("Help!"), Default::default());
         if ui.is_item_hovered() {
-            ui.tooltip_text("Drag to pan. Scroll to zoom. Click to focus. Double-click to reset.");
+            ui.tooltip_text(
+                "Drag to pan. \n\
+                Zoom: drag up/down with secondary mouse button. \n\
+                Click on a scope to zoom to it.\n\
+                Double-click background to reset view.\n\
+                Press spacebar to pause/resume.",
+            );
         }
 
         ui.same_line(0.0);
 
         let play_pause_button_size = [54.0, 0.0];
         if self.paused.is_some() {
-            if ui.button(im_str!("Resume"), play_pause_button_size) {
+            if ui.button(im_str!("Resume"), play_pause_button_size)
+                || ui.is_key_pressed(imgui::Key::Space)
+            {
                 self.paused = None;
             }
         } else {
-            if ui.button(im_str!("Pause"), play_pause_button_size) {
+            if ui.button(im_str!("Pause"), play_pause_button_size)
+                || ui.is_key_pressed(imgui::Key::Space)
+            {
                 let latest = GlobalProfiler::lock().latest_frame();
                 if let Some(latest) = latest {
                     self.pause_and_select(latest);
                 }
             }
         }
+        if ui.is_any_item_hovered() {
+            ui.tooltip_text("Toggle with spacebar.");
+        }
+
         ui.same_line(0.0);
         ui.checkbox(
             im_str!("Merge children with same ID"),
@@ -505,9 +515,18 @@ impl ProfilerUi {
         duration_ns: NanoSecond,
         (canvas_min, canvas_max): (Vec2, Vec2),
     ) {
+        // note: imgui scroll coordinates are not pixels.
+        // for `mouse_wheel` one unit scrolls "about 5 lines of text",
+        // and `mouse_wheel_h` is unspecified.
+        // So let's not use them.
+
         let pan_button = MouseButton::Left;
         self.is_panning |= ui.is_item_hovered() && ui.is_mouse_clicked(pan_button);
         self.is_panning &= !ui.is_mouse_released(pan_button);
+
+        let zoom_button = MouseButton::Right;
+        self.is_zooming |= ui.is_item_hovered() && ui.is_mouse_clicked(zoom_button);
+        self.is_zooming &= !ui.is_mouse_released(zoom_button);
 
         let pan_delta = if self.is_panning {
             let pan_delta = ui.mouse_drag_delta(pan_button);
@@ -522,13 +541,15 @@ impl ProfilerUi {
             self.options.zoom_to_relative_ns_range = None;
         }
 
-        if ui.is_item_hovered() && ui.io().mouse_wheel != 0.0 {
-            // note: imgui scroll coordinates are not pixels.
-            // for `mouse_wheel` one unit scrolls "about 5 lines of text",
-            // and `mouse_wheel_h` is unspecified.
+        let zoom_factor = if self.is_zooming {
+            let zoom_delta = ui.mouse_drag_delta(zoom_button)[1];
+            ui.reset_mouse_drag_delta(zoom_button);
+            (zoom_delta * 0.01).exp()
+        } else {
+            0.0
+        };
 
-            let zoom_factor = (ui.io().mouse_wheel * self.options.scroll_zoom_speed).exp();
-
+        if zoom_factor != 0.0 {
             self.options.canvas_width_ns /= zoom_factor;
 
             let zoom_center = ui.io().mouse_pos[0] - canvas_min.x;
