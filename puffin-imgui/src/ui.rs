@@ -437,7 +437,7 @@ impl ProfilerUi {
             self.options.zoom_to_relative_ns_range = None;
         }
 
-        paint_timeline(&info, &self.options, min_ns);
+        paint_timeline(info, &self.options, min_ns);
 
         // We paint the threads top-down
         let mut cursor_y = info.canvas_min.y - info.ui.scroll_y();
@@ -451,7 +451,7 @@ impl ProfilerUi {
             cursor_y += 2.0;
 
             let text_pos = [info.canvas_min.x, cursor_y];
-            paint_thread_info(&info, thread_info, text_pos);
+            paint_thread_info(info, thread_info, text_pos);
             cursor_y += info.font_size;
 
             // Visual separator between threads:
@@ -469,7 +469,7 @@ impl ProfilerUi {
                     let merges = puffin::merge_top_scopes(&top_scopes);
                     for merge in merges {
                         paint_merge_scope(
-                            &info,
+                            info,
                             &mut self.options,
                             &stream_info.stream,
                             &merge,
@@ -480,7 +480,7 @@ impl ProfilerUi {
                 } else {
                     for scope in top_scopes {
                         paint_scope(
-                            &info,
+                            info,
                             &mut self.options,
                             &stream_info.stream,
                             &scope,
