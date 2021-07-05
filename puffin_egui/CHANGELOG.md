@@ -5,6 +5,9 @@ All notable changes to the egui crate will be documented in this file.
 
 ## Unreleased
 
+
+## [0.4.0] - 2021-07-05
+
 * Update to egui 0.13
 * Paint flamegraph top-down
 * Scrollable flamegraph
