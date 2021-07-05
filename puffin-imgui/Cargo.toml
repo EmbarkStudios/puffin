@@ -16,3 +16,8 @@ include = [ "**/*.rs", "Cargo.toml"]
 imgui = { version = "0.7" }
 puffin = { version = "0.5.2", path = "../puffin" }
 serde = { version = "1", features = ["derive"] }
+
+[dev-dependencies]
+glium = { version = "0.29", default-features = true }
+imgui-glium-renderer = "0.7"
+imgui-winit-support = "0.7"
