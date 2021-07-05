@@ -6,7 +6,7 @@ All notable changes to the egui crate will be documented in this file.
 ## Unreleased
 
 * Update to egui 0.13
-* Paint flamegrpah top-down
+* Paint flamegraph top-down
 * Scrollable flamegraph
 * Option to sort threads by name
 * Drag with right mouse button to zoom

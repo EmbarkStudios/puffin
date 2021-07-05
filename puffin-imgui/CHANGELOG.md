@@ -6,7 +6,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-* Paint flamegrpah top-down
+* Paint flamegraph top-down
 * Scrollable flamegraph
 * Option to sort threads by name
 * Drag with right mouse button to zoom
