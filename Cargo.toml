@@ -6,8 +6,3 @@ members = [
     "puffin-imgui",
     "puffin_viewer",
 ]
-
-
-[patch.crates-io]
-eframe = { git = "https://github.com/emilk/egui", rev = "faf104220be18cda878e9864bab3760caa4901d8" } # 2021-07-02
-egui = { git = "https://github.com/emilk/egui", rev = "faf104220be18cda878e9864bab3760caa4901d8" } # 2021-07-02
