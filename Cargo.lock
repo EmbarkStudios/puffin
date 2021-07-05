@@ -2186,7 +2186,7 @@ dependencies = [
 
 [[package]]
 name = "puffin"
-version = "0.5.2"
+version = "0.6.0"
 dependencies = [
  "byteorder",
  "criterion",
@@ -2196,7 +2196,7 @@ dependencies = [
 
 [[package]]
 name = "puffin-imgui"
-version = "0.8.0"
+version = "0.9.0"
 dependencies = [
  "glium 0.29.1",
  "imgui",
@@ -2223,7 +2223,7 @@ dependencies = [
 
 [[package]]
 name = "puffin_http"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "anyhow",
  "bincode",
