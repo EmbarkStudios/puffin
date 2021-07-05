@@ -405,11 +405,6 @@ impl ProfilerUi {
             ui.invisible_button(im_str!("canvas"), content_region_avail.into());
             self.interact_with_canvas(ui, max_ns - min_ns, (content_min, content_max));
 
-            if self.options.canvas_width_ns <= 0.0 {
-                self.options.canvas_width_ns = (max_ns - min_ns) as f32;
-                self.options.zoom_to_relative_ns_range = None;
-            }
-
             let info = Info {
                 start_ns: min_ns,
                 canvas_min: content_min,
@@ -419,73 +414,86 @@ impl ProfilerUi {
                 draw_list: &draw_list,
                 font_size: ui.current_font_size(),
             };
-
-            paint_timeline(&info, &self.options, min_ns);
-
-            // We paint the threads top-down
-            let mut cursor_y = info.canvas_min.y;
-            cursor_y += info.font_size; // Leave room for time labels
-
-            let thread_streams = self.options.sorting.sort(&frame.thread_streams);
-
-            for (thread_info, stream_info) in &thread_streams {
-                cursor_y += 2.0;
-                let line_y = cursor_y;
-                cursor_y += 2.0;
-
-                let text_pos = [content_min.x, cursor_y];
-                paint_thread_info(&info, thread_info, text_pos);
-                cursor_y += info.font_size;
-
-                // Visual separator between threads:
-                info.draw_list
-                    .add_line(
-                        [info.canvas_min.x, line_y],
-                        [info.canvas_max.x, line_y],
-                        [1.0, 1.0, 1.0, 0.5],
-                    )
-                    .build();
-
-                let mut paint_stream = || -> Result<()> {
-                    let top_scopes = Reader::from_start(&stream_info.stream).read_top_scopes()?;
-                    if self.options.merge_scopes {
-                        let merges = puffin::merge_top_scopes(&top_scopes);
-                        for merge in merges {
-                            paint_merge_scope(
-                                &info,
-                                &mut self.options,
-                                &stream_info.stream,
-                                &merge,
-                                0,
-                                cursor_y,
-                            )?;
-                        }
-                    } else {
-                        for scope in top_scopes {
-                            paint_scope(
-                                &info,
-                                &mut self.options,
-                                &stream_info.stream,
-                                &scope,
-                                0,
-                                cursor_y,
-                            )?;
-                        }
-                    }
-                    Ok(())
-                };
-                if let Err(err) = paint_stream() {
-                    let text = format!("Profiler stream error: {:?}", err);
-                    info.draw_list
-                        .add_text([info.canvas_min.x, cursor_y], ERROR_COLOR, &text);
-                }
-
-                cursor_y +=
-                    stream_info.depth as f32 * (self.options.rect_height + self.options.spacing);
-
-                cursor_y += info.font_size; // Extra spacing between threads
-            }
+            self.ui_canvas(&info, &frame, (min_ns, max_ns));
         });
+    }
+
+    fn ui_canvas(
+        &mut self,
+        info: &Info<'_>,
+        frame: &FrameData,
+        (min_ns, max_ns): (NanoSecond, NanoSecond),
+    ) {
+        if self.options.canvas_width_ns <= 0.0 {
+            self.options.canvas_width_ns = (max_ns - min_ns) as f32;
+            self.options.zoom_to_relative_ns_range = None;
+        }
+
+        paint_timeline(&info, &self.options, min_ns);
+
+        // We paint the threads top-down
+        let mut cursor_y = info.canvas_min.y;
+        cursor_y += info.font_size; // Leave room for time labels
+
+        let thread_streams = self.options.sorting.sort(&frame.thread_streams);
+
+        for (thread_info, stream_info) in &thread_streams {
+            cursor_y += 2.0;
+            let line_y = cursor_y;
+            cursor_y += 2.0;
+
+            let text_pos = [info.canvas_min.x, cursor_y];
+            paint_thread_info(&info, thread_info, text_pos);
+            cursor_y += info.font_size;
+
+            // Visual separator between threads:
+            info.draw_list
+                .add_line(
+                    [info.canvas_min.x, line_y],
+                    [info.canvas_max.x, line_y],
+                    [1.0, 1.0, 1.0, 0.5],
+                )
+                .build();
+
+            let mut paint_stream = || -> Result<()> {
+                let top_scopes = Reader::from_start(&stream_info.stream).read_top_scopes()?;
+                if self.options.merge_scopes {
+                    let merges = puffin::merge_top_scopes(&top_scopes);
+                    for merge in merges {
+                        paint_merge_scope(
+                            &info,
+                            &mut self.options,
+                            &stream_info.stream,
+                            &merge,
+                            0,
+                            cursor_y,
+                        )?;
+                    }
+                } else {
+                    for scope in top_scopes {
+                        paint_scope(
+                            &info,
+                            &mut self.options,
+                            &stream_info.stream,
+                            &scope,
+                            0,
+                            cursor_y,
+                        )?;
+                    }
+                }
+                Ok(())
+            };
+            if let Err(err) = paint_stream() {
+                let text = format!("Profiler stream error: {:?}", err);
+                info.draw_list
+                    .add_text([info.canvas_min.x, cursor_y], ERROR_COLOR, &text);
+            }
+
+            cursor_y +=
+                stream_info.depth as f32 * (self.options.rect_height + self.options.spacing);
+
+            cursor_y += info.font_size; // Extra spacing between threads
+        }
     }
 
     /// Returns hovered, if any
