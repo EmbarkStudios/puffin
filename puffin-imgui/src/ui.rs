@@ -414,7 +414,10 @@ impl ProfilerUi {
 
             draw_list.with_clip_rect_intersect(content_min.into(), content_max.into(), || {
                 let max_y = self.ui_canvas(&info, &frame, (min_ns, max_ns));
-                let used_space = Vec2::new(content_region_avail.x, max_y - content_min.y);
+                let used_space = Vec2::new(
+                    content_region_avail.x,
+                    content_region_avail.y.max(max_y - content_min.y),
+                );
 
                 // An invisible button for the canvas allows us to catch input for it.
                 ui.invisible_button(im_str!("canvas"), used_space.into());
