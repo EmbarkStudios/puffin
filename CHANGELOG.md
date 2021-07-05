@@ -6,6 +6,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+* Handle Windows, which uses backslash (`\`) as path separator.
+
 
 ## [0.5.2]
 
@@ -14,9 +16,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.5.1]
 
-* Remove stderr warning about empty frames
+* Remove stderr warning about empty frames.
 
 
 ## [0.5.0]
 
-* `GlobalProfiler` now store recent history and the slowest frames
+* `GlobalProfiler` now store recent history and the slowest frames.

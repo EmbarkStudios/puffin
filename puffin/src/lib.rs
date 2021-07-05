@@ -569,9 +569,10 @@ macro_rules! current_file_name {
 #[doc(hidden)]
 pub fn short_file_name(name: &str) -> &str {
     // TODO: "foo/bar/src/lib.rs" -> "bar/src/lib.rs"
-    if let Some(slash) = name.rfind('/') {
+
+    if let Some(separator) = name.rfind(&['/', '\\'][..]) {
         // "foo/bar/baz.rs" -> "baz.rs"
-        &name[slash + 1..]
+        &name[separator + 1..]
     } else {
         name
     }
@@ -583,6 +584,7 @@ fn test_short_file_name() {
     assert_eq!(short_file_name("foo.rs"), "foo.rs");
     assert_eq!(short_file_name("foo/bar.rs"), "bar.rs");
     assert_eq!(short_file_name("foo/bar/baz.rs"), "baz.rs");
+    assert_eq!(short_file_name(r"C:\\windows\is\weird\src.rs"), "src.rs");
 }
 
 /// Automatically name the profiling scope based on function name.
