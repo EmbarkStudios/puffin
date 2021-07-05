@@ -179,7 +179,7 @@ pub struct Options {
     // Visuals:
     /// Events shorter than this many pixels aren't painted
     pub cull_width: f32,
-    /// Draw each item with at least this width (only makes sense if [`cull_width`] is 0)
+    /// Draw each item with at least this width (only makes sense if [`Self::cull_width`] is 0)
     pub min_width: f32,
 
     pub rect_height: f32,
