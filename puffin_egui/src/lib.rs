@@ -431,9 +431,8 @@ impl ProfilerUi {
             ));
         });
 
-        if frame.thread_streams.len() > 1 {
-            self.options.sorting.ui(ui);
-        }
+        // The number of threads can change between frames, so always show this even if there currently is only one thread:
+        self.options.sorting.ui(ui);
 
         if self.paused.is_none() {
             ui.ctx().request_repaint(); // keep refreshing to see latest data
