@@ -242,26 +242,7 @@ impl ProfilerUi {
             .build(ui)
         {
             ui.indent();
-
             hovered_frame = self.show_frames(ui);
-
-            if self.paused.is_some() {
-                if ui.button(im_str!("Resume / Show latest"), Default::default()) {
-                    self.paused = None;
-                }
-            } else {
-                if ui.button(im_str!("Pause"), Default::default()) {
-                    let latest = GlobalProfiler::lock().latest_frame();
-                    if let Some(latest) = latest {
-                        self.pause_and_select(latest);
-                    }
-                }
-                ui.same_line(0.0);
-                if ui.button(im_str!("Forget slowest frames"), Default::default()) {
-                    GlobalProfiler::lock().clear_slowest();
-                }
-            }
-
             ui.unindent();
         }
 
@@ -277,6 +258,32 @@ impl ProfilerUi {
 
         let (min_ns, max_ns) = frame.range_ns;
 
+        ui.button(im_str!("Help!"), Default::default());
+        if ui.is_item_hovered() {
+            ui.tooltip_text("Drag to pan. Scroll to zoom. Click to focus. Double-click to reset.");
+        }
+
+        ui.same_line(0.0);
+
+        let play_pause_button_size = [54.0, 0.0];
+        if self.paused.is_some() {
+            if ui.button(im_str!("Resume"), play_pause_button_size) {
+                self.paused = None;
+            }
+        } else {
+            if ui.button(im_str!("Pause"), play_pause_button_size) {
+                let latest = GlobalProfiler::lock().latest_frame();
+                if let Some(latest) = latest {
+                    self.pause_and_select(latest);
+                }
+            }
+        }
+        ui.same_line(0.0);
+        ui.checkbox(
+            im_str!("Merge children with same ID"),
+            &mut self.options.merge_scopes,
+        );
+
         ui.text(im_str!(
             "Current frame: {:.1} ms, {} threads, {} scopes, {:.1} kB",
             (max_ns - min_ns) as f64 * 1e-6,
@@ -285,12 +292,6 @@ impl ProfilerUi {
             frame.num_bytes as f64 * 1e-3
         ));
 
-        ui.text("Drag to pan. Scroll to zoom. Click to focus. Double-click to reset.");
-        ui.same_line(0.0);
-        ui.checkbox(
-            im_str!("Merge children with same ID"),
-            &mut self.options.merge_scopes,
-        );
         ui.separator();
 
         let content_min: Vec2 = ui.cursor_screen_pos().into();
@@ -387,7 +388,12 @@ impl ProfilerUi {
 
         let longest_count = frames.recent.len().max(frames.slowest.len());
 
-        ui.text("Recent history:");
+        ui.columns(2, im_str!("columns"), false);
+        ui.set_column_width(0, 64.0);
+
+        ui.text("Recent:");
+        ui.next_column();
+
         self.show_frame_list(
             ui,
             "Recent frames",
@@ -395,7 +401,13 @@ impl ProfilerUi {
             longest_count,
             &mut hovered_frame,
         );
-        ui.text("Slowest frames:");
+        ui.next_column();
+
+        ui.text("Slowest:");
+        if ui.button(im_str!("Clear"), Default::default()) {
+            GlobalProfiler::lock().clear_slowest();
+        }
+        ui.next_column();
         self.show_frame_list(
             ui,
             "Slow spikes",
@@ -403,6 +415,9 @@ impl ProfilerUi {
             longest_count,
             &mut hovered_frame,
         );
+        ui.next_column();
+
+        ui.columns(1, im_str!(""), false);
 
         hovered_frame
     }
