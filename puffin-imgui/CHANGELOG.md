@@ -6,6 +6,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+* Paint flamegraph top-down
+* Scrollable flamegraph
+* Option to sort threads by name
+* Drag with right mouse button to zoom
+* Toggle play/pause with spacebar
+* More compact UI
+* Show all scopes (even tiny ones)
+
 
 ## [0.8.0]
 

@@ -14,6 +14,7 @@ include = [ "**/*.rs", "Cargo.toml"]
 
 [dependencies]
 imgui = { version = "0.7" }
+natord = "1.0.9"
 puffin = { version = "0.5.2", path = "../puffin" }
 serde = { version = "1", features = ["derive"] }
 

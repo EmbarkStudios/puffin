@@ -67,8 +67,8 @@ pub use {egui, puffin};
 
 use egui::*;
 use puffin::*;
-use std::sync::Arc;
-use std::sync::Mutex;
+use std::collections::BTreeMap;
+use std::sync::{Arc, Mutex};
 
 // ----------------------------------------------------------------------------
 
@@ -104,6 +104,81 @@ const ERROR_COLOR: Color32 = Color32::RED;
 const HOVER_COLOR: Rgba = Rgba::from_rgb(0.8, 0.8, 0.8);
 const TEXT_STYLE: TextStyle = TextStyle::Body;
 
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+pub enum SortBy {
+    Time,
+    Name,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+pub struct Sorting {
+    pub sort_by: SortBy,
+    pub reversed: bool,
+}
+
+impl Default for Sorting {
+    fn default() -> Self {
+        Self {
+            sort_by: SortBy::Time,
+            reversed: false,
+        }
+    }
+}
+
+impl Sorting {
+    fn sort(
+        self,
+        thread_streams: &BTreeMap<ThreadInfo, Arc<StreamInfo>>,
+    ) -> Vec<(ThreadInfo, Arc<StreamInfo>)> {
+        let mut vec: Vec<_> = thread_streams
+            .iter()
+            .map(|(info, stream)| (info.clone(), stream.clone()))
+            .collect();
+
+        match self.sort_by {
+            SortBy::Time => {
+                vec.sort_by_key(|(info, _)| info.start_time_ns);
+            }
+            SortBy::Name => {
+                vec.sort_by(|(a, _), (b, _)| natord::compare_ignore_case(&a.name, &b.name));
+            }
+        }
+        if self.reversed {
+            vec.reverse();
+        }
+        vec
+    }
+
+    fn ui(&mut self, ui: &mut egui::Ui) {
+        ui.horizontal(|ui| {
+            ui.label("Sort threads by:");
+
+            let dir = if self.reversed { '⬆' } else { '⬇' };
+
+            for &sort_by in &[SortBy::Time, SortBy::Name] {
+                let selected = self.sort_by == sort_by;
+
+                let label = if selected {
+                    format!("{:?} {}", sort_by, dir)
+                } else {
+                    format!("{:?}", sort_by)
+                };
+
+                if ui.add(egui::RadioButton::new(selected, label)).clicked() {
+                    if selected {
+                        self.reversed = !self.reversed;
+                    } else {
+                        self.sort_by = sort_by;
+                        self.reversed = false;
+                    }
+                }
+            }
+        });
+    }
+}
+
 /// The frames we can select between
 #[derive(Clone)]
 pub struct Frames {
@@ -123,7 +198,7 @@ pub struct Paused {
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "persistence", serde(default))]
 pub struct ProfilerUi {
-    options: Options,
+    pub options: Options,
 
     /// If `None`, we show the latest frames.
     #[cfg_attr(feature = "serde", serde(skip))]
@@ -132,29 +207,30 @@ pub struct ProfilerUi {
 
 #[derive(Clone, Copy, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
-struct Options {
+pub struct Options {
     // --------------------
     // View:
     /// Controls zoom
-    canvas_width_ns: f32,
+    pub canvas_width_ns: f32,
 
     /// How much we have panned sideways:
-    sideways_pan_in_points: f32,
-
-    // --------------------
-    // Interact:
-    scroll_zoom_speed: f32,
+    pub sideways_pan_in_points: f32,
 
     // --------------------
     // Visuals:
     /// Events shorter than this many points aren't painted
-    cull_width: f32,
-    rect_height: f32,
-    spacing: f32,
-    rounding: f32,
+    pub cull_width: f32,
+    /// Draw each item with at least this width (only makes sense if [`cull_width`] is 0)
+    pub min_width: f32,
+
+    pub rect_height: f32,
+    pub spacing: f32,
+    pub rounding: f32,
 
     /// Aggregate child scopes with the same id?
-    merge_scopes: bool,
+    pub merge_scopes: bool,
+
+    pub sorting: Sorting,
 
     /// Set when user clicks a scope.
     /// First part is `now()`, second is range.
@@ -168,14 +244,17 @@ impl Default for Options {
             canvas_width_ns: 0.0,
             sideways_pan_in_points: 0.0,
 
-            scroll_zoom_speed: 0.01,
+            // cull_width: 0.5, // save some CPU?
+            cull_width: 0.0, // no culling
+            min_width: 0.5,
 
-            cull_width: 0.5,
             rect_height: 16.0,
             spacing: 4.0,
             rounding: 4.0,
 
             merge_scopes: true,
+
+            sorting: Default::default(),
 
             zoom_to_relative_ns_range: None,
         }
@@ -284,24 +363,6 @@ impl ProfilerUi {
             .default_open(true)
             .show(ui, |ui| {
                 hovered_frame = self.show_frames(ui);
-
-                if self.paused.is_some() {
-                    if ui.button("Resume / Show latest").clicked() {
-                        self.paused = None;
-                    }
-                } else {
-                    ui.horizontal(|ui| {
-                        if ui.button("Pause").clicked() {
-                            let latest = GlobalProfiler::lock().latest_frame();
-                            if let Some(latest) = latest {
-                                self.pause_and_select(latest);
-                            }
-                        }
-                        if ui.button("Forget slowest frames").clicked() {
-                            GlobalProfiler::lock().clear_slowest();
-                        }
-                    });
-                }
             });
 
         let frame = match hovered_frame.or_else(|| self.selected_frame()) {
@@ -316,101 +377,167 @@ impl ProfilerUi {
 
         let (min_ns, max_ns) = frame.range_ns;
 
-        ui.label(format!(
-            "Current frame: {:.1} ms, {} threads, {} scopes, {:.1} kB",
-            (max_ns - min_ns) as f64 * 1e-6,
-            frame.thread_streams.len(),
-            frame.num_scopes,
-            frame.num_bytes as f64 * 1e-3
-        ));
-
         ui.horizontal(|ui| {
-            ui.label("Drag to pan. Scroll to zoom. Click to focus. Double-click to reset.");
-
+            let play_pause_button_size = Vec2::splat(24.0);
+            if self.paused.is_some() {
+                if ui
+                    .add_sized(play_pause_button_size, egui::Button::new("▶"))
+                    .on_hover_text("Show latest data. Toggle with space.")
+                    .clicked()
+                    || ui.input().key_pressed(egui::Key::Space)
+                {
+                    self.paused = None;
+                }
+            } else {
+                ui.horizontal(|ui| {
+                    if ui
+                        .add_sized(play_pause_button_size, egui::Button::new("⏸"))
+                        .on_hover_text("Pause on this frame. Toggle with space.")
+                        .clicked()
+                        || ui.input().key_pressed(egui::Key::Space)
+                    {
+                        let latest = GlobalProfiler::lock().latest_frame();
+                        if let Some(latest) = latest {
+                            self.pause_and_select(latest);
+                        }
+                    }
+                });
+            }
+            ui.separator();
             ui.checkbox(
                 &mut self.options.merge_scopes,
                 "Merge children with same ID",
             );
+            ui.separator();
+            ui.add(Label::new("Help!").text_color(ui.visuals().widgets.inactive.text_color()))
+                .on_hover_text(
+                    "Drag to pan.\n\
+                Zoom: Ctrl/cmd + scroll, or drag with secondary mouse button.\n\
+                Click on a scope to zoom to it.\n\
+                Double-click to reset view.\n\
+                Press spacebar to pause/resume.",
+                );
+            ui.separator();
+            ui.label(format!(
+                "Current frame: {:.1} ms, {} threads, {} scopes, {:.1} kB",
+                (max_ns - min_ns) as f64 * 1e-6,
+                frame.thread_streams.len(),
+                frame.num_scopes,
+                frame.num_bytes as f64 * 1e-3
+            ));
         });
 
-        Frame::dark_canvas(ui.style()).show(ui, |ui| {
-            self.ui_canvas(ui, &frame, (min_ns, max_ns));
-        });
-    }
-
-    fn ui_canvas(
-        &mut self,
-        ui: &mut egui::Ui,
-        frame: &FrameData,
-        (min_ns, max_ns): (NanoSecond, NanoSecond),
-    ) {
-        puffin::profile_function!();
+        if frame.thread_streams.len() > 1 {
+            self.options.sorting.ui(ui);
+        }
 
         if self.paused.is_none() {
             ui.ctx().request_repaint(); // keep refreshing to see latest data
         }
 
-        let (response, painter) =
-            ui.allocate_painter(ui.available_size_before_wrap_finite(), Sense::drag());
+        Frame::dark_canvas(ui.style()).show(ui, |ui| {
+            let available_height = ui.max_rect().bottom() - ui.min_rect().bottom();
+            ScrollArea::auto_sized().show(ui, |ui| {
+                let canvas = ui.available_rect_before_wrap();
+                let response = ui.interact(canvas, ui.id(), Sense::click_and_drag());
 
-        let mut info = Info {
-            ctx: ui.ctx().clone(),
-            canvas: response.rect,
-            response,
-            painter,
-            text_height: 15.0, // TODO
-            start_ns: min_ns,
-            stop_ns: max_ns,
-        };
-        self.interact_with_canvas(&info);
+                let info = Info {
+                    ctx: ui.ctx().clone(),
+                    canvas,
+                    response,
+                    painter: ui.painter_at(canvas),
+                    text_height: 15.0, // TODO
+                    start_ns: min_ns,
+                    stop_ns: max_ns,
+                };
+                self.interact_with_canvas(&info.response, &info);
+
+                let where_to_put_timeline = info.painter.add(Shape::Noop);
+
+                let max_y = self.ui_canvas(&info, &frame, (min_ns, max_ns));
+
+                let mut used_rect = canvas;
+                used_rect.max.y = max_y;
+
+                // Fill out space that we don't use so that the `ScrollArea` doesn't collapse in height:
+                used_rect.max.y = used_rect.max.y.max(used_rect.min.y + available_height);
+
+                let timeline = paint_timeline(&info, used_rect, &self.options, min_ns);
+                info.painter
+                    .set(where_to_put_timeline, Shape::Vec(timeline));
+
+                ui.allocate_rect(used_rect, Sense::click_and_drag());
+            });
+        });
+    }
+
+    fn ui_canvas(
+        &mut self,
+        info: &Info,
+        frame: &FrameData,
+        (min_ns, max_ns): (NanoSecond, NanoSecond),
+    ) -> f32 {
+        puffin::profile_function!();
 
         if self.options.canvas_width_ns <= 0.0 {
             self.options.canvas_width_ns = (max_ns - min_ns) as f32;
             self.options.zoom_to_relative_ns_range = None;
         }
 
-        paint_timeline(&info, &self.options, min_ns, max_ns);
+        // We paint the threads top-down
+        let mut cursor_y = info.canvas.top();
+        cursor_y += info.text_height; // Leave room for time labels
 
-        // We paint the threads bottom up
-        let mut cursor_y = info.canvas.max.y;
-        cursor_y -= info.text_height; // Leave room for time labels
+        let thread_streams = self.options.sorting.sort(&frame.thread_streams);
 
-        for (thread, stream) in &frame.thread_streams {
+        for (thread, stream_info) in &thread_streams {
             // Visual separator between threads:
+            cursor_y += 2.0;
+            let line_y = cursor_y;
+            cursor_y += 2.0;
+
+            let text_pos = pos2(info.canvas.min.x, cursor_y);
+            paint_thread_info(info, thread, text_pos);
+            cursor_y += info.text_height;
+
+            // draw on top of thread info background:
             info.painter.line_segment(
                 [
-                    pos2(info.canvas.min.x, cursor_y),
-                    pos2(info.canvas.max.x, cursor_y),
+                    pos2(info.canvas.min.x, line_y),
+                    pos2(info.canvas.max.x, line_y),
                 ],
                 Stroke::new(1.0, Rgba::from_white_alpha(0.5)),
             );
 
-            cursor_y -= info.text_height;
-            let text_pos = pos2(info.canvas.min.x, cursor_y);
-            paint_thread_info(&info, thread, text_pos);
-            info.canvas.max.y = cursor_y;
-
             let mut paint_stream = || -> Result<()> {
-                let top_scopes = Reader::from_start(stream).read_top_scopes()?;
+                let top_scopes = Reader::from_start(&stream_info.stream).read_top_scopes()?;
                 if self.options.merge_scopes {
                     let merges = puffin::merge_top_scopes(&top_scopes);
                     for merge in merges {
                         paint_merge_scope(
-                            &info,
+                            info,
                             &mut self.options,
-                            stream,
+                            &stream_info.stream,
                             &merge,
                             0,
-                            &mut cursor_y,
+                            cursor_y,
                         )?;
                     }
                 } else {
                     for scope in top_scopes {
-                        paint_scope(&info, &mut self.options, stream, &scope, 0, &mut cursor_y)?;
+                        paint_scope(
+                            info,
+                            &mut self.options,
+                            &stream_info.stream,
+                            &scope,
+                            0,
+                            cursor_y,
+                        )?;
                     }
                 }
                 Ok(())
             };
+
             if let Err(err) = paint_stream() {
                 let text = format!("Profiler stream error: {:?}", err);
                 info.painter.text(
@@ -422,8 +549,13 @@ impl ProfilerUi {
                 );
             }
 
-            cursor_y -= info.text_height; // Extra spacing between threads
+            cursor_y +=
+                stream_info.depth as f32 * (self.options.rect_height + self.options.spacing);
+
+            cursor_y += info.text_height; // Extra spacing between threads
         }
+
+        cursor_y
     }
 
     /// Returns hovered, if any
@@ -434,13 +566,25 @@ impl ProfilerUi {
 
         let longest_count = frames.recent.len().max(frames.slowest.len());
 
-        ui.label("Recent history:");
-        Frame::dark_canvas(ui.style()).show(ui, |ui| {
-            self.show_frame_list(ui, &frames.recent, longest_count, &mut hovered_frame);
-        });
-        ui.label("Slowest frames:");
-        Frame::dark_canvas(ui.style()).show(ui, |ui| {
-            self.show_frame_list(ui, &frames.slowest, longest_count, &mut hovered_frame);
+        egui::Grid::new("frame_grid").num_columns(2).show(ui, |ui| {
+            ui.label("Recent:");
+            Frame::dark_canvas(ui.style()).show(ui, |ui| {
+                self.show_frame_list(ui, &frames.recent, longest_count, &mut hovered_frame);
+            });
+            ui.end_row();
+
+            ui.vertical(|ui| {
+                ui.style_mut().wrap = Some(false);
+                ui.add_space(16.0); // make it a bit more centred
+                ui.label("Slowest:");
+                if ui.button("Clear").clicked() {
+                    GlobalProfiler::lock().clear_slowest();
+                }
+            });
+            Frame::dark_canvas(ui.style()).show(ui, |ui| {
+                self.show_frame_list(ui, &frames.slowest, longest_count, &mut hovered_frame);
+            });
+            ui.end_row();
         });
 
         hovered_frame
@@ -521,27 +665,29 @@ impl ProfilerUi {
         }
     }
 
-    fn interact_with_canvas(&mut self, info: &Info) {
-        if info.response.drag_delta().x != 0.0 {
-            self.options.sideways_pan_in_points += info.response.drag_delta().x;
+    fn interact_with_canvas(&mut self, response: &Response, info: &Info) {
+        if response.drag_delta().x != 0.0 {
+            self.options.sideways_pan_in_points += response.drag_delta().x;
             self.options.zoom_to_relative_ns_range = None;
         }
 
-        if info.response.hovered() {
+        if response.hovered() {
             // Sideways pan with e.g. a touch pad:
             if info.ctx.input().scroll_delta.x != 0.0 {
                 self.options.sideways_pan_in_points += info.ctx.input().scroll_delta.x;
                 self.options.zoom_to_relative_ns_range = None;
             }
 
-            let scroll_zoom =
-                (info.ctx.input().scroll_delta.y * self.options.scroll_zoom_speed).exp();
-            let zoom_factor = scroll_zoom * info.ctx.input().zoom_delta_2d().x;
+            let mut zoom_factor = info.ctx.input().zoom_delta_2d().x;
+
+            if response.dragged_by(PointerButton::Secondary) {
+                zoom_factor *= (response.drag_delta().y * 0.01).exp();
+            }
 
             if zoom_factor != 1.0 {
                 self.options.canvas_width_ns /= zoom_factor;
 
-                if let Some(mouse_pos) = info.response.hover_pos() {
+                if let Some(mouse_pos) = response.hover_pos() {
                     let zoom_center = mouse_pos.x - info.canvas.min.x;
                     self.options.sideways_pan_in_points =
                         (self.options.sideways_pan_in_points - zoom_center) * zoom_factor
@@ -551,7 +697,7 @@ impl ProfilerUi {
             }
         }
 
-        if info.response.double_clicked() {
+        if response.double_clicked() {
             // Reset view
             self.options.zoom_to_relative_ns_range =
                 Some((info.ctx.input().time, (0, info.stop_ns - info.start_ns)));
@@ -561,13 +707,11 @@ impl ProfilerUi {
             const ZOOM_DURATION: f32 = 0.75;
             let t = ((info.ctx.input().time - start_time) as f32 / ZOOM_DURATION).min(1.0);
 
-            let canvas_width = info.response.rect.width();
+            let canvas_width = response.rect.width();
 
             let target_canvas_width_ns = (end_ns - start_ns) as f32;
             let target_pan_in_points = -canvas_width * start_ns as f32 / target_canvas_width_ns;
 
-            // self.options.canvas_width_ns =
-            //     lerp(self.options.canvas_width_ns..=target_canvas_width_ns, t);
             self.options.canvas_width_ns = lerp(
                 self.options.canvas_width_ns.recip()..=target_canvas_width_ns.recip(),
                 t,
@@ -587,14 +731,21 @@ impl ProfilerUi {
     }
 }
 
-fn paint_timeline(info: &Info, options: &Options, start_ns: NanoSecond, stop_ns: NanoSecond) {
+fn paint_timeline(
+    info: &Info,
+    canvas: Rect,
+    options: &Options,
+    start_ns: NanoSecond,
+) -> Vec<egui::Shape> {
+    let mut shapes = vec![];
+
     if options.canvas_width_ns <= 0.0 {
-        return;
+        return shapes;
     }
 
     // We show all measurements relative to start_ns
 
-    let max_lines = info.canvas.width() / 4.0;
+    let max_lines = canvas.width() / 4.0;
     let mut grid_spacing_ns = 1_000;
     while options.canvas_width_ns / (grid_spacing_ns as f32) > max_lines {
         grid_spacing_ns *= 10;
@@ -611,15 +762,12 @@ fn paint_timeline(info: &Info, options: &Options, start_ns: NanoSecond, stop_ns:
     let mut grid_ns = 0;
 
     loop {
-        if start_ns + grid_ns > stop_ns {
-            break; // stop grid where data stops
-        }
         let line_x = info.point_from_ns(options, start_ns + grid_ns);
-        if line_x > info.canvas.max.x {
+        if line_x > canvas.max.x {
             break;
         }
 
-        if info.canvas.min.x <= line_x {
+        if canvas.min.x <= line_x {
             let big_line = grid_ns % (grid_spacing_ns * 100) == 0;
             let medium_line = grid_ns % (grid_spacing_ns * 10) == 0;
 
@@ -631,13 +779,10 @@ fn paint_timeline(info: &Info, options: &Options, start_ns: NanoSecond, stop_ns:
                 tiny_alpha
             };
 
-            info.painter.line_segment(
-                [
-                    pos2(line_x, info.canvas.min.y),
-                    pos2(line_x, info.canvas.max.y),
-                ],
+            shapes.push(egui::Shape::line_segment(
+                [pos2(line_x, canvas.min.y), pos2(line_x, canvas.max.y)],
                 Stroke::new(1.0, Rgba::from_white_alpha(line_alpha)),
-            );
+            ));
 
             let text_alpha = if big_line {
                 medium_alpha
@@ -653,27 +798,31 @@ fn paint_timeline(info: &Info, options: &Options, start_ns: NanoSecond, stop_ns:
                 let text_color = Rgba::from_white_alpha((text_alpha * 2.0).min(1.0)).into();
 
                 // Text at top:
-                info.painter.text(
-                    pos2(text_x, info.canvas.min.y),
+                shapes.push(egui::Shape::text(
+                    info.painter.fonts(),
+                    pos2(text_x, canvas.min.y),
                     Align2::LEFT_TOP,
                     &text,
                     TEXT_STYLE,
                     text_color,
-                );
+                ));
 
                 // Text at bottom:
-                info.painter.text(
-                    pos2(text_x, info.canvas.max.y - info.text_height),
+                shapes.push(egui::Shape::text(
+                    info.painter.fonts(),
+                    pos2(text_x, canvas.max.y - info.text_height),
                     Align2::LEFT_TOP,
                     &text,
                     TEXT_STYLE,
                     text_color,
-                );
+                ));
             }
         }
 
         grid_ns += grid_spacing_ns;
     }
+
+    shapes
 }
 
 fn grid_text(grid_ns: NanoSecond) -> String {
@@ -696,11 +845,20 @@ fn paint_record(
     record: &Record<'_>,
     top_y: f32,
 ) -> PaintResult {
-    let start_x = info.point_from_ns(options, record.start_ns);
-    let stop_x = info.point_from_ns(options, record.stop_ns());
-    let width = stop_x - start_x;
-    if info.canvas.max.x < start_x || stop_x < info.canvas.min.x || width < options.cull_width {
+    let mut start_x = info.point_from_ns(options, record.start_ns);
+    let mut stop_x = info.point_from_ns(options, record.stop_ns());
+    if info.canvas.max.x < start_x
+        || stop_x < info.canvas.min.x
+        || stop_x - start_x < options.cull_width
+    {
         return PaintResult::Culled;
+    }
+
+    if stop_x - start_x < options.min_width {
+        // Make sure it is visible:
+        let center = 0.5 * (start_x + stop_x);
+        start_x = center - 0.5 * options.min_width;
+        stop_x = center + 0.5 * options.min_width;
     }
 
     let bottom_y = top_y + options.rect_height;
@@ -739,7 +897,7 @@ fn paint_record(
         rect_color,
     );
 
-    let wide_enough_for_text = width > 32.0;
+    let wide_enough_for_text = stop_x - start_x > 32.0;
     if wide_enough_for_text {
         let rect_min = rect_min.max(info.canvas.min);
         let rect_max = rect_max.min(info.canvas.max);
@@ -794,10 +952,9 @@ fn paint_scope(
     stream: &Stream,
     scope: &Scope<'_>,
     depth: usize,
-    min_y: &mut f32,
+    min_y: f32,
 ) -> Result<PaintResult> {
-    let top_y = info.canvas.max.y - (1.0 + depth as f32) * (options.rect_height + options.spacing);
-    *min_y = min_y.min(top_y);
+    let top_y = min_y + (depth as f32) * (options.rect_height + options.spacing);
 
     let result = paint_record(info, options, "", &scope.record, top_y);
 
@@ -835,10 +992,9 @@ fn paint_merge_scope(
     stream: &Stream,
     merge: &MergeScope<'_>,
     depth: usize,
-    min_y: &mut f32,
+    min_y: f32,
 ) -> Result<PaintResult> {
-    let top_y = info.canvas.max.y - (1.0 + depth as f32) * (options.rect_height + options.spacing);
-    *min_y = min_y.min(top_y);
+    let top_y = min_y + (depth as f32) * (options.rect_height + options.spacing);
 
     let prefix = if merge.pieces.len() <= 1 {
         String::default()

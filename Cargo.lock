@@ -901,8 +901,7 @@ checksum = "9ea835d29036a4087793836fa931b08837ad5e957da9e23886b29586fb9b6650"
 [[package]]
 name = "eframe"
 version = "0.13.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d3677cb27e360092b5078c5aaae1edf4b84d900b2e5ee61e93c71c4f2574e97a"
+source = "git+https://github.com/emilk/egui?rev=faf104220be18cda878e9864bab3760caa4901d8#faf104220be18cda878e9864bab3760caa4901d8"
 dependencies = [
  "egui",
  "egui_glium",
@@ -913,8 +912,7 @@ dependencies = [
 [[package]]
 name = "egui"
 version = "0.13.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "77f9b394ccacc0cccb30f6de7371038a116931aa3186acd908b9ec61f405f15c"
+source = "git+https://github.com/emilk/egui?rev=faf104220be18cda878e9864bab3760caa4901d8#faf104220be18cda878e9864bab3760caa4901d8"
 dependencies = [
  "epaint",
  "ron",
@@ -947,8 +945,7 @@ dependencies = [
 [[package]]
 name = "egui_glium"
 version = "0.13.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "da94629a664a360708c91495dbae0a55c0e05acec5e05fcc6c99beabd6036036"
+source = "git+https://github.com/emilk/egui?rev=faf104220be18cda878e9864bab3760caa4901d8#faf104220be18cda878e9864bab3760caa4901d8"
 dependencies = [
  "copypasta",
  "directories-next",
@@ -963,8 +960,7 @@ dependencies = [
 [[package]]
 name = "egui_web"
 version = "0.13.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ce8d91b33af1d26ba3f7b22819e7bfdcb596e2d3a382eacec2363960eacdf643"
+source = "git+https://github.com/emilk/egui?rev=faf104220be18cda878e9864bab3760caa4901d8#faf104220be18cda878e9864bab3760caa4901d8"
 dependencies = [
  "egui",
  "epi",
@@ -985,8 +981,7 @@ checksum = "e78d4f1cc4ae33bbfc157ed5d5a5ef3bc29227303d595861deb238fcec4e9457"
 [[package]]
 name = "emath"
 version = "0.13.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "80eea7508c08a7b4e2a041adcdca6f400d8606622c6bb980ecbbdc5f1aff9a4c"
+source = "git+https://github.com/emilk/egui?rev=faf104220be18cda878e9864bab3760caa4901d8#faf104220be18cda878e9864bab3760caa4901d8"
 dependencies = [
  "serde",
 ]
@@ -994,8 +989,7 @@ dependencies = [
 [[package]]
 name = "epaint"
 version = "0.13.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "132e30d483d9fa252fe06aa112de777d068503c379fa51bc5834204ee3258fce"
+source = "git+https://github.com/emilk/egui?rev=faf104220be18cda878e9864bab3760caa4901d8#faf104220be18cda878e9864bab3760caa4901d8"
 dependencies = [
  "ab_glyph",
  "ahash 0.7.4",
@@ -1008,8 +1002,7 @@ dependencies = [
 [[package]]
 name = "epi"
 version = "0.13.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4b04a4a240553fa9254d0569cf3aa22d9dbe77a66025e1f04b0785744629c9ec"
+source = "git+https://github.com/emilk/egui?rev=faf104220be18cda878e9864bab3760caa4901d8#faf104220be18cda878e9864bab3760caa4901d8"
 dependencies = [
  "egui",
  "ron",
@@ -1720,6 +1713,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "natord"
+version = "1.0.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "308d96db8debc727c3fd9744aac51751243420e46edf401010908da7f8d5e57c"
+
+[[package]]
 name = "ndk"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2203,6 +2202,7 @@ dependencies = [
  "imgui",
  "imgui-glium-renderer",
  "imgui-winit-support",
+ "natord",
  "puffin",
  "serde",
 ]
@@ -2215,6 +2215,7 @@ dependencies = [
  "egui",
  "egui-macroquad",
  "macroquad",
+ "natord",
  "once_cell",
  "puffin",
  "serde",

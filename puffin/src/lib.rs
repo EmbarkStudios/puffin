@@ -181,12 +181,44 @@ pub struct ThreadInfo {
 
 pub type FrameIndex = u64;
 
+/// A non-empty `Stream` plus some info about it.
+#[derive(Clone)]
+#[cfg_attr(feature = "with_serde", derive(serde::Deserialize, serde::Serialize))]
+pub struct StreamInfo {
+    pub stream: Stream,
+    pub num_scopes: usize,
+    pub depth: usize,
+    pub range_ns: (NanoSecond, NanoSecond),
+}
+
+impl StreamInfo {
+    fn new(stream: Stream) -> Result<StreamInfo> {
+        let top_scopes = Reader::from_start(&stream).read_top_scopes()?;
+        if top_scopes.is_empty() {
+            Err(Error::Empty)
+        } else {
+            let (num_scopes, depth) = Reader::count_scope_and_depth(&stream)?;
+            let min_ns = top_scopes.first().unwrap().record.start_ns;
+            let max_ns = top_scopes.last().unwrap().record.stop_ns();
+
+            Ok(StreamInfo {
+                stream,
+                num_scopes,
+                depth,
+                range_ns: (min_ns, max_ns),
+            })
+        }
+    }
+}
+
+// ----------------------------------------------------------------------------
+
 /// One frame worth of profile data, collected from many sources.
 #[derive(Clone)]
 #[cfg_attr(feature = "with_serde", derive(serde::Deserialize, serde::Serialize))]
 pub struct FrameData {
     pub frame_index: FrameIndex,
-    pub thread_streams: BTreeMap<ThreadInfo, Stream>,
+    pub thread_streams: BTreeMap<ThreadInfo, Arc<StreamInfo>>,
     pub range_ns: (NanoSecond, NanoSecond),
     pub num_bytes: usize,
     pub num_scopes: usize,
@@ -197,20 +229,21 @@ impl FrameData {
         frame_index: FrameIndex,
         thread_streams: BTreeMap<ThreadInfo, Stream>,
     ) -> Result<Self> {
+        let thread_streams: BTreeMap<_, _> = thread_streams
+            .into_iter()
+            .filter_map(|(info, stream)| Some((info, Arc::new(StreamInfo::new(stream).ok()?))))
+            .collect();
+
         let mut num_bytes = 0;
         let mut num_scopes = 0;
 
         let mut min_ns = NanoSecond::MAX;
         let mut max_ns = NanoSecond::MIN;
         for stream in thread_streams.values() {
-            num_bytes += stream.len();
-            num_scopes += Reader::count_all_scopes(stream)?;
-
-            let top_scopes = Reader::from_start(stream).read_top_scopes()?;
-            if !top_scopes.is_empty() {
-                min_ns = min_ns.min(top_scopes.first().unwrap().record.start_ns);
-                max_ns = max_ns.max(top_scopes.last().unwrap().record.stop_ns());
-            }
+            num_bytes += stream.stream.len();
+            num_scopes += stream.num_scopes;
+            min_ns = min_ns.min(stream.range_ns.0);
+            max_ns = max_ns.max(stream.range_ns.1);
         }
 
         if min_ns <= max_ns {
@@ -383,6 +416,7 @@ impl GlobalProfiler {
     pub fn new_frame(&mut self) {
         let current_frame_index = self.current_frame_index;
         self.current_frame_index += 1;
+
         let new_frame =
             match FrameData::new(current_frame_index, std::mem::take(&mut self.current_frame)) {
                 Ok(new_frame) => Arc::new(new_frame),

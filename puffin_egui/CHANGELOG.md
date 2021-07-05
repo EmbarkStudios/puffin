@@ -6,6 +6,13 @@ All notable changes to the egui crate will be documented in this file.
 ## Unreleased
 
 * Update to egui 0.13
+* Paint flamegraph top-down
+* Scrollable flamegraph
+* Option to sort threads by name
+* Drag with right mouse button to zoom
+* Toggle play/pause with spacebar
+* More compact UI
+* Show all scopes (even tiny ones)
 
 
 ## 0.3.0 - 2021-05-27
