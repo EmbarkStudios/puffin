@@ -1,6 +1,7 @@
 use imgui::*;
 use puffin::*;
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 use std::sync::Arc;
 
 // ----------------------------------------------------------------------------
@@ -58,6 +59,81 @@ impl std::ops::Add<Vec2> for Vec2 {
 const ERROR_COLOR: [f32; 4] = [1.0, 0.0, 0.0, 1.0];
 const HOVER_COLOR: [f32; 4] = [0.8, 0.8, 0.8, 1.0];
 
+#[derive(Clone, Copy, Debug, PartialEq, Deserialize, Serialize)]
+pub enum SortBy {
+    Time,
+    Name,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Deserialize, Serialize)]
+pub struct Sorting {
+    pub sort_by: SortBy,
+    pub reversed: bool,
+}
+
+impl Default for Sorting {
+    fn default() -> Self {
+        Self {
+            sort_by: SortBy::Time,
+            reversed: false,
+        }
+    }
+}
+
+impl Sorting {
+    fn sort(
+        self,
+        thread_streams: &BTreeMap<ThreadInfo, Arc<StreamInfo>>,
+    ) -> Vec<(ThreadInfo, Arc<StreamInfo>)> {
+        let mut vec: Vec<_> = thread_streams
+            .iter()
+            .map(|(info, stream)| (info.clone(), stream.clone()))
+            .collect();
+
+        match self.sort_by {
+            SortBy::Time => {
+                vec.sort_by_key(|(info, _)| info.start_time_ns);
+            }
+            SortBy::Name => {
+                vec.sort_by(|(a, _), (b, _)| natord::compare_ignore_case(&a.name, &b.name));
+            }
+        }
+        if self.reversed {
+            vec.reverse();
+        }
+        vec
+    }
+
+    fn ui(&mut self, ui: &imgui::Ui<'_>) {
+        ui.text("Sort threads by:");
+        ui.same_line(0.0);
+
+        let dir = if self.reversed { '^' } else { 'v' };
+
+        for &sort_by in &[SortBy::Time, SortBy::Name] {
+            let selected = self.sort_by == sort_by;
+
+            let label = if selected {
+                im_str!("{:?} {}", sort_by, dir)
+            } else {
+                im_str!("{:?}", sort_by)
+            };
+
+            if ui.radio_button_bool(&label, selected) {
+                if selected {
+                    self.reversed = !self.reversed;
+                } else {
+                    self.sort_by = sort_by;
+                    self.reversed = false;
+                }
+            }
+
+            ui.same_line(0.0);
+        }
+        ui.new_line();
+    }
+}
+
 /// The frames we can select between
 #[derive(Clone)]
 pub struct Frames {
@@ -113,6 +189,8 @@ pub struct Options {
     /// Aggregate child scopes with the same id?
     pub merge_scopes: bool,
 
+    pub sorting: Sorting,
+
     /// Set when user clicks a scope.
     /// First part is `now()`, second is range.
     #[serde(skip)]
@@ -134,6 +212,8 @@ impl Default for Options {
             rounding: 4.0,
 
             merge_scopes: true,
+
+            sorting: Default::default(),
 
             zoom_to_relative_ns_range: None,
         }
@@ -308,6 +388,10 @@ impl ProfilerUi {
             frame.num_bytes as f64 * 1e-3
         ));
 
+        if frame.thread_streams.len() > 1 {
+            self.options.sorting.ui(ui);
+        }
+
         ui.separator();
 
         let content_min: Vec2 = ui.cursor_screen_pos().into();
@@ -336,15 +420,15 @@ impl ProfilerUi {
                 font_size: ui.current_font_size(),
             };
 
-            let options = &mut self.options;
-
-            paint_timeline(&info, options, min_ns);
+            paint_timeline(&info, &self.options, min_ns);
 
             // We paint the threads top-down
             let mut cursor_y = info.canvas_min.y;
             cursor_y += info.font_size; // Leave room for time labels
 
-            for (thread_info, stream_info) in &frame.thread_streams {
+            let thread_streams = self.options.sorting.sort(&frame.thread_streams);
+
+            for (thread_info, stream_info) in &thread_streams {
                 cursor_y += 2.0;
                 let line_y = cursor_y;
                 cursor_y += 2.0;
@@ -364,12 +448,12 @@ impl ProfilerUi {
 
                 let mut paint_stream = || -> Result<()> {
                     let top_scopes = Reader::from_start(&stream_info.stream).read_top_scopes()?;
-                    if options.merge_scopes {
+                    if self.options.merge_scopes {
                         let merges = puffin::merge_top_scopes(&top_scopes);
                         for merge in merges {
                             paint_merge_scope(
                                 &info,
-                                options,
+                                &mut self.options,
                                 &stream_info.stream,
                                 &merge,
                                 0,
@@ -378,7 +462,14 @@ impl ProfilerUi {
                         }
                     } else {
                         for scope in top_scopes {
-                            paint_scope(&info, options, &stream_info.stream, &scope, 0, cursor_y)?;
+                            paint_scope(
+                                &info,
+                                &mut self.options,
+                                &stream_info.stream,
+                                &scope,
+                                0,
+                                cursor_y,
+                            )?;
                         }
                     }
                     Ok(())
@@ -389,7 +480,8 @@ impl ProfilerUi {
                         .add_text([info.canvas_min.x, cursor_y], ERROR_COLOR, &text);
                 }
 
-                cursor_y += stream_info.depth as f32 * (options.rect_height + options.spacing);
+                cursor_y +=
+                    stream_info.depth as f32 * (self.options.rect_height + self.options.spacing);
 
                 cursor_y += info.font_size; // Extra spacing between threads
             }
