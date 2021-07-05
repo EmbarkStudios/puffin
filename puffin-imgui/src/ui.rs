@@ -75,7 +75,7 @@ pub struct Paused {
 #[derive(Clone, Default, Deserialize, Serialize)]
 #[serde(default)]
 pub struct ProfilerUi {
-    options: Options,
+    pub options: Options,
 
     // interaction:
     #[serde(skip)]
@@ -90,25 +90,25 @@ pub struct ProfilerUi {
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(default)]
-struct Options {
+pub struct Options {
     // --------------------
     // View:
     /// Controls zoom
-    canvas_width_ns: f32,
+    pub canvas_width_ns: f32,
 
     /// How much we have panned sideways:
-    sideways_pan_in_pixels: f32,
+    pub sideways_pan_in_pixels: f32,
 
     // --------------------
     // Visuals:
     /// Events shorter than this many pixels aren't painted
-    cull_width: f32,
-    rect_height: f32,
-    spacing: f32,
-    rounding: f32,
+    pub cull_width: f32,
+    pub rect_height: f32,
+    pub spacing: f32,
+    pub rounding: f32,
 
     /// Aggregate child scopes with the same id?
-    merge_scopes: bool,
+    pub merge_scopes: bool,
 
     /// Set when user clicks a scope.
     /// First part is `now()`, second is range.

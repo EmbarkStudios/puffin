@@ -114,8 +114,8 @@ pub enum SortBy {
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 pub struct Sorting {
-    sort_by: SortBy,
-    reversed: bool,
+    pub sort_by: SortBy,
+    pub reversed: bool,
 }
 
 impl Default for Sorting {
@@ -198,7 +198,7 @@ pub struct Paused {
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "persistence", serde(default))]
 pub struct ProfilerUi {
-    options: Options,
+    pub options: Options,
 
     /// If `None`, we show the latest frames.
     #[cfg_attr(feature = "serde", serde(skip))]
@@ -207,30 +207,30 @@ pub struct ProfilerUi {
 
 #[derive(Clone, Copy, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
-struct Options {
+pub struct Options {
     // --------------------
     // View:
     /// Controls zoom
-    canvas_width_ns: f32,
+    pub canvas_width_ns: f32,
 
     /// How much we have panned sideways:
-    sideways_pan_in_points: f32,
+    pub sideways_pan_in_points: f32,
 
     // --------------------
     // Visuals:
     /// Events shorter than this many points aren't painted
-    cull_width: f32,
+    pub cull_width: f32,
     /// Draw each item with at least this width (only makes sense if [`cull_width`] is 0)
-    min_width: f32,
+    pub min_width: f32,
 
-    rect_height: f32,
-    spacing: f32,
-    rounding: f32,
+    pub rect_height: f32,
+    pub spacing: f32,
+    pub rounding: f32,
 
     /// Aggregate child scopes with the same id?
-    merge_scopes: bool,
+    pub merge_scopes: bool,
 
-    sorting: Sorting,
+    pub sorting: Sorting,
 
     /// Set when user clicks a scope.
     /// First part is `now()`, second is range.
