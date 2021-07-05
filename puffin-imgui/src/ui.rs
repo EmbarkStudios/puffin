@@ -400,11 +400,8 @@ impl ProfilerUi {
 
         let draw_list = ui.get_window_draw_list();
 
-        draw_list.with_clip_rect_intersect(content_min.into(), content_max.into(), || {
-            // An invisible button for the canvas allows us to catch input for it.
-            ui.invisible_button(im_str!("canvas"), content_region_avail.into());
-            self.interact_with_canvas(ui, max_ns - min_ns, (content_min, content_max));
-
+        // Make it scrollable:
+        imgui::ChildWindow::new(im_str!("flamegraph")).build(ui, || {
             let info = Info {
                 start_ns: min_ns,
                 canvas_min: content_min,
@@ -414,7 +411,15 @@ impl ProfilerUi {
                 draw_list: &draw_list,
                 font_size: ui.current_font_size(),
             };
-            self.ui_canvas(&info, &frame, (min_ns, max_ns));
+
+            draw_list.with_clip_rect_intersect(content_min.into(), content_max.into(), || {
+                let max_y = self.ui_canvas(&info, &frame, (min_ns, max_ns));
+                let used_space = Vec2::new(content_region_avail.x, max_y - content_min.y);
+
+                // An invisible button for the canvas allows us to catch input for it.
+                ui.invisible_button(im_str!("canvas"), used_space.into());
+                self.interact_with_canvas(ui, max_ns - min_ns, (content_min, content_max));
+            });
         });
     }
 
@@ -423,7 +428,7 @@ impl ProfilerUi {
         info: &Info<'_>,
         frame: &FrameData,
         (min_ns, max_ns): (NanoSecond, NanoSecond),
-    ) {
+    ) -> f32 {
         if self.options.canvas_width_ns <= 0.0 {
             self.options.canvas_width_ns = (max_ns - min_ns) as f32;
             self.options.zoom_to_relative_ns_range = None;
@@ -432,7 +437,7 @@ impl ProfilerUi {
         paint_timeline(&info, &self.options, min_ns);
 
         // We paint the threads top-down
-        let mut cursor_y = info.canvas_min.y;
+        let mut cursor_y = info.canvas_min.y - info.ui.scroll_y();
         cursor_y += info.font_size; // Leave room for time labels
 
         let thread_streams = self.options.sorting.sort(&frame.thread_streams);
@@ -494,6 +499,8 @@ impl ProfilerUi {
 
             cursor_y += info.font_size; // Extra spacing between threads
         }
+
+        cursor_y + info.ui.scroll_y()
     }
 
     /// Returns hovered, if any
