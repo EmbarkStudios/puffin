@@ -23,21 +23,24 @@ impl Server {
 
         let server = Server { tx };
 
-        std::thread::spawn(move || {
-            let mut server_impl = PuffinServerImpl {
-                tcp_listener,
-                clients: Default::default(),
-            };
+        std::thread::Builder::new()
+            .name("puffin-server".to_owned())
+            .spawn(move || {
+                let mut server_impl = PuffinServerImpl {
+                    tcp_listener,
+                    clients: Default::default(),
+                };
 
-            while let Ok(frame) = rx.recv() {
-                if let Err(err) = server_impl.accept_new_clients() {
-                    log::warn!("puffin server failure: {}", err);
+                while let Ok(frame) = rx.recv() {
+                    if let Err(err) = server_impl.accept_new_clients() {
+                        log::warn!("puffin server failure: {}", err);
+                    }
+                    if let Err(err) = server_impl.send(&*frame) {
+                        log::warn!("puffin server failure: {}", err);
+                    }
                 }
-                if let Err(err) = server_impl.send(&*frame) {
-                    log::warn!("puffin server failure: {}", err);
-                }
-            }
-        });
+            })
+            .context("Couldn't spawn thread")?;
 
         Ok(server)
     }
