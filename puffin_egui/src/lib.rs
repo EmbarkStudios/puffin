@@ -321,6 +321,14 @@ fn latest_frames() -> Frames {
 }
 
 impl ProfilerUi {
+    pub fn reset(&mut self) {
+        let options = self.options;
+        *self = Self {
+            options,
+            ..Default::default()
+        };
+    }
+
     /// Show an [`egui::Window`] with the profiler contents.
     ///
     /// If you want to control the window yourself, use [`Self::ui`] instead.
