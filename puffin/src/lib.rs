@@ -344,8 +344,10 @@ impl FrameData {
         Ok(())
     }
 
-    /// Read the next Frame from a stream.
-    /// If the end of the stream is reached (EOF), `None` is returned.
+    /// Read the next [`FrameData`] from a stream.
+    ///
+    /// `None` is returned if the end of the stream is reached (EOF),
+    /// or an end-of-stream sentinel of 0u32 is read.
     #[cfg(feature = "serialization")]
     pub fn read_next(read: &mut impl std::io::Read) -> anyhow::Result<Option<Self>> {
         use anyhow::Context as _;
@@ -359,7 +361,9 @@ impl FrameData {
             }
         }
 
-        if &header == b"PFD0" {
+        if header == [0_u8; 4] {
+            Ok(None) // end-of-stream sentinel.
+        } else if &header == b"PFD0" {
             let mut compressed_length = [0_u8; 4];
             read.read_exact(&mut compressed_length)?;
             let mut compressed = vec![0_u8; u32::from_le_bytes(compressed_length) as usize];
@@ -584,6 +588,15 @@ impl GlobalProfiler {
             }
         }
 
+        if let Some(last) = self.recent_frames.back() {
+            if new_frame.frame_index != last.frame_index + 1 {
+                // Keep `recent_frames` consecutive.
+                // Important when loading .puffin files which has both
+                // the slowest frames and most recent frames in the same stream.
+                self.recent_frames.clear();
+            }
+        }
+
         self.recent_frames.push_back(new_frame);
         while self.recent_frames.len() > self.max_recent {
             self.recent_frames.pop_front();
@@ -652,7 +665,13 @@ impl GlobalProfiler {
     #[cfg(feature = "serialization")]
     pub fn save_to_writer(&self, write: &mut impl std::io::Write) -> anyhow::Result<()> {
         write.write_all(b"puf0")?;
-        for frame in &self.recent_frames {
+
+        let slowest_frames = self.slowest_frames.iter().map(|f| &f.0);
+        let mut frames: Vec<_> = slowest_frames.chain(self.recent_frames.iter()).collect();
+        frames.sort_by_key(|frame| frame.frame_index);
+        frames.dedup_by_key(|frame| frame.frame_index);
+
+        for frame in frames {
             frame.write_into(write)?;
         }
         Ok(())
