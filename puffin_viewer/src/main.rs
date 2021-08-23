@@ -70,6 +70,7 @@
 )]
 // END - Embark standard lints v0.4
 // crate-specific exceptions:
+#![deny(missing_crate_level_docs)]
 
 use eframe::{egui, epi};
 

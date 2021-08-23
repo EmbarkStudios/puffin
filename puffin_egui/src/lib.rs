@@ -77,11 +77,8 @@
 )]
 // END - Embark standard lints v0.4
 // crate-specific exceptions:
-#![deny(broken_intra_doc_links)]
-#![deny(invalid_codeblock_attributes)]
-#![deny(private_intra_doc_links)]
-#![allow(clippy::float_cmp)]
-#![allow(clippy::manual_range_contains)]
+#![deny(missing_crate_level_docs)]
+#![allow(clippy::float_cmp, clippy::manual_range_contains)]
 
 pub use {egui, puffin};
 
