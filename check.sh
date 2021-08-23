@@ -4,11 +4,11 @@ set -eux
 # Checks all tests, lints etc.
 # Basically does what the CI does.
 
-cargo check --all-targets
-cargo test --doc
-cargo check --all-targets --all-features
-CARGO_INCREMENTAL=0 cargo clippy --all-targets --all-features --  -D warnings -W clippy::all
-cargo test --all-targets --all-features
+cargo check --workspace --all-targets
+cargo test --workspace --doc
+cargo check --workspace --all-targets --all-features
+cargo clippy --workspace --all-targets --all-features --  -D warnings -W clippy::all
+cargo test --workspace --all-targets --all-features
 cargo fmt --all -- --check
 
-cargo doc -p puffin -p puffin_egui -p puffin-imgui -p puffin_http --lib --no-deps --all-features
+cargo doc -p puffin -p puffin_egui -p puffin-imgui -p puffin_http -p puffin_viewer --lib --no-deps --all-features
