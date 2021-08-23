@@ -1919,7 +1919,7 @@ dependencies = [
 
 [[package]]
 name = "puffin"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "anyhow",
  "bincode",
@@ -1932,7 +1932,7 @@ dependencies = [
 
 [[package]]
 name = "puffin-imgui"
-version = "0.9.1"
+version = "0.10.0"
 dependencies = [
  "glium 0.29.1",
  "imgui",
@@ -1945,7 +1945,7 @@ dependencies = [
 
 [[package]]
 name = "puffin_egui"
-version = "0.4.1"
+version = "0.5.0"
 dependencies = [
  "eframe",
  "egui",
@@ -1959,7 +1959,7 @@ dependencies = [
 
 [[package]]
 name = "puffin_http"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "anyhow",
  "log",
@@ -1971,7 +1971,7 @@ dependencies = [
 
 [[package]]
 name = "puffin_viewer"
-version = "0.3.1"
+version = "0.4.0"
 dependencies = [
  "argh",
  "eframe",
