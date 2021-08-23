@@ -370,7 +370,7 @@ impl ProfilerUi {
                 }
             }
         }
-        if ui.is_any_item_hovered() {
+        if ui.is_item_hovered() {
             ui.tooltip_text("Toggle with spacebar.");
         }
 
