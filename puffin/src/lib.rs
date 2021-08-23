@@ -200,21 +200,50 @@ pub struct ThreadInfo {
 
 pub type FrameIndex = u64;
 
-/// A non-empty `Stream` plus some info about it.
+/// A `Stream` plus some info about it.
 #[derive(Clone)]
 #[cfg_attr(feature = "with_serde", derive(serde::Deserialize, serde::Serialize))]
 pub struct StreamInfo {
+    /// The raw profile data.
     pub stream: Stream,
+
+    /// Total number of scopes in the stream.
     pub num_scopes: usize,
+
+    /// The depth of the deepest scope.
+    /// `0` mean no scopes, `1` some scopes without children, etc.
     pub depth: usize,
+
+    /// The smallest and largest nanosecond value in the stream.
+    ///
+    /// The default value is `(NanoSecond::MAX, NanoSecond::MIN)` which indicates an empty stream.
     pub range_ns: (NanoSecond, NanoSecond),
 }
 
+impl Default for StreamInfo {
+    fn default() -> Self {
+        Self {
+            stream: Default::default(),
+            num_scopes: 0,
+            depth: 0,
+            range_ns: (NanoSecond::MAX, NanoSecond::MIN),
+        }
+    }
+}
+
 impl StreamInfo {
-    fn new(stream: Stream) -> Result<StreamInfo> {
+    /// Parse a stream to count the depth, number of scopes in it etc.
+    ///
+    /// Try to avoid calling this, and instead keep score while collecting a `StreamInfo`.
+    pub fn parse(stream: Stream) -> Result<StreamInfo> {
         let top_scopes = Reader::from_start(&stream).read_top_scopes()?;
         if top_scopes.is_empty() {
-            Err(Error::Empty)
+            Ok(StreamInfo {
+                stream,
+                num_scopes: 0,
+                depth: 0,
+                range_ns: (NanoSecond::MAX, NanoSecond::MIN),
+            })
         } else {
             let (num_scopes, depth) = Reader::count_scope_and_depth(&stream)?;
             let min_ns = top_scopes.first().unwrap().record.start_ns;
@@ -227,6 +256,14 @@ impl StreamInfo {
                 range_ns: (min_ns, max_ns),
             })
         }
+    }
+
+    pub fn append(&mut self, other: Self) {
+        self.stream.append(other.stream);
+        self.num_scopes += other.num_scopes;
+        self.depth = self.depth.max(other.depth);
+        self.range_ns.0 = self.range_ns.0.min(other.range_ns.0);
+        self.range_ns.1 = self.range_ns.1.max(other.range_ns.1);
     }
 }
 
@@ -246,11 +283,11 @@ pub struct FrameData {
 impl FrameData {
     pub fn new(
         frame_index: FrameIndex,
-        thread_streams: BTreeMap<ThreadInfo, Stream>,
+        thread_streams: BTreeMap<ThreadInfo, StreamInfo>,
     ) -> Result<Self> {
         let thread_streams: BTreeMap<_, _> = thread_streams
             .into_iter()
-            .filter_map(|(info, stream)| Some((info, Arc::new(StreamInfo::new(stream).ok()?))))
+            .map(|(info, stream_info)| (info, Arc::new(stream_info)))
             .collect();
 
         let mut num_bytes = 0;
@@ -258,11 +295,11 @@ impl FrameData {
 
         let mut min_ns = NanoSecond::MAX;
         let mut max_ns = NanoSecond::MIN;
-        for stream in thread_streams.values() {
-            num_bytes += stream.stream.len();
-            num_scopes += stream.num_scopes;
-            min_ns = min_ns.min(stream.range_ns.0);
-            max_ns = max_ns.max(stream.range_ns.1);
+        for stream_info in thread_streams.values() {
+            num_bytes += stream_info.stream.len();
+            num_scopes += stream_info.num_scopes;
+            min_ns = min_ns.min(stream_info.range_ns.0);
+            max_ns = max_ns.max(stream_info.range_ns.1);
         }
 
         if min_ns <= max_ns {
@@ -287,16 +324,17 @@ impl FrameData {
 // ----------------------------------------------------------------------------
 
 type NsSource = fn() -> NanoSecond;
-type ThreadReporter = fn(ThreadInfo, Stream);
+type ThreadReporter = fn(ThreadInfo, StreamInfo);
 
 /// Report a stream of profile data from a thread to the `GlobalProfiler` singleton.
-pub fn global_reporter(info: ThreadInfo, stream: Stream) {
-    GlobalProfiler::lock().report(info, stream);
+pub fn global_reporter(info: ThreadInfo, stream_info: StreamInfo) {
+    GlobalProfiler::lock().report(info, stream_info);
 }
 
 /// Collects profiling data for one thread
 pub struct ThreadProfiler {
-    stream: Stream,
+    stream_info: StreamInfo,
+    /// Current depth.
     depth: usize,
     now_ns: NsSource,
     reporter: ThreadReporter,
@@ -306,7 +344,7 @@ pub struct ThreadProfiler {
 impl Default for ThreadProfiler {
     fn default() -> Self {
         Self {
-            stream: Default::default(),
+            stream_info: Default::default(),
             depth: 0,
             now_ns: crate::now_ns,
             reporter: global_reporter,
@@ -337,16 +375,26 @@ impl ThreadProfiler {
         self.start_time_ns = Some(self.start_time_ns.unwrap_or(now_ns));
 
         self.depth += 1;
-        self.stream.begin_scope(now_ns, id, location, data)
+
+        self.stream_info.range_ns.0 = self.stream_info.range_ns.0.min(now_ns);
+        self.stream_info
+            .stream
+            .begin_scope(now_ns, id, location, data)
     }
 
     pub fn end_scope(&mut self, start_offset: usize) {
+        let now_ns = (self.now_ns)();
+        self.stream_info.depth = self.stream_info.depth.max(self.depth);
+        self.stream_info.num_scopes += 1;
+        self.stream_info.range_ns.1 = self.stream_info.range_ns.1.max(now_ns);
+
         if self.depth > 0 {
             self.depth -= 1;
         } else {
             eprintln!("puffin ERROR: Mismatched scope begin/end calls");
         }
-        self.stream.end_scope(start_offset, (self.now_ns)());
+
+        self.stream_info.stream.end_scope(start_offset, now_ns);
 
         if self.depth == 0 {
             // We have no open scopes.
@@ -355,8 +403,8 @@ impl ThreadProfiler {
                 start_time_ns: self.start_time_ns,
                 name: std::thread::current().name().unwrap_or_default().to_owned(),
             };
-            let stream = std::mem::take(&mut self.stream);
-            (self.reporter)(info, stream);
+            let stream_info = std::mem::take(&mut self.stream_info);
+            (self.reporter)(info, stream_info);
         }
     }
 
@@ -395,7 +443,7 @@ impl Ord for OrderedData {
 /// Singleton. Collects profiling data from multiple threads.
 pub struct GlobalProfiler {
     current_frame_index: FrameIndex,
-    current_frame: BTreeMap<ThreadInfo, Stream>,
+    current_frame: BTreeMap<ThreadInfo, StreamInfo>,
 
     /// newest first
     recent_frames: std::collections::VecDeque<Arc<FrameData>>,
@@ -475,8 +523,11 @@ impl GlobalProfiler {
     }
 
     /// Report some profiling data. Called from `ThreadProfiler`.
-    pub fn report(&mut self, info: ThreadInfo, stream: Stream) {
-        self.current_frame.entry(info).or_default().append(stream);
+    pub fn report(&mut self, info: ThreadInfo, stream_info: StreamInfo) {
+        self.current_frame
+            .entry(info)
+            .or_default()
+            .append(stream_info);
     }
 
     /// The latest fully captured frame of data.
