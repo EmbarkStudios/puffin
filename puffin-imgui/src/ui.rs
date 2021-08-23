@@ -370,7 +370,7 @@ impl ProfilerUi {
                 }
             }
         }
-        if ui.is_any_item_hovered() {
+        if ui.is_item_hovered() {
             ui.tooltip_text("Toggle with spacebar.");
         }
 
@@ -381,7 +381,8 @@ impl ProfilerUi {
         );
 
         ui.text(im_str!(
-            "Current frame: {:.1} ms, {} threads, {} scopes, {:.1} kB",
+            "Showing frame #{}, {:.1} ms, {} threads, {} scopes, {:.1} kB",
+            frame.frame_index,
             (max_ns - min_ns) as f64 * 1e-6,
             frame.thread_streams.len(),
             frame.num_scopes,

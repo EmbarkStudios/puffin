@@ -5,6 +5,8 @@ All notable changes to the egui crate will be documented in this file.
 
 ## Unreleased
 
+* Show frame index.
+
 
 ## 0.4.0 - 2021-07-05
 

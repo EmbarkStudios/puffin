@@ -15,6 +15,9 @@ include = [ "**/*.rs", "Cargo.toml"]
 [dependencies]
 byteorder = { version = "1" }
 once_cell = "1"
+anyhow = { version = "1", optional = true }
+bincode = { version = "1.3", optional = true }
+lz4_flex = { version = "0.8.2", optional = true }
 serde = { version = "1", features = ["derive", "rc"], optional = true }
 
 [dev-dependencies]
@@ -22,7 +25,8 @@ criterion = "0.3"
 
 [features]
 default = []
-with_serde = ["serde"]
+# Feature for enabling loading/saving data to a binary stream and/or file.
+serialization = ["anyhow", "bincode", "lz4_flex", "serde"]
 
 [[bench]]
 name = "benchmark"

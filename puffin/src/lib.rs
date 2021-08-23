@@ -122,7 +122,10 @@ pub type NanoSecond = i64;
 
 /// Stream of profiling events from one thread.
 #[derive(Clone, Default)]
-#[cfg_attr(feature = "with_serde", derive(serde::Deserialize, serde::Serialize))]
+#[cfg_attr(
+    feature = "serialization",
+    derive(serde::Deserialize, serde::Serialize)
+)]
 pub struct Stream(Vec<u8>);
 
 impl Stream {
@@ -189,7 +192,10 @@ pub struct Scope<'s> {
 
 /// Used to identify one source of profiling data.
 #[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
-#[cfg_attr(feature = "with_serde", derive(serde::Deserialize, serde::Serialize))]
+#[cfg_attr(
+    feature = "serialization",
+    derive(serde::Deserialize, serde::Serialize)
+)]
 pub struct ThreadInfo {
     /// Useful for ordering threads.
     pub start_time_ns: Option<NanoSecond>,
@@ -203,7 +209,10 @@ pub type FrameIndex = u64;
 
 /// A `Stream` plus some info about it.
 #[derive(Clone)]
-#[cfg_attr(feature = "with_serde", derive(serde::Deserialize, serde::Serialize))]
+#[cfg_attr(
+    feature = "serialization",
+    derive(serde::Deserialize, serde::Serialize)
+)]
 pub struct StreamInfo {
     /// The raw profile data.
     pub stream: Stream,
@@ -272,7 +281,10 @@ impl StreamInfo {
 
 /// One frame worth of profile data, collected from many sources.
 #[derive(Clone)]
-#[cfg_attr(feature = "with_serde", derive(serde::Deserialize, serde::Serialize))]
+#[cfg_attr(
+    feature = "serialization",
+    derive(serde::Deserialize, serde::Serialize)
+)]
 pub struct FrameData {
     pub frame_index: FrameIndex,
     pub thread_streams: BTreeMap<ThreadInfo, Arc<StreamInfo>>,
@@ -319,6 +331,66 @@ impl FrameData {
     pub fn duration_ns(&self) -> NanoSecond {
         let (min, max) = self.range_ns;
         max - min
+    }
+
+    /// Writes one Frame into a stream, prefixed by it's length (u32 le).
+    #[cfg(feature = "serialization")]
+    pub fn write_into(&self, write: &mut impl std::io::Write) -> anyhow::Result<()> {
+        use bincode::Options as _;
+        let serialized = bincode::options().serialize(self)?;
+        let compressed = lz4_flex::compress_prepend_size(&serialized);
+        write.write_all(b"PFD0")?;
+        write.write_all(&(compressed.len() as u32).to_le_bytes())?;
+        write.write_all(&compressed)?;
+        Ok(())
+    }
+
+    /// Read the next [`FrameData`] from a stream.
+    ///
+    /// `None` is returned if the end of the stream is reached (EOF),
+    /// or an end-of-stream sentinel of 0u32 is read.
+    #[cfg(feature = "serialization")]
+    pub fn read_next(read: &mut impl std::io::Read) -> anyhow::Result<Option<Self>> {
+        use anyhow::Context as _;
+
+        let mut header = [0_u8; 4];
+        if let Err(err) = read.read_exact(&mut header) {
+            if err.kind() == std::io::ErrorKind::UnexpectedEof {
+                return Ok(None);
+            } else {
+                return Err(err.into());
+            }
+        }
+
+        if header == [0_u8; 4] {
+            Ok(None) // end-of-stream sentinel.
+        } else if &header == b"PFD0" {
+            let mut compressed_length = [0_u8; 4];
+            read.read_exact(&mut compressed_length)?;
+            let mut compressed = vec![0_u8; u32::from_le_bytes(compressed_length) as usize];
+            read.read_exact(&mut compressed)?;
+
+            let serialized =
+                lz4_flex::decompress_size_prepended(&compressed).context("lz4 decompress")?;
+
+            use bincode::Options as _;
+            Ok(Some(
+                bincode::options()
+                    .deserialize(&serialized)
+                    .context("bincode deserialize")?,
+            ))
+        } else {
+            // Old packet without magic header
+            let mut bytes = vec![0_u8; u32::from_le_bytes(header) as usize];
+            read.read_exact(&mut bytes)?;
+
+            use bincode::Options as _;
+            Ok(Some(
+                bincode::options()
+                    .deserialize(&bytes)
+                    .context("bincode deserialize")?,
+            ))
+        }
     }
 }
 
@@ -441,6 +513,12 @@ impl Ord for OrderedData {
     }
 }
 
+/// Add these to [`GlobalProfiler`] with [`GlobalProfiler::add_sink`].
+pub type FrameSink = Box<dyn Fn(Arc<FrameData>) + Send>;
+
+#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
+pub struct FrameSinkId(u64);
+
 /// Singleton. Collects profiling data from multiple threads.
 pub struct GlobalProfiler {
     current_frame_index: FrameIndex,
@@ -452,6 +530,9 @@ pub struct GlobalProfiler {
 
     slowest_frames: std::collections::BinaryHeap<OrderedData>,
     max_slow: usize,
+
+    next_sink_id: FrameSinkId,
+    sinks: std::collections::HashMap<FrameSinkId, FrameSink>,
 }
 
 impl Default for GlobalProfiler {
@@ -466,6 +547,8 @@ impl Default for GlobalProfiler {
             max_recent,
             slowest_frames: std::collections::BinaryHeap::with_capacity(max_slow),
             max_slow,
+            next_sink_id: FrameSinkId(1),
+            sinks: Default::default(),
         }
     }
 }
@@ -502,6 +585,10 @@ impl GlobalProfiler {
 
     /// Manually add frame data.
     pub fn add_frame(&mut self, new_frame: Arc<FrameData>) {
+        for sink in self.sinks.values() {
+            sink(new_frame.clone());
+        }
+
         let add_to_slowest = if self.slowest_frames.len() < self.max_slow {
             true
         } else if let Some(fastest_of_the_slow) = self.slowest_frames.peek() {
@@ -514,6 +601,15 @@ impl GlobalProfiler {
             self.slowest_frames.push(OrderedData(new_frame.clone()));
             while self.slowest_frames.len() > self.max_slow {
                 self.slowest_frames.pop();
+            }
+        }
+
+        if let Some(last) = self.recent_frames.back() {
+            if new_frame.frame_index != last.frame_index + 1 {
+                // Keep `recent_frames` consecutive.
+                // Important when loading .puffin files which has both
+                // the slowest frames and most recent frames in the same stream.
+                self.recent_frames.clear();
             }
         }
 
@@ -572,6 +668,69 @@ impl GlobalProfiler {
     /// How many slow "spike" frames to store.
     pub fn set_max_slow(&mut self, max_slow: usize) {
         self.max_slow = max_slow;
+    }
+
+    /// Export profile data as a `.puffin` file.
+    #[cfg(feature = "serialization")]
+    pub fn save_to_path(&self, path: &std::path::Path) -> anyhow::Result<()> {
+        let mut file = std::fs::File::create(path)?;
+        self.save_to_writer(&mut file)
+    }
+
+    /// Export profile data as a `.puffin` file.
+    #[cfg(feature = "serialization")]
+    pub fn save_to_writer(&self, write: &mut impl std::io::Write) -> anyhow::Result<()> {
+        write.write_all(b"PUF0")?;
+
+        let slowest_frames = self.slowest_frames.iter().map(|f| &f.0);
+        let mut frames: Vec<_> = slowest_frames.chain(self.recent_frames.iter()).collect();
+        frames.sort_by_key(|frame| frame.frame_index);
+        frames.dedup_by_key(|frame| frame.frame_index);
+
+        for frame in frames {
+            frame.write_into(write)?;
+        }
+        Ok(())
+    }
+
+    /// Import profile data from a `.puffin` file.
+    #[cfg(feature = "serialization")]
+    pub fn load_path(path: &std::path::Path) -> anyhow::Result<Self> {
+        let mut file = std::fs::File::open(path)?;
+        Self::load_reader(&mut file)
+    }
+
+    /// Import profile data from a `.puffin` file.
+    #[cfg(feature = "serialization")]
+    pub fn load_reader(read: &mut impl std::io::Read) -> anyhow::Result<Self> {
+        let mut magic = [0_u8; 4];
+        read.read_exact(&mut magic)?;
+        if &magic != b"PUF0" {
+            anyhow::bail!("Expected .puffin magic header of 'PUF0', found {:?}", magic);
+        }
+
+        let mut slf = Self {
+            max_recent: usize::MAX,
+            ..Default::default()
+        };
+        while let Some(frame) = FrameData::read_next(read)? {
+            slf.add_frame(frame.into());
+        }
+
+        Ok(slf)
+    }
+
+    /// Call this function with each new finished frame.
+    /// The returned [`FrameSinkId`] can be used to remove the sink with [`Self::remove_sink`].
+    pub fn add_sink(&mut self, sink: FrameSink) -> FrameSinkId {
+        let id = self.next_sink_id;
+        self.next_sink_id.0 += 1;
+        self.sinks.insert(id, sink);
+        id
+    }
+
+    pub fn remove_sink(&mut self, id: FrameSinkId) -> Option<FrameSink> {
+        self.sinks.remove(&id)
     }
 }
 
