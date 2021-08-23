@@ -1,4 +1,5 @@
 use anyhow::Context as _;
+use puffin::GlobalProfiler;
 use std::{
     io::Write,
     net::{SocketAddr, TcpListener, TcpStream},
@@ -7,8 +8,10 @@ use std::{
 
 /// Listens for incoming connections
 /// and streams them puffin profiler data.
+///
+/// Drop to stop transmitting and listening for new connections.
 pub struct Server {
-    tx: std::sync::mpsc::Sender<Arc<puffin::FrameData>>,
+    sink_id: puffin::FrameSinkId,
 }
 
 impl Server {
@@ -19,9 +22,8 @@ impl Server {
             .set_nonblocking(true)
             .context("TCP set_nonblocking")?;
 
-        let (tx, rx) = std::sync::mpsc::channel();
-
-        let server = Server { tx };
+        let (tx, rx): (std::sync::mpsc::Sender<Arc<puffin::FrameData>>, _) =
+            std::sync::mpsc::channel();
 
         std::thread::Builder::new()
             .name("puffin-server".to_owned())
@@ -42,15 +44,17 @@ impl Server {
             })
             .context("Couldn't spawn thread")?;
 
-        Ok(server)
-    }
+        let sink_id = GlobalProfiler::lock().add_sink(Box::new(move |frame| {
+            tx.send(frame).ok();
+        }));
 
-    /// Call this once per frame, right after calling [`puffin::GlobalProfiler::new_frame`].
-    pub fn update(&self) {
-        let latest_frame = puffin::GlobalProfiler::lock().latest_frame();
-        if let Some(latest_frame) = latest_frame {
-            self.tx.send(latest_frame).ok();
-        }
+        Ok(Server { sink_id })
+    }
+}
+
+impl Drop for Server {
+    fn drop(&mut self) {
+        GlobalProfiler::lock().remove_sink(self.sink_id);
     }
 }
 

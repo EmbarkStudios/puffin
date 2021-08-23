@@ -512,6 +512,12 @@ impl Ord for OrderedData {
     }
 }
 
+/// Add these to [`GlobalProfiler`] with [`GlobalProfiler::add_sink`].
+pub type FrameSink = Box<dyn Fn(Arc<FrameData>) + Send>;
+
+#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
+pub struct FrameSinkId(u64);
+
 /// Singleton. Collects profiling data from multiple threads.
 pub struct GlobalProfiler {
     current_frame_index: FrameIndex,
@@ -523,6 +529,9 @@ pub struct GlobalProfiler {
 
     slowest_frames: std::collections::BinaryHeap<OrderedData>,
     max_slow: usize,
+
+    next_sink_id: FrameSinkId,
+    sinks: std::collections::HashMap<FrameSinkId, FrameSink>,
 }
 
 impl Default for GlobalProfiler {
@@ -537,6 +546,8 @@ impl Default for GlobalProfiler {
             max_recent,
             slowest_frames: std::collections::BinaryHeap::with_capacity(max_slow),
             max_slow,
+            next_sink_id: FrameSinkId(1),
+            sinks: Default::default(),
         }
     }
 }
@@ -573,6 +584,10 @@ impl GlobalProfiler {
 
     /// Manually add frame data.
     pub fn add_frame(&mut self, new_frame: Arc<FrameData>) {
+        for sink in self.sinks.values() {
+            sink(new_frame.clone());
+        }
+
         let add_to_slowest = if self.slowest_frames.len() < self.max_slow {
             true
         } else if let Some(fastest_of_the_slow) = self.slowest_frames.peek() {
@@ -702,6 +717,19 @@ impl GlobalProfiler {
         }
 
         Ok(slf)
+    }
+
+    /// Call this function with each new finished frame.
+    /// The returned [`FrameSinkId`] can be used to remove the sink with [`Self::remove_sink`].
+    pub fn add_sink(&mut self, sink: FrameSink) -> FrameSinkId {
+        let id = self.next_sink_id;
+        self.next_sink_id.0 += 1;
+        self.sinks.insert(id, sink);
+        id
+    }
+
+    pub fn remove_sink(&mut self, id: FrameSinkId) -> Option<FrameSink> {
+        self.sinks.remove(&id)
     }
 }
 
