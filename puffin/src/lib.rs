@@ -287,7 +287,7 @@ impl FrameData {
     ) -> Result<Self> {
         let thread_streams: BTreeMap<_, _> = thread_streams
             .into_iter()
-            .filter_map(|(info, stream_info)| Some((info, Arc::new(stream_info))))
+            .map(|(info, stream_info)| (info, Arc::new(stream_info)))
             .collect();
 
         let mut num_bytes = 0;
