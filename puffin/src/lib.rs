@@ -679,7 +679,7 @@ impl GlobalProfiler {
     /// Export profile data as a `.puffin` file.
     #[cfg(feature = "serialization")]
     pub fn save_to_writer(&self, write: &mut impl std::io::Write) -> anyhow::Result<()> {
-        write.write_all(b"puf0")?;
+        write.write_all(b"PUF0")?;
 
         let slowest_frames = self.slowest_frames.iter().map(|f| &f.0);
         let mut frames: Vec<_> = slowest_frames.chain(self.recent_frames.iter()).collect();
@@ -704,8 +704,8 @@ impl GlobalProfiler {
     pub fn load_reader(read: &mut impl std::io::Read) -> anyhow::Result<Self> {
         let mut magic = [0_u8; 4];
         read.read_exact(&mut magic)?;
-        if &magic != b"puf0" {
-            anyhow::bail!("Expected .puffin magic header of 'puf0', found {:?}", magic);
+        if &magic != b"PUF0" {
+            anyhow::bail!("Expected .puffin magic header of 'PUF0', found {:?}", magic);
         }
 
         let mut slf = Self {

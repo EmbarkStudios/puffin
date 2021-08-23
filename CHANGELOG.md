@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 * New `serialization` feature flag enables exporting and importing `.puffin` files. This replaces the old `with_serde` feature flag.
+* Add `GlobalProfiler::add_sink` for installing callbacks that are called each frame.
 
 * Speed up `GlobalProfiler::new_frame`.
 
