@@ -336,19 +336,22 @@ impl FrameData {
     #[cfg(feature = "serialization")]
     pub fn write_into(&self, write: &mut impl std::io::Write) -> anyhow::Result<()> {
         use bincode::Options as _;
-        let encoded = bincode::options().serialize(self)?;
-        write.write_all(&(encoded.len() as u32).to_le_bytes())?;
-        write.write_all(&encoded)?;
+        let serialized = bincode::options().serialize(self)?;
+        let compressed = lz4_flex::compress_prepend_size(&serialized);
+        write.write_all(b"PFD0")?;
+        write.write_all(&(compressed.len() as u32).to_le_bytes())?;
+        write.write_all(&compressed)?;
         Ok(())
     }
 
     /// Read the next Frame from a stream.
-    /// If the end of the stream is reached, `None` is returned.
+    /// If the end of the stream is reached (EOF), `None` is returned.
     #[cfg(feature = "serialization")]
     pub fn read_next(read: &mut impl std::io::Read) -> anyhow::Result<Option<Self>> {
         use anyhow::Context as _;
-        let mut length = [0_u8; 4];
-        if let Err(err) = read.read_exact(&mut length) {
+
+        let mut header = [0_u8; 4];
+        if let Err(err) = read.read_exact(&mut header) {
             if err.kind() == std::io::ErrorKind::UnexpectedEof {
                 return Ok(None);
             } else {
@@ -356,17 +359,33 @@ impl FrameData {
             }
         }
 
-        let length = u32::from_le_bytes(length);
+        if &header == b"PFD0" {
+            let mut compressed_length = [0_u8; 4];
+            read.read_exact(&mut compressed_length)?;
+            let mut compressed = vec![0_u8; u32::from_le_bytes(compressed_length) as usize];
+            read.read_exact(&mut compressed)?;
 
-        let mut bytes = vec![0_u8; length as usize];
-        read.read_exact(&mut bytes)?;
+            let serialized =
+                lz4_flex::decompress_size_prepended(&compressed).context("lz4 decompress")?;
 
-        use bincode::Options as _;
-        Ok(Some(
-            bincode::options()
-                .deserialize(&bytes)
-                .context("bincode deserialize")?,
-        ))
+            use bincode::Options as _;
+            Ok(Some(
+                bincode::options()
+                    .deserialize(&serialized)
+                    .context("bincode deserialize")?,
+            ))
+        } else {
+            // Old packet without magic header
+            let mut bytes = vec![0_u8; u32::from_le_bytes(header) as usize];
+            read.read_exact(&mut bytes)?;
+
+            use bincode::Options as _;
+            Ok(Some(
+                bincode::options()
+                    .deserialize(&bytes)
+                    .context("bincode deserialize")?,
+            ))
+        }
     }
 }
 
