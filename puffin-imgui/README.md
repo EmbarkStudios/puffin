@@ -4,7 +4,6 @@
 [![Embark](https://img.shields.io/badge/discord-ark-%237289da.svg?logo=discord)](https://discord.gg/dAuKfZS)
 [![Crates.io](https://img.shields.io/crates/v/puffin-imgui.svg)](https://crates.io/crates/puffin-imgui)
 [![Docs](https://docs.rs/puffin-imgui/badge.svg)](https://docs.rs/puffin-imgui)
-[![dependency status](https://deps.rs/repo/github/EmbarkStudios/puffin-imgui/status.svg)](https://deps.rs/repo/github/EmbarkStudios/puffin-imgui)
 
 This crate provides a flamegraph view of the data collected by the Puffin profiler.
 

@@ -1,10 +1,9 @@
 # Show [`puffin`](https://github.com/EmbarkStudios/puffin/) profiler flamegraph in-game using [`egui`](https://github.com/emilk/egui)
 
-[![Latest version](https://img.shields.io/crates/v/puffin_egui.svg)](https://crates.io/crates/puffin_egui)
-[![Documentation](https://docs.rs/puffin_egui/badge.svg)](https://docs.rs/puffin_egui)
-[![unsafe forbidden](https://img.shields.io/badge/unsafe-forbidden-success.svg)](https://github.com/rust-secure-code/safety-dance/)
-![MIT](https://img.shields.io/badge/license-MIT-blue.svg)
-![Apache](https://img.shields.io/badge/license-Apache-blue.svg)
+[![Embark](https://img.shields.io/badge/embark-open%20source-blueviolet.svg)](https://embark.dev)
+[![Embark](https://img.shields.io/badge/discord-ark-%237289da.svg?logo=discord)](https://discord.gg/dAuKfZS)
+[![Crates.io](https://img.shields.io/crates/v/puffin_egui.svg)](https://crates.io/crates/puffin_egui)
+[![Docs](https://docs.rs/puffin_egui/badge.svg)](https://docs.rs/puffin_egui)
 
 [`puffin`](https://github.com/EmbarkStudios/puffin/) is an instrumentation profiler where you opt-in to profile parts of your code:
 

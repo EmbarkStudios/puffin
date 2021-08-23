@@ -1,6 +1,10 @@
 # puffin viewer
 
-Use [`puffin_server`](https://crates.io/crates/puffin_server) to publish puffin events. Then connect to it with `puffin_viewer`:
+[![Embark](https://img.shields.io/badge/embark-open%20source-blueviolet.svg)](https://embark.dev)
+[![Embark](https://img.shields.io/badge/discord-ark-%237289da.svg?logo=discord)](https://discord.gg/dAuKfZS)
+[![Crates.io](https://img.shields.io/crates/v/puffin_viewer.svg)](https://crates.io/crates/puffin_viewer)
+
+Use [`puffin_http`](https://github.com/EmbarkStudios/puffin/tree/main/puffin_http) to publish puffin events over TCP. Then connect to it with `puffin_viewer`:
 
 ``` sh
 cargo install puffin_viewer

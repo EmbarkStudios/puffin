@@ -30,15 +30,19 @@ Once per frame you need to call `puffin::GlobalProfiler::lock().new_frame();`.
 
 ## UI
 
-To view the profile data in-game you can use [`puffin_egui`](https://crates.io/crates/puffin_egui).
+To view the profile data in-game you can use [`puffin_egui`](https://github.com/EmbarkStudios/puffin/tree/main/puffin_egui).
 
 ![Puffin Flamegraph using puffin_egui](puffin_egui.gif)
 
-If you are using the [`imgui`](https://crates.io/crates/imgui) crate, there is also [`puffin-imgui`](https://crates.io/crates/puffin-imgui).
+If you are using the [`imgui`](https://crates.io/crates/imgui) crate, there is also [`puffin-imgui`](https://github.com/EmbarkStudios/puffin/tree/main/puffin-imgui).
+
+## Remote profiling
+
+You can use [`puffin_http`](https://github.com/EmbarkStudios/puffin/tree/main/puffin_http) to send profile events over TCP to [`puffin_viewer`](https://github.com/EmbarkStudios/puffin/tree/main/puffin_http).
 
 ## Other
 
-Also check out the crate [`profiling`](https://crates.io/crates/profiling) which provides a unifying layer of abstraction on top of `puffin` and other profiling crates. It also has a working example of `puffin-imgui`.
+Also check out the crate [`profiling`](https://crates.io/crates/profiling) which provides a unifying layer of abstraction on top of `puffin` and other profiling crates.
 
 ## Contributing
 
