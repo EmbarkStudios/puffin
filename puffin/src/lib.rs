@@ -121,7 +121,10 @@ pub type NanoSecond = i64;
 
 /// Stream of profiling events from one thread.
 #[derive(Clone, Default)]
-#[cfg_attr(feature = "with_serde", derive(serde::Deserialize, serde::Serialize))]
+#[cfg_attr(
+    feature = "serialization",
+    derive(serde::Deserialize, serde::Serialize)
+)]
 pub struct Stream(Vec<u8>);
 
 impl Stream {
@@ -188,7 +191,10 @@ pub struct Scope<'s> {
 
 /// Used to identify one source of profiling data.
 #[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
-#[cfg_attr(feature = "with_serde", derive(serde::Deserialize, serde::Serialize))]
+#[cfg_attr(
+    feature = "serialization",
+    derive(serde::Deserialize, serde::Serialize)
+)]
 pub struct ThreadInfo {
     /// Useful for ordering threads.
     pub start_time_ns: Option<NanoSecond>,
@@ -202,7 +208,10 @@ pub type FrameIndex = u64;
 
 /// A `Stream` plus some info about it.
 #[derive(Clone)]
-#[cfg_attr(feature = "with_serde", derive(serde::Deserialize, serde::Serialize))]
+#[cfg_attr(
+    feature = "serialization",
+    derive(serde::Deserialize, serde::Serialize)
+)]
 pub struct StreamInfo {
     /// The raw profile data.
     pub stream: Stream,
@@ -271,7 +280,10 @@ impl StreamInfo {
 
 /// One frame worth of profile data, collected from many sources.
 #[derive(Clone)]
-#[cfg_attr(feature = "with_serde", derive(serde::Deserialize, serde::Serialize))]
+#[cfg_attr(
+    feature = "serialization",
+    derive(serde::Deserialize, serde::Serialize)
+)]
 pub struct FrameData {
     pub frame_index: FrameIndex,
     pub thread_streams: BTreeMap<ThreadInfo, Arc<StreamInfo>>,
@@ -318,6 +330,43 @@ impl FrameData {
     pub fn duration_ns(&self) -> NanoSecond {
         let (min, max) = self.range_ns;
         max - min
+    }
+
+    /// Writes one Frame into a stream, prefixed by it's length (u32 le).
+    #[cfg(feature = "serialization")]
+    pub fn write_into(&self, write: &mut impl std::io::Write) -> anyhow::Result<()> {
+        use bincode::Options as _;
+        let encoded = bincode::options().serialize(self)?;
+        write.write_all(&(encoded.len() as u32).to_le_bytes())?;
+        write.write_all(&encoded)?;
+        Ok(())
+    }
+
+    /// Read the next Frame from a stream.
+    /// If the end of the stream is reached, `None` is returned.
+    #[cfg(feature = "serialization")]
+    pub fn read_next(read: &mut impl std::io::Read) -> anyhow::Result<Option<Self>> {
+        use anyhow::Context as _;
+        let mut length = [0_u8; 4];
+        if let Err(err) = read.read_exact(&mut length) {
+            if err.kind() == std::io::ErrorKind::UnexpectedEof {
+                return Ok(None);
+            } else {
+                return Err(err.into());
+            }
+        }
+
+        let length = u32::from_le_bytes(length);
+
+        let mut bytes = vec![0_u8; length as usize];
+        read.read_exact(&mut bytes)?;
+
+        use bincode::Options as _;
+        Ok(Some(
+            bincode::options()
+                .deserialize(&bytes)
+                .context("bincode deserialize")?,
+        ))
     }
 }
 
@@ -571,6 +620,50 @@ impl GlobalProfiler {
     /// How many slow "spike" frames to store.
     pub fn set_max_slow(&mut self, max_slow: usize) {
         self.max_slow = max_slow;
+    }
+
+    /// Export profile data as a `.puffin` file.
+    #[cfg(feature = "serialization")]
+    pub fn save_to_path(&self, path: &std::path::Path) -> anyhow::Result<()> {
+        let mut file = std::fs::File::create(path)?;
+        self.save_to_writer(&mut file)
+    }
+
+    /// Export profile data as a `.puffin` file.
+    #[cfg(feature = "serialization")]
+    pub fn save_to_writer(&self, write: &mut impl std::io::Write) -> anyhow::Result<()> {
+        write.write_all(b"puf0")?;
+        for frame in &self.recent_frames {
+            frame.write_into(write)?;
+        }
+        Ok(())
+    }
+
+    /// Import profile data from a `.puffin` file.
+    #[cfg(feature = "serialization")]
+    pub fn load_path(path: &std::path::Path) -> anyhow::Result<Self> {
+        let mut file = std::fs::File::open(path)?;
+        Self::load_reader(&mut file)
+    }
+
+    /// Import profile data from a `.puffin` file.
+    #[cfg(feature = "serialization")]
+    pub fn load_reader(read: &mut impl std::io::Read) -> anyhow::Result<Self> {
+        let mut magic = [0_u8; 4];
+        read.read_exact(&mut magic)?;
+        if &magic != b"puf0" {
+            anyhow::bail!("Expected .puffin magic header of 'puf0', found {:?}", magic);
+        }
+
+        let mut slf = Self {
+            max_recent: usize::MAX,
+            ..Default::default()
+        };
+        while let Some(frame) = FrameData::read_next(read)? {
+            slf.add_frame(frame.into());
+        }
+
+        Ok(slf)
     }
 }
 

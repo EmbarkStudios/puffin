@@ -3,6 +3,8 @@ use std::sync::{
     Arc,
 };
 
+use puffin::FrameData;
+
 /// Connect to a [`crate::Server`], reading profile data
 /// and feeding it to [`puffin::GlobalProfiler`].
 ///
@@ -53,7 +55,10 @@ impl Client {
                                         .add_frame(std::sync::Arc::new(frame_data));
                                 }
                                 Err(err) => {
-                                    log::warn!("Connection to puffin server closed: {}", err);
+                                    log::warn!(
+                                        "Connection to puffin server closed: {}",
+                                        error_display_chain(err.as_ref())
+                                    );
                                     connected.store(false, SeqCst);
                                     break;
                                 }
@@ -83,7 +88,7 @@ impl Client {
 }
 
 /// Read a `puffin_http` message from a stream.
-pub fn consume_message(stream: &mut dyn std::io::Read) -> anyhow::Result<puffin::FrameData> {
+pub fn consume_message(stream: &mut impl std::io::Read) -> anyhow::Result<puffin::FrameData> {
     let mut server_version = [0_u8; 2];
     stream.read_exact(&mut server_version)?;
     let server_version = u16::from_le_bytes(server_version);
@@ -99,24 +104,25 @@ pub fn consume_message(stream: &mut dyn std::io::Read) -> anyhow::Result<puffin:
         std::cmp::Ordering::Equal => {}
         std::cmp::Ordering::Greater => {
             anyhow::bail!(
-            "puffin server is using a newer protocol version ({}) than the client ({}). Update puffin_viewer with 'cargo install puffin_viewer'.",
-            server_version,
-            crate::PROTOCOL_VERSION
-        );
+                "puffin server is using a newer protocol version ({}) than the client ({}). Update puffin_viewer with 'cargo install puffin_viewer'.",
+                server_version,
+                crate::PROTOCOL_VERSION
+            );
         }
     }
 
-    let mut message_len = [0_u8; 4];
-    stream.read_exact(&mut message_len)?;
-    let message_len = u32::from_le_bytes(message_len);
-
-    let mut bytes = vec![0_u8; message_len as usize];
-    stream.read_exact(&mut bytes)?;
-
     use anyhow::Context as _;
-    use bincode::Options as _;
+    FrameData::read_next(stream)
+        .context("Failed to parse FrameData")?
+        .ok_or_else(|| anyhow::format_err!("End of stream"))
+}
 
-    bincode::options()
-        .deserialize(&bytes)
-        .context("Failed to decode bincode")
+/// Show full cause chain in a single line
+fn error_display_chain(error: &dyn std::error::Error) -> String {
+    let mut s = error.to_string();
+    if let Some(source) = error.source() {
+        s.push_str(" -> ");
+        s.push_str(&error_display_chain(source));
+    }
+    s
 }

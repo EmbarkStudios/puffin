@@ -85,19 +85,13 @@ impl PuffinServerImpl {
     }
 
     pub fn send(&mut self, frame: &puffin::FrameData) -> anyhow::Result<()> {
-        use bincode::Options as _;
-        let mut encoded = bincode::options()
-            .serialize(frame)
-            .context("Encode puffin frame")?;
-
         let mut message = vec![];
         message
             .write_all(&crate::PROTOCOL_VERSION.to_le_bytes())
             .unwrap();
-        message
-            .write_all(&(encoded.len() as u32).to_le_bytes())
-            .unwrap();
-        message.append(&mut encoded);
+        frame
+            .write_into(&mut message)
+            .context("Encode puffin frame")?;
 
         use retain_mut::RetainMut as _;
         self.clients

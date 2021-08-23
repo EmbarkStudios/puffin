@@ -1912,6 +1912,8 @@ dependencies = [
 name = "puffin"
 version = "0.6.0"
 dependencies = [
+ "anyhow",
+ "bincode",
  "byteorder",
  "criterion",
  "once_cell",
@@ -1950,7 +1952,6 @@ name = "puffin_http"
 version = "0.3.0"
 dependencies = [
  "anyhow",
- "bincode",
  "log",
  "puffin",
  "retain_mut",
