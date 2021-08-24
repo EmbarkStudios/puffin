@@ -71,14 +71,22 @@
 // END - Embark standard lints v0.4
 // crate-specific exceptions:
 #![deny(missing_crate_level_docs)]
+#![allow(clippy::exit)]
 
 use eframe::{egui, epi};
+use puffin::GlobalProfiler;
+use std::path::PathBuf;
 
-/// puffin remote profile viewer.
+/// puffin profile viewer.
 ///
-/// Connect to a puffin server and show its profile data.
+/// Can either connect remotely to a puffin server
+/// or open a .puffin recording file.
 #[derive(argh::FromArgs)]
 struct Arguments {
+    /// what .puffin file to open, e.g. `my/recording.puffin`.
+    #[argh(option)]
+    file: Option<String>,
+
     /// which server to connect to, e.g. `127.0.0.1:8585`.
     #[argh(option, default = "default_url()")]
     url: String,
@@ -97,15 +105,179 @@ fn main() {
         .ok();
 
     puffin::set_scopes_on(true); // quiet warning in `puffin_egui`.
-    let client = puffin_http::Client::new(opt.url);
 
-    let app = PuffinViewer { client };
+    let app = if let Some(file) = opt.file {
+        let path = PathBuf::from(file);
+        match GlobalProfiler::load_path(&path) {
+            Ok(profiler) => {
+                *GlobalProfiler::lock() = profiler;
+                PuffinViewer {
+                    profiler_ui: Default::default(),
+                    source: Source::FilePath(path),
+                    error: None,
+                }
+            }
+            Err(err) => {
+                log::error!("Failed to load {}: {}", path.display(), err);
+                std::process::exit(1);
+            }
+        }
+    } else {
+        PuffinViewer {
+            profiler_ui: Default::default(),
+            source: Source::Http(puffin_http::Client::new(opt.url)),
+            error: None,
+        }
+    };
+
     let options = Default::default();
     eframe::run_native(Box::new(app), options);
 }
 
+pub enum Source {
+    Http(puffin_http::Client),
+    FilePath(PathBuf),
+    FileName(String),
+}
+
+impl Source {
+    fn ui(&self, ui: &mut egui::Ui) {
+        match self {
+            Source::Http(http_client) => {
+                if http_client.connected() {
+                    ui.label(format!("Connected to {}", http_client.addr()));
+                } else {
+                    ui.label(format!("Connecting to {}…", http_client.addr()));
+                }
+            }
+            Source::FilePath(path) => {
+                ui.label(format!("Viewing {}", path.display()));
+            }
+            Source::FileName(name) => {
+                ui.label(format!("Viewing {}", name));
+            }
+        }
+    }
+}
+
 pub struct PuffinViewer {
-    client: puffin_http::Client,
+    profiler_ui: puffin_egui::ProfilerUi,
+    source: Source,
+    error: Option<String>,
+}
+
+impl PuffinViewer {
+    fn save_dialog(&mut self) {
+        if let Some(path) = rfd::FileDialog::new()
+            .add_filter("puffin", &["puffin"])
+            .save_file()
+        {
+            if let Err(error) = GlobalProfiler::lock().save_to_path(&path) {
+                self.error = Some(format!("Failed to export: {}", error));
+            } else {
+                self.error = None;
+            }
+        }
+    }
+
+    fn open_dialog(&mut self) {
+        if let Some(path) = rfd::FileDialog::new()
+            .add_filter("puffin", &["puffin"])
+            .pick_file()
+        {
+            self.open_puffin_path(path);
+        }
+    }
+
+    fn open_puffin_path(&mut self, path: std::path::PathBuf) {
+        match GlobalProfiler::load_path(&path) {
+            Ok(profiler) => {
+                *GlobalProfiler::lock() = profiler;
+                self.profiler_ui.reset();
+                self.source = Source::FilePath(path);
+                self.error = None;
+            }
+            Err(err) => {
+                self.error = Some(format!("Failed to load {}: {}", path.display(), err));
+            }
+        }
+    }
+
+    fn open_puffin_bytes(&mut self, name: String, bytes: &[u8]) {
+        let mut reader = std::io::Cursor::new(bytes);
+        match GlobalProfiler::load_reader(&mut reader) {
+            Ok(profiler) => {
+                *GlobalProfiler::lock() = profiler;
+                self.profiler_ui.reset();
+                self.source = Source::FileName(name);
+                self.error = None;
+            }
+            Err(err) => {
+                self.error = Some(format!("Failed to load file {:?}: {}", name, err));
+            }
+        }
+    }
+
+    fn ui_menu_bar(&mut self, ctx: &egui::CtxRef, frame: &mut epi::Frame<'_>) {
+        if ctx.input().modifiers.command && ctx.input().key_pressed(egui::Key::O) {
+            self.open_dialog();
+        }
+
+        if ctx.input().modifiers.command && ctx.input().key_pressed(egui::Key::S) {
+            self.save_dialog();
+        }
+
+        egui::TopBottomPanel::top("menu_bar").show(ctx, |ui| {
+            egui::menu::bar(ui, |ui| {
+                egui::menu::menu(ui, "File", |ui| {
+                    if ui.button("Open…").clicked() {
+                        self.open_dialog();
+                    }
+
+                    if ui.button("Save as…").clicked() {
+                        self.save_dialog();
+                    }
+
+                    if ui.button("Quit").clicked() {
+                        frame.quit();
+                    }
+                });
+            });
+        });
+    }
+
+    fn ui_file_drag_and_drop(&mut self, ctx: &egui::CtxRef) {
+        use egui::*;
+
+        // Preview hovering files:
+        if !ctx.input().raw.hovered_files.is_empty() {
+            let painter =
+                ctx.layer_painter(LayerId::new(Order::Foreground, Id::new("file_drop_target")));
+
+            let screen_rect = ctx.input().screen_rect();
+            painter.rect_filled(screen_rect, 0.0, Color32::from_black_alpha(192));
+            painter.text(
+                screen_rect.center(),
+                Align2::CENTER_CENTER,
+                "Drop to open .puffin file",
+                TextStyle::Heading,
+                Color32::WHITE,
+            );
+        }
+
+        // Collect dropped files:
+        if !ctx.input().raw.dropped_files.is_empty() {
+            for file in &ctx.input().raw.dropped_files {
+                if let Some(path) = &file.path {
+                    self.open_puffin_path(path.clone());
+                    break;
+                } else if let Some(bytes) = &file.bytes {
+                    self.open_puffin_bytes(file.name.clone(), bytes);
+                    break;
+                }
+            }
+        }
+    }
 }
 
 impl epi::App for PuffinViewer {
@@ -113,15 +285,22 @@ impl epi::App for PuffinViewer {
         "puffin http client viewer"
     }
 
-    fn update(&mut self, ctx: &egui::CtxRef, _frame: &mut epi::Frame<'_>) {
-        egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
-            if self.client.connected() {
-                ui.label(format!("Connected to {}", self.client.addr()));
-            } else {
-                ui.label(format!("Connecting to {}…", self.client.addr()));
+    fn update(&mut self, ctx: &egui::CtxRef, frame: &mut epi::Frame<'_>) {
+        self.ui_menu_bar(ctx, frame);
+
+        egui::TopBottomPanel::bottom("info_bar").show(ctx, |ui| {
+            if let Some(error) = &self.error {
+                ui.colored_label(egui::Color32::RED, error);
+                ui.separator();
             }
+
+            self.source.ui(ui);
         });
 
-        egui::CentralPanel::default().show(ctx, puffin_egui::profiler_ui);
+        egui::CentralPanel::default().show(ctx, |ui| {
+            self.profiler_ui.ui(ui);
+        });
+
+        self.ui_file_drag_and_drop(ctx);
     }
 }
