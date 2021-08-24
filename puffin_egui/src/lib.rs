@@ -587,25 +587,16 @@ impl ProfilerUi {
 
         let longest_count = frames.recent.len().max(frames.slowest.len());
 
-        // TODO: in egui 0.14, use `egui::Grid::new("frame_grid").num_columns(2)`
+        egui::Grid::new("frame_grid").num_columns(2).show(ui, |ui| {
+            ui.label("Recent:");
 
-        let label_size = egui::vec2(48.0, self.options.frame_list_height);
-        let vertical = egui::Layout::top_down(egui::Align::LEFT);
-
-        ui.horizontal(|ui| {
-            ui.allocate_ui_with_layout(label_size, vertical, |ui| {
-                ui.set_min_size(label_size);
-                ui.add_space(24.0); // make it a bit more centered
-                ui.label("Recent:");
-            });
             Frame::dark_canvas(ui.style()).show(ui, |ui| {
                 self.show_frame_list(ui, &frames.recent, longest_count, &mut hovered_frame);
             });
-        });
 
-        ui.horizontal(|ui| {
-            ui.allocate_ui_with_layout(label_size, vertical, |ui| {
-                ui.set_min_size(label_size);
+            ui.end_row();
+
+            ui.vertical(|ui| {
                 ui.style_mut().wrap = Some(false);
                 ui.add_space(16.0); // make it a bit more centered
                 ui.label("Slowest:");
