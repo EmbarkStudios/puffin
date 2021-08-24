@@ -1959,7 +1959,7 @@ dependencies = [
 
 [[package]]
 name = "puffin_http"
-version = "0.4.0"
+version = "0.4.1"
 dependencies = [
  "anyhow",
  "log",

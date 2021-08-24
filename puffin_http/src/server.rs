@@ -89,6 +89,10 @@ impl PuffinServerImpl {
     }
 
     pub fn send(&mut self, frame: &puffin::FrameData) -> anyhow::Result<()> {
+        if self.clients.is_empty() {
+            return Ok(());
+        }
+
         let mut message = vec![];
         message
             .write_all(&crate::PROTOCOL_VERSION.to_le_bytes())
