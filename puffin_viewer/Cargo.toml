@@ -18,6 +18,6 @@ puffin = { version = "0.7.0", path = "../puffin", features = ["serialization"] }
 puffin_http = { version = "0.4.0", path = "../puffin_http" }
 
 argh = "0.1"
-eframe = { version = "0.13", features = ["persistence"] }
+eframe = { version = "0.14", features = ["persistence"] }
 log = "0.4"
 simple_logger = "1.11"
