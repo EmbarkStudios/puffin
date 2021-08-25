@@ -4,6 +4,9 @@ All notable changes to the egui crate will be documented in this file.
 
 
 ## Unreleased
+
+
+## 0.6.0 - 2021-08-25
 * Update to egui 0.14
 
 

@@ -4,6 +4,9 @@ All notable changes to `puffin_viewer` will be documented in this file.
 
 
 ## Unreleased
+
+
+## 0.5.0
 * Load and save recordings as `.puffin` files.
 
 
