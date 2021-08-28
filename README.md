@@ -1,15 +1,28 @@
-# 🐦 Puffin - The Friendly Little Profiler
+<div align="center">
+  <h1><code>🐦 puffin</code></h1>
 
+   <p>
+    <strong>The friendly little instrumentation profiler for Rust</strong>
+  </p>
+
+![Puffin photo by Richard Bartz](puffin.jpg)
+
+  <p>
+
+      
 [![Embark](https://img.shields.io/badge/embark-open%20source-blueviolet.svg)](https://embark.dev)
 [![Embark](https://img.shields.io/badge/discord-ark-%237289da.svg?logo=discord)](https://discord.gg/dAuKfZS)
 [![Crates.io](https://img.shields.io/crates/v/puffin.svg)](https://crates.io/crates/puffin)
 [![Docs](https://docs.rs/puffin/badge.svg)](https://docs.rs/puffin)
 [![dependency status](https://deps.rs/repo/github/EmbarkStudios/puffin/status.svg)](https://deps.rs/repo/github/EmbarkStudios/puffin)
 [![Build Status](https://github.com/EmbarkStudios/puffin/workflows/CI/badge.svg)](https://github.com/EmbarkStudios/puffin/actions?workflow=CI)
+    
+  </p>
+    
+    
+</div>
 
-![Puffin photo by Richard Bartz](puffin.jpg)
-
-Puffin is an instrumentation profiler written in Rust where you opt-in to profile parts of your code:
+## How to use
 
 ``` rust
 fn my_function() {
