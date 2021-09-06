@@ -81,6 +81,7 @@
 #![allow(clippy::float_cmp, clippy::manual_range_contains)]
 
 mod flamegraph;
+mod stats;
 
 pub use {egui, puffin};
 
@@ -143,12 +144,27 @@ pub struct Paused {
     frames: Frames,
 }
 
+#[derive(Copy, Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+pub enum View {
+    Flamegraph,
+    Stats,
+}
+
+impl Default for View {
+    fn default() -> Self {
+        Self::Flamegraph
+    }
+}
+
 /// Contains settings for the profiler.
 #[derive(Clone, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
-#[cfg_attr(feature = "persistence", serde(default))]
+#[cfg_attr(feature = "serde", serde(default))]
 pub struct ProfilerUi {
     pub options: flamegraph::Options,
+
+    pub view: View,
 
     /// If `None`, we show the latest frames.
     #[cfg_attr(feature = "serde", serde(skip))]
@@ -157,11 +173,7 @@ pub struct ProfilerUi {
 
 impl ProfilerUi {
     pub fn reset(&mut self) {
-        let options = self.options;
-        *self = Self {
-            options,
-            ..Default::default()
-        };
+        self.paused = None;
     }
 
     /// Show an [`egui::Window`] with the profiler contents.
@@ -266,20 +278,6 @@ impl ProfilerUi {
                 });
             }
             ui.separator();
-            ui.checkbox(
-                &mut self.options.merge_scopes,
-                "Merge children with same ID",
-            );
-            ui.separator();
-            ui.add(Label::new("Help!").text_color(ui.visuals().widgets.inactive.text_color()))
-                .on_hover_text(
-                    "Drag to pan.\n\
-                Zoom: Ctrl/cmd + scroll, or drag with secondary mouse button.\n\
-                Click on a scope to zoom to it.\n\
-                Double-click to reset view.\n\
-                Press spacebar to pause/resume.",
-                );
-            ui.separator();
             let (min_ns, max_ns) = frame.range_ns;
             ui.label(format!(
                 "Showing frame #{}, {:.1} ms, {} threads, {} scopes, {:.1} kB",
@@ -295,7 +293,19 @@ impl ProfilerUi {
             ui.ctx().request_repaint(); // keep refreshing to see latest data
         }
 
-        flamegraph::ui(ui, &mut self.options, &frame);
+        ui.separator();
+
+        ui.horizontal(|ui| {
+            ui.selectable_value(&mut self.view, View::Flamegraph, "Flamegraph");
+            ui.selectable_value(&mut self.view, View::Stats, "Stats");
+        });
+
+        ui.separator();
+
+        match self.view {
+            View::Flamegraph => flamegraph::ui(ui, &mut self.options, &frame),
+            View::Stats => stats::ui(ui, &frame),
+        }
     }
 
     /// Returns hovered, if any

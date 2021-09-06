@@ -4,6 +4,7 @@ All notable changes to the egui crate will be documented in this file.
 
 
 ## Unreleased
+* Add a stats panel for finding high-bandwidth scopes.
 
 
 ## 0.6.0 - 2021-08-25

@@ -83,6 +83,7 @@ impl Sorting {
 
 #[derive(Clone, Copy, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+#[cfg_attr(feature = "serde", serde(default))]
 pub struct Options {
     // --------------------
     // View:
@@ -173,8 +174,21 @@ impl Info {
 
 /// Show the flamegraph.
 pub fn ui(ui: &mut egui::Ui, options: &mut Options, frame: &FrameData) {
-    // The number of threads can change between frames, so always show this even if there currently is only one thread:
-    options.sorting.ui(ui);
+    ui.horizontal(|ui| {
+        ui.checkbox(&mut options.merge_scopes, "Merge children with same ID");
+        ui.separator();
+        ui.add(Label::new("Help!").text_color(ui.visuals().widgets.inactive.text_color()))
+            .on_hover_text(
+                "Drag to pan.\n\
+            Zoom: Ctrl/cmd + scroll, or drag with secondary mouse button.\n\
+            Click on a scope to zoom to it.\n\
+            Double-click to reset view.\n\
+            Press spacebar to pause/resume.",
+            );
+        ui.separator();
+        // The number of threads can change between frames, so always show this even if there currently is only one thread:
+        options.sorting.ui(ui);
+    });
 
     Frame::dark_canvas(ui.style()).show(ui, |ui| {
         let available_height = ui.max_rect().bottom() - ui.min_rect().bottom();
