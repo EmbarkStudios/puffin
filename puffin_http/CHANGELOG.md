@@ -4,6 +4,7 @@ All notable changes to `puffin_http` will be documented in this file.
 
 
 ## Unreleased
+* Switch from lz4 to zstd compression for 50% file size and bandwidth reduction.
 
 
 ## 0.4.1 - 2021-08024

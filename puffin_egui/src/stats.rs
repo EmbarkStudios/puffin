@@ -43,6 +43,7 @@ pub fn ui(ui: &mut egui::Ui, frame: &FrameData) {
                 ui.heading("Count");
                 ui.heading("Size");
                 ui.heading("Total self time");
+                ui.heading("Mean self time");
                 ui.heading("Max self time");
                 ui.end_row();
 
@@ -52,6 +53,10 @@ pub fn ui(ui: &mut egui::Ui, frame: &FrameData) {
                     ui.monospace(format!("{:>5}", stats.count));
                     ui.monospace(format!("{:>6.1} kB", stats.bytes as f32 * 1e-3));
                     ui.monospace(format!("{:>8.1} µs", stats.total_self_ns as f32 * 1e-3));
+                    ui.monospace(format!(
+                        "{:>8.1} µs",
+                        stats.total_self_ns as f32 * 1e-3 / (stats.count as f32)
+                    ));
                     ui.monospace(format!("{:>8.1} µs", stats.max_ns as f32 * 1e-3));
                     ui.end_row();
                 }

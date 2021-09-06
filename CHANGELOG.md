@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 ## Unreleased
+* Switch from lz4 to zstd compression for 50% file size and bandwidth reduction.
 
 
 ## 0.7.0 - 2021-08-23

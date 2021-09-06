@@ -336,12 +336,30 @@ impl FrameData {
     /// Writes one Frame into a stream, prefixed by it's length (u32 le).
     #[cfg(feature = "serialization")]
     pub fn write_into(&self, write: &mut impl std::io::Write) -> anyhow::Result<()> {
+        crate::profile_scope!("serialize_frame");
+
         use bincode::Options as _;
-        let serialized = bincode::options().serialize(self)?;
-        let compressed = lz4_flex::compress_prepend_size(&serialized);
-        write.write_all(b"PFD0")?;
-        write.write_all(&(compressed.len() as u32).to_le_bytes())?;
-        write.write_all(&compressed)?;
+        let serialized = {
+            crate::profile_scope!("bincode");
+            bincode::options().serialize(self)?
+        };
+
+        if false {
+            let compressed = lz4_flex::compress_prepend_size(&serialized);
+            write.write_all(b"PFD0")?;
+            write.write_all(&(compressed.len() as u32).to_le_bytes())?;
+            write.write_all(&compressed)?;
+        } else {
+            // zstd cuts sizes in half compared to lz4_flex
+            let level = 3;
+            let compressed = {
+                crate::profile_scope!("zstd_compress");
+                zstd::encode_all(std::io::Cursor::new(&serialized), level)?
+            };
+            write.write_all(b"PFD1")?;
+            write.write_all(&(compressed.len() as u32).to_le_bytes())?;
+            write.write_all(&compressed)?;
+        }
         Ok(())
     }
 
@@ -364,21 +382,39 @@ impl FrameData {
 
         if header == [0_u8; 4] {
             Ok(None) // end-of-stream sentinel.
-        } else if &header == b"PFD0" {
-            let mut compressed_length = [0_u8; 4];
-            read.read_exact(&mut compressed_length)?;
-            let mut compressed = vec![0_u8; u32::from_le_bytes(compressed_length) as usize];
-            read.read_exact(&mut compressed)?;
+        } else if header.starts_with(b"PFD") {
+            if &header == b"PFD0" {
+                let mut compressed_length = [0_u8; 4];
+                read.read_exact(&mut compressed_length)?;
+                let mut compressed = vec![0_u8; u32::from_le_bytes(compressed_length) as usize];
+                read.read_exact(&mut compressed)?;
 
-            let serialized =
-                lz4_flex::decompress_size_prepended(&compressed).context("lz4 decompress")?;
+                let serialized =
+                    lz4_flex::decompress_size_prepended(&compressed).context("lz4 decompress")?;
 
-            use bincode::Options as _;
-            Ok(Some(
-                bincode::options()
-                    .deserialize(&serialized)
-                    .context("bincode deserialize")?,
-            ))
+                use bincode::Options as _;
+                Ok(Some(
+                    bincode::options()
+                        .deserialize(&serialized)
+                        .context("bincode deserialize")?,
+                ))
+            } else if &header == b"PFD1" {
+                let mut compressed_length = [0_u8; 4];
+                read.read_exact(&mut compressed_length)?;
+                let mut compressed = vec![0_u8; u32::from_le_bytes(compressed_length) as usize];
+                read.read_exact(&mut compressed)?;
+
+                let serialized = zstd::decode_all(&compressed[..]).context("zstd decompress")?;
+
+                use bincode::Options as _;
+                Ok(Some(
+                    bincode::options()
+                        .deserialize(&serialized)
+                        .context("bincode deserialize")?,
+                ))
+            } else {
+                anyhow::bail!("Failed to decode: this data is newer than this reader. Please update your puffin version!");
+            }
         } else {
             // Old packet without magic header
             let mut bytes = vec![0_u8; u32::from_le_bytes(header) as usize];
