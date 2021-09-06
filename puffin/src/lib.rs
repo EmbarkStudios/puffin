@@ -775,6 +775,7 @@ impl GlobalProfiler {
 
 /// Returns monotonically increasing nanosecond count.
 /// It is undefined when `now_ns()=0` is.
+#[inline]
 pub fn now_ns() -> NanoSecond {
     // This can maybe be optimized
     use once_cell::sync::Lazy;

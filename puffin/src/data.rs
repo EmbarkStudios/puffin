@@ -55,6 +55,7 @@ pub type Result<T> = std::result::Result<T, Error>;
 
 impl Stream {
     /// Returns position where to write scope size once the scope is closed
+    #[inline]
     pub fn begin_scope(
         &mut self,
         start_ns: NanoSecond,
@@ -74,6 +75,7 @@ impl Stream {
         offset as usize
     }
 
+    #[inline]
     pub fn end_scope(&mut self, start_offset: usize, stop_ns: NanoSecond) {
         // Write total scope size where scope was started:
         let scope_size = self.0.len() - (start_offset + size_of::<ScopeSize>());
