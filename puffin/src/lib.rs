@@ -482,6 +482,7 @@ impl ThreadProfiler {
     }
 
     /// Do something with the thread local `ThreadProfiler`
+    #[inline]
     pub fn call<R>(f: impl Fn(&mut Self) -> R) -> R {
         thread_local! {
             pub static THREAD_PROFILER: std::cell::RefCell<ThreadProfiler> = Default::default();
@@ -765,6 +766,7 @@ impl ProfilerScope {
     /// The `id` doesn't need to be static, but it should be unchanging,
     /// and this is a good way to enforce it.
     /// `data` can be changing, i.e. a name of a mesh or a texture.
+    #[inline]
     pub fn new(id: &'static str, location: &str, data: impl AsRef<str>) -> Self {
         Self {
             start_stream_offset: ThreadProfiler::call(|tp| {
@@ -776,12 +778,14 @@ impl ProfilerScope {
 }
 
 impl Drop for ProfilerScope {
+    #[inline]
     fn drop(&mut self) {
         ThreadProfiler::call(|tp| tp.end_scope(self.start_stream_offset));
     }
 }
 
 #[doc(hidden)]
+#[inline(always)]
 pub fn type_name_of<T>(_: T) -> &'static str {
     std::any::type_name::<T>()
 }
@@ -799,6 +803,7 @@ macro_rules! current_function_name {
 }
 
 #[doc(hidden)]
+#[inline]
 pub fn clean_function_name(name: &str) -> &str {
     if let Some(colon) = name.rfind("::") {
         if let Some(colon) = name[..colon].rfind("::") {
@@ -831,6 +836,7 @@ macro_rules! current_file_name {
 
 /// Removes long path prefix to focus on the last parts of the path (and the file name).
 #[doc(hidden)]
+#[inline]
 pub fn short_file_name(name: &str) -> &str {
     // TODO: "foo/bar/src/lib.rs" -> "bar/src/lib.rs"
 

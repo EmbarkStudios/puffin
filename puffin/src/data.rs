@@ -77,26 +77,29 @@ impl Stream {
     pub fn end_scope(&mut self, start_offset: usize, stop_ns: NanoSecond) {
         // Write total scope size where scope was started:
         let scope_size = self.0.len() - (start_offset + size_of::<ScopeSize>());
-        assert!(start_offset + size_of::<ScopeSize>() <= self.0.len());
+        debug_assert!(start_offset + size_of::<ScopeSize>() <= self.0.len());
         let mut dest_range = &mut self.0[start_offset..start_offset + size_of::<ScopeSize>()];
         dest_range
             .write_u64::<LE>(scope_size as u64)
             .expect("can't fail");
-        assert!(dest_range.is_empty());
+        debug_assert!(dest_range.is_empty());
 
         // Write scope end:
         self.0.push(SCOPE_END);
         self.write_nanos(stop_ns);
     }
 
+    #[inline]
     fn write_nanos(&mut self, nanos: NanoSecond) {
         self.0.write_i64::<LE>(nanos).expect("can't fail");
     }
 
+    #[inline]
     fn write_scope_size(&mut self, nanos: ScopeSize) {
         self.0.write_u64::<LE>(nanos.0).expect("can't fail");
     }
 
+    #[inline]
     fn write_str(&mut self, s: &str) {
         // Future-proof: we may want to use VLQs later.
         const MAX_STRING_LENGTH: usize = 127;
