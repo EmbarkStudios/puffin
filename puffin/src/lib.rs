@@ -336,13 +336,8 @@ impl FrameData {
     /// Writes one Frame into a stream, prefixed by it's length (u32 le).
     #[cfg(feature = "serialization")]
     pub fn write_into(&self, write: &mut impl std::io::Write) -> anyhow::Result<()> {
-        crate::profile_scope!("serialize_frame");
-
         use bincode::Options as _;
-        let serialized = {
-            crate::profile_scope!("bincode");
-            bincode::options().serialize(self)?
-        };
+        let serialized = bincode::options().serialize(self)?;
 
         if false {
             let compressed = lz4_flex::compress_prepend_size(&serialized);
@@ -352,10 +347,7 @@ impl FrameData {
         } else {
             // zstd cuts sizes in half compared to lz4_flex
             let level = 3;
-            let compressed = {
-                crate::profile_scope!("zstd_compress");
-                zstd::encode_all(std::io::Cursor::new(&serialized), level)?
-            };
+            let compressed = zstd::encode_all(std::io::Cursor::new(&serialized), level)?;
             write.write_all(b"PFD1")?;
             write.write_all(&(compressed.len() as u32).to_le_bytes())?;
             write.write_all(&compressed)?;

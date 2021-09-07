@@ -6,7 +6,11 @@ All notable changes to `puffin_viewer` will be documented in this file.
 ## Unreleased
 
 
-## 0.8.0 - 2021-09-06
+## 0.6.1 - 2021-09-08
+* Fix deadlock when saving a file.
+
+
+## 0.6.0 - 2021-09-06
 * Better compressed network stream and files (50% smaller).
 * Added stats view to find unnecessary scopes.
 
