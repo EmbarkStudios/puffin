@@ -1235,8 +1235,7 @@ dependencies = [
 [[package]]
 name = "imgui"
 version = "0.7.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "24cfcf6e3326886321c5d637caf1ce217006651059015fae372b1c49c0e722b2"
+source = "git+https://github.com/imgui-rs/imgui-rs?rev=7d266d4#7d266d418c7cb1286c598b43606e25464d981f2d"
 dependencies = [
  "bitflags",
  "imgui-sys",
@@ -1256,8 +1255,7 @@ dependencies = [
 [[package]]
 name = "imgui-sys"
 version = "0.7.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "85ca00be6b78bf02b57e91468cf19d08dfcc11d0fb3c2f3dc491c29404d8d330"
+source = "git+https://github.com/imgui-rs/imgui-rs?rev=7d266d4#7d266d418c7cb1286c598b43606e25464d981f2d"
 dependencies = [
  "cc",
  "chlorine",
@@ -1266,8 +1264,7 @@ dependencies = [
 [[package]]
 name = "imgui-winit-support"
 version = "0.7.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "22ae881a42852470216c77fba5835b9701815adac24dfaa8d4ebf3a368376756"
+source = "git+https://github.com/imgui-rs/imgui-rs?rev=7d266d4#7d266d418c7cb1286c598b43606e25464d981f2d"
 dependencies = [
  "imgui",
  "winit 0.24.0",
