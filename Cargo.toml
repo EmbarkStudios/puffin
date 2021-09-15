@@ -8,5 +8,5 @@ members = [
 ]
 
 [patch.crates-io]
-imgui = { git = "https://github.com/imgui-rs/imgui-rs", rev = "7d266d4" }
-imgui-winit-support = { git = "https://github.com/imgui-rs/imgui-rs", rev = "7d266d4" }
+imgui = { git = "https://github.com/EmbarkStudios/imgui-rs", rev = "97d6242" }
+imgui-winit-support = { git = "https://github.com/EmbarkStudios/imgui-rs", rev = "97d6242" }
