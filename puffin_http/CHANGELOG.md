@@ -4,6 +4,9 @@ All notable changes to `puffin_http` will be documented in this file.
 
 
 ## Unreleased
+
+
+## 0.5.1 - 2021-09-16
 * Fix high-bandwidth connection interruptions.
 
 
