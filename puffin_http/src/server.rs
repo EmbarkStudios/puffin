@@ -71,7 +71,7 @@ impl PuffinServerImpl {
             match self.tcp_listener.accept() {
                 Ok((stream, client_addr)) => {
                     stream
-                        .set_nonblocking(true)
+                        .set_nonblocking(false)
                         .context("stream.set_nonblocking")?;
 
                     log::info!("{} connected", client_addr);
@@ -107,7 +107,12 @@ impl PuffinServerImpl {
             .retain_mut(|(addr, stream)| match stream.write_all(&message) {
                 Ok(()) => true,
                 Err(err) => {
-                    log::info!("Failed sending to {}: {}", addr, err);
+                    log::info!(
+                        "puffin server failed sending to {}: {} (kind: {:?})",
+                        addr,
+                        err,
+                        err.kind()
+                    );
                     false
                 }
             });
