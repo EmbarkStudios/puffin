@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 ## Unreleased
+* API change: split out new `FrameView` and `GlobalFrameView` from `GlobalProfiler`.
 
 
 ## 0.8.1 - 2021-09-07

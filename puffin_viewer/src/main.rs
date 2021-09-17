@@ -70,11 +70,10 @@
 )]
 // END - Embark standard lints v0.4
 // crate-specific exceptions:
-#![deny(missing_crate_level_docs)]
 #![allow(clippy::exit)]
 
 use eframe::{egui, epi};
-use puffin::GlobalProfiler;
+use puffin::FrameView;
 use std::path::PathBuf;
 
 /// puffin profile viewer.
@@ -108,15 +107,12 @@ fn main() {
 
     let app = if let Some(file) = opt.file {
         let path = PathBuf::from(file);
-        match GlobalProfiler::load_path(&path) {
-            Ok(profiler) => {
-                *GlobalProfiler::lock() = profiler;
-                PuffinViewer {
-                    profiler_ui: Default::default(),
-                    source: Source::FilePath(path),
-                    error: None,
-                }
-            }
+        match FrameView::load_path(&path) {
+            Ok(frame_view) => PuffinViewer {
+                profiler_ui: Default::default(),
+                source: Source::FilePath(path, frame_view),
+                error: None,
+            },
             Err(err) => {
                 log::error!("Failed to load {}: {}", path.display(), err);
                 std::process::exit(1);
@@ -136,11 +132,18 @@ fn main() {
 
 pub enum Source {
     Http(puffin_http::Client),
-    FilePath(PathBuf),
-    FileName(String),
+    FilePath(PathBuf, FrameView),
+    FileName(String, FrameView),
 }
 
 impl Source {
+    fn frame_view(&self) -> FrameView {
+        match self {
+            Source::Http(http_client) => http_client.frame_view().clone(),
+            Source::FilePath(_, frame_view) | Source::FileName(_, frame_view) => frame_view.clone(),
+        }
+    }
+
     fn ui(&self, ui: &mut egui::Ui) {
         match self {
             Source::Http(http_client) => {
@@ -150,10 +153,10 @@ impl Source {
                     ui.label(format!("Connecting to {}…", http_client.addr()));
                 }
             }
-            Source::FilePath(path) => {
+            Source::FilePath(path, _) => {
                 ui.label(format!("Viewing {}", path.display()));
             }
-            Source::FileName(name) => {
+            Source::FileName(name, _) => {
                 ui.label(format!("Viewing {}", name));
             }
         }
@@ -172,7 +175,7 @@ impl PuffinViewer {
             .add_filter("puffin", &["puffin"])
             .save_file()
         {
-            if let Err(error) = GlobalProfiler::lock().save_to_path(&path) {
+            if let Err(error) = self.source.frame_view().save_to_path(&path) {
                 self.error = Some(format!("Failed to export: {}", error));
             } else {
                 self.error = None;
@@ -190,11 +193,10 @@ impl PuffinViewer {
     }
 
     fn open_puffin_path(&mut self, path: std::path::PathBuf) {
-        match GlobalProfiler::load_path(&path) {
-            Ok(profiler) => {
-                *GlobalProfiler::lock() = profiler;
+        match FrameView::load_path(&path) {
+            Ok(frame_view) => {
                 self.profiler_ui.reset();
-                self.source = Source::FilePath(path);
+                self.source = Source::FilePath(path, frame_view);
                 self.error = None;
             }
             Err(err) => {
@@ -205,11 +207,10 @@ impl PuffinViewer {
 
     fn open_puffin_bytes(&mut self, name: String, bytes: &[u8]) {
         let mut reader = std::io::Cursor::new(bytes);
-        match GlobalProfiler::load_reader(&mut reader) {
-            Ok(profiler) => {
-                *GlobalProfiler::lock() = profiler;
+        match FrameView::load_reader(&mut reader) {
+            Ok(frame_view) => {
                 self.profiler_ui.reset();
-                self.source = Source::FileName(name);
+                self.source = Source::FileName(name, frame_view);
                 self.error = None;
             }
             Err(err) => {
@@ -297,8 +298,14 @@ impl epi::App for PuffinViewer {
             self.source.ui(ui);
         });
 
-        egui::CentralPanel::default().show(ctx, |ui| {
-            self.profiler_ui.ui(ui);
+        egui::CentralPanel::default().show(ctx, |ui| match &mut self.source {
+            Source::Http(http_client) => {
+                self.profiler_ui.ui(ui, &mut http_client.frame_view());
+            }
+            Source::FilePath(_, frame_view) | Source::FileName(_, frame_view) => {
+                let mut frame_view = frame_view.clone(); // Don't mutate the original when clearing slow frames.
+                self.profiler_ui.ui(ui, &mut frame_view);
+            }
         });
 
         self.ui_file_drag_and_drop(ctx);

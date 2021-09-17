@@ -3,8 +3,11 @@ use puffin::GlobalProfiler;
 use std::{
     io::Write,
     net::{SocketAddr, TcpListener, TcpStream},
-    sync::Arc,
+    sync::{mpsc, Arc},
 };
+
+/// Maximum size of the backlog of packets to send to a client if they aren't reading fast enough.
+const MAX_FRAMES_IN_QUEUE: usize = 30;
 
 /// Listens for incoming connections
 /// and streams them puffin profiler data.
@@ -22,8 +25,7 @@ impl Server {
             .set_nonblocking(true)
             .context("TCP set_nonblocking")?;
 
-        let (tx, rx): (std::sync::mpsc::Sender<Arc<puffin::FrameData>>, _) =
-            std::sync::mpsc::channel();
+        let (tx, rx): (mpsc::Sender<Arc<puffin::FrameData>>, _) = mpsc::channel();
 
         std::thread::Builder::new()
             .name("puffin-server".to_owned())
@@ -58,24 +60,34 @@ impl Drop for Server {
     }
 }
 
+type Packet = Arc<[u8]>;
+
 /// Listens for incoming connections
 /// and streams them puffin profiler data.
 struct PuffinServerImpl {
     tcp_listener: TcpListener,
-    clients: Vec<(SocketAddr, TcpStream)>,
+    clients: Vec<(SocketAddr, mpsc::SyncSender<Packet>)>,
 }
 
 impl PuffinServerImpl {
     fn accept_new_clients(&mut self) -> anyhow::Result<()> {
         loop {
             match self.tcp_listener.accept() {
-                Ok((stream, client_addr)) => {
-                    stream
-                        .set_nonblocking(true)
+                Ok((tcp_stream, client_addr)) => {
+                    tcp_stream
+                        .set_nonblocking(false)
                         .context("stream.set_nonblocking")?;
 
                     log::info!("{} connected", client_addr);
-                    self.clients.push((client_addr, stream));
+
+                    let (packet_tx, packet_rx) = mpsc::sync_channel(MAX_FRAMES_IN_QUEUE);
+
+                    std::thread::Builder::new()
+                        .name("puffin-server-client".to_owned())
+                        .spawn(move || client_loop(packet_rx, client_addr, tcp_stream))
+                        .context("Couldn't spawn thread")?;
+
+                    self.clients.push((client_addr, packet_tx));
                 }
                 Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {
                     break; // Nothing to do for now.
@@ -94,24 +106,48 @@ impl PuffinServerImpl {
         }
         puffin::profile_function!();
 
-        let mut message = vec![];
-        message
+        let mut packet = vec![];
+        packet
             .write_all(&crate::PROTOCOL_VERSION.to_le_bytes())
             .unwrap();
         frame
-            .write_into(&mut message)
+            .write_into(&mut packet)
             .context("Encode puffin frame")?;
 
-        use retain_mut::RetainMut as _;
-        self.clients
-            .retain_mut(|(addr, stream)| match stream.write_all(&message) {
+        let packet: Packet = packet.into();
+
+        self.clients.retain(
+            |(client_addr, packet_tx)| match packet_tx.try_send(packet.clone()) {
                 Ok(()) => true,
-                Err(err) => {
-                    log::info!("Failed sending to {}: {}", addr, err);
-                    false
+                Err(mpsc::TrySendError::Disconnected(_)) => false,
+                Err(mpsc::TrySendError::Full(_)) => {
+                    log::info!(
+                        "puffin client {} is not accepting data fast enough; dropping a frame",
+                        client_addr
+                    );
+                    true
                 }
-            });
+            },
+        );
 
         Ok(())
+    }
+}
+
+fn client_loop(
+    packet_rx: mpsc::Receiver<Packet>,
+    client_addr: SocketAddr,
+    mut tcp_stream: TcpStream,
+) {
+    while let Ok(packet) = packet_rx.recv() {
+        if let Err(err) = tcp_stream.write_all(&packet) {
+            log::info!(
+                "puffin server failed sending to {}: {} (kind: {:?})",
+                client_addr,
+                err,
+                err.kind()
+            );
+            break;
+        }
     }
 }
