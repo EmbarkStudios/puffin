@@ -4,6 +4,7 @@ All notable changes to `puffin_http` will be documented in this file.
 
 
 ## Unreleased
+* Better handle slow clients, especially when there are multiple clients.
 
 
 ## 0.5.1 - 2021-09-16
