@@ -6,7 +6,3 @@ members = [
     "puffin-imgui",
     "puffin_viewer",
 ]
-
-[patch.crates-io]
-imgui = { git = "https://github.com/EmbarkStudios/imgui-rs", rev = "97d6242" }
-imgui-winit-support = { git = "https://github.com/EmbarkStudios/imgui-rs", rev = "97d6242" }
