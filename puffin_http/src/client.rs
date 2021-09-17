@@ -1,18 +1,19 @@
 use std::sync::{
     atomic::{AtomicBool, Ordering::SeqCst},
-    Arc,
+    Arc, Mutex,
 };
 
-use puffin::FrameData;
+use puffin::{FrameData, FrameView};
 
 /// Connect to a [`crate::Server`], reading profile data
-/// and feeding it to [`puffin::GlobalProfiler`].
+/// and feeding it to a [`puffin::FrameView`].
 ///
 /// Will retry connection until it succeeds, and reconnect on failures.
 pub struct Client {
     addr: String,
     connected: Arc<AtomicBool>,
     alive: Arc<AtomicBool>,
+    frame_view: Arc<Mutex<FrameView>>,
 }
 
 impl Drop for Client {
@@ -34,11 +35,13 @@ impl Client {
     pub fn new(addr: String) -> Self {
         let alive = Arc::new(AtomicBool::new(true));
         let connected = Arc::new(AtomicBool::new(false));
+        let frame_view = Arc::new(Mutex::new(FrameView::default()));
 
         let client = Self {
             addr: addr.clone(),
             connected: connected.clone(),
             alive: alive.clone(),
+            frame_view: frame_view.clone(),
         };
 
         std::thread::spawn(move || {
@@ -51,7 +54,9 @@ impl Client {
                         while alive.load(SeqCst) {
                             match consume_message(&mut stream) {
                                 Ok(frame_data) => {
-                                    puffin::GlobalProfiler::lock()
+                                    frame_view
+                                        .lock()
+                                        .unwrap()
                                         .add_frame(std::sync::Arc::new(frame_data));
                                 }
                                 Err(err) => {
@@ -84,6 +89,11 @@ impl Client {
     /// Are we currently connect to the server?
     pub fn connected(&self) -> bool {
         self.connected.load(SeqCst)
+    }
+
+    /// Get the current data.
+    pub fn frame_view(&self) -> std::sync::MutexGuard<'_, FrameView> {
+        self.frame_view.lock().unwrap()
     }
 }
 

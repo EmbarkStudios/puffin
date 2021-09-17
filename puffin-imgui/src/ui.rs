@@ -148,10 +148,13 @@ pub struct Paused {
     frames: Frames,
 }
 
-#[derive(Clone, Default, Deserialize, Serialize)]
+#[derive(Default, Deserialize, Serialize)]
 #[serde(default)]
 pub struct ProfilerUi {
     pub options: Options,
+
+    #[serde(skip)]
+    frame_view: GlobalFrameView,
 
     // interaction:
     #[serde(skip)]
@@ -255,14 +258,6 @@ impl<'ui> Info<'ui> {
     }
 }
 
-fn latest_frames() -> Frames {
-    let profiler = GlobalProfiler::lock();
-    Frames {
-        recent: profiler.recent_frames().cloned().collect(),
-        slowest: profiler.slowest_frames_chronological(),
-    }
-}
-
 impl ProfilerUi {
     /// Show a [`imgui::Window`] with the profiler contents.
     /// If you want to control the window yourself, use [`Self::ui`] instead.
@@ -278,11 +273,19 @@ impl ProfilerUi {
         open
     }
 
+    fn latest_frames(&self) -> Frames {
+        let view = self.frame_view.lock();
+        Frames {
+            recent: view.recent_frames().cloned().collect(),
+            slowest: view.slowest_frames_chronological(),
+        }
+    }
+
     /// The frames we can select between
     fn frames(&self) -> Frames {
         self.paused
             .as_ref()
-            .map_or_else(latest_frames, |paused| paused.frames.clone())
+            .map_or_else(|| self.latest_frames(), |paused| paused.frames.clone())
     }
 
     /// Pause on the specific frame
@@ -301,7 +304,7 @@ impl ProfilerUi {
         self.paused
             .as_ref()
             .map(|paused| paused.selected.clone())
-            .or_else(|| GlobalProfiler::lock().latest_frame())
+            .or_else(|| self.frame_view.lock().latest_frame())
     }
 
     fn selected_frame_index(&self) -> Option<FrameIndex> {
@@ -364,7 +367,7 @@ impl ProfilerUi {
             if ui.button(im_str!("Pause"), play_pause_button_size)
                 || ui.is_key_pressed(imgui::Key::Space)
             {
-                let latest = GlobalProfiler::lock().latest_frame();
+                let latest = self.frame_view.lock().latest_frame();
                 if let Some(latest) = latest {
                     self.pause_and_select(latest);
                 }
@@ -531,7 +534,7 @@ impl ProfilerUi {
 
         ui.text("Slowest:");
         if ui.button(im_str!("Clear"), Default::default()) {
-            GlobalProfiler::lock().clear_slowest();
+            self.frame_view.lock().clear_slowest();
         }
         ui.next_column();
         self.show_frame_list(

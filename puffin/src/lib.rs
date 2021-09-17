@@ -93,9 +93,11 @@
 
 mod data;
 mod merge;
+mod profile_view;
 
 pub use data::*;
 pub use merge::*;
+pub use profile_view::{FrameView, GlobalFrameView};
 
 use std::collections::BTreeMap;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -521,44 +523,17 @@ impl ThreadProfiler {
 
 // ----------------------------------------------------------------------------
 
-struct OrderedData(Arc<FrameData>);
-
-impl PartialEq for OrderedData {
-    fn eq(&self, other: &Self) -> bool {
-        self.0.duration_ns().eq(&other.0.duration_ns())
-    }
-}
-impl Eq for OrderedData {}
-
-impl PartialOrd for OrderedData {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl Ord for OrderedData {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.0.duration_ns().cmp(&other.0.duration_ns()).reverse()
-    }
-}
-
 /// Add these to [`GlobalProfiler`] with [`GlobalProfiler::add_sink`].
 pub type FrameSink = Box<dyn Fn(Arc<FrameData>) + Send>;
 
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
 pub struct FrameSinkId(u64);
 
-/// Singleton. Collects profiling data from multiple threads.
+/// Singleton. Collects profiling data from multiple threads
+/// and passes them on to different [`FrameSink`]:s.
 pub struct GlobalProfiler {
     current_frame_index: FrameIndex,
     current_frame: BTreeMap<ThreadInfo, StreamInfo>,
-
-    /// newest first
-    recent_frames: std::collections::VecDeque<Arc<FrameData>>,
-    max_recent: usize,
-
-    slowest_frames: std::collections::BinaryHeap<OrderedData>,
-    max_slow: usize,
 
     next_sink_id: FrameSinkId,
     sinks: std::collections::HashMap<FrameSinkId, FrameSink>,
@@ -566,16 +541,9 @@ pub struct GlobalProfiler {
 
 impl Default for GlobalProfiler {
     fn default() -> Self {
-        let max_recent = 128;
-        let max_slow = 128;
-
         Self {
             current_frame_index: 0,
             current_frame: Default::default(),
-            recent_frames: std::collections::VecDeque::with_capacity(max_recent),
-            max_recent,
-            slowest_frames: std::collections::BinaryHeap::with_capacity(max_slow),
-            max_slow,
             next_sink_id: FrameSinkId(1),
             sinks: Default::default(),
         }
@@ -617,35 +585,6 @@ impl GlobalProfiler {
         for sink in self.sinks.values() {
             sink(new_frame.clone());
         }
-
-        let add_to_slowest = if self.slowest_frames.len() < self.max_slow {
-            true
-        } else if let Some(fastest_of_the_slow) = self.slowest_frames.peek() {
-            new_frame.duration_ns() > fastest_of_the_slow.0.duration_ns()
-        } else {
-            false
-        };
-
-        if add_to_slowest {
-            self.slowest_frames.push(OrderedData(new_frame.clone()));
-            while self.slowest_frames.len() > self.max_slow {
-                self.slowest_frames.pop();
-            }
-        }
-
-        if let Some(last) = self.recent_frames.back() {
-            if new_frame.frame_index != last.frame_index + 1 {
-                // Keep `recent_frames` consecutive.
-                // Important when loading .puffin files which has both
-                // the slowest frames and most recent frames in the same stream.
-                self.recent_frames.clear();
-            }
-        }
-
-        self.recent_frames.push_back(new_frame);
-        while self.recent_frames.len() > self.max_recent {
-            self.recent_frames.pop_front();
-        }
     }
 
     /// Report some profiling data. Called from `ThreadProfiler`.
@@ -654,99 +593,6 @@ impl GlobalProfiler {
             .entry(info)
             .or_default()
             .append(stream_info);
-    }
-
-    /// The latest fully captured frame of data.
-    pub fn latest_frame(&self) -> Option<Arc<FrameData>> {
-        self.recent_frames.back().cloned()
-    }
-
-    /// Oldest first
-    pub fn recent_frames(&self) -> impl Iterator<Item = &Arc<FrameData>> {
-        self.recent_frames.iter()
-    }
-
-    /// The slowest frames so far (or since last call to [`Self::clear_slowest`])
-    /// in chronological order.
-    pub fn slowest_frames_chronological(&self) -> Vec<Arc<FrameData>> {
-        let mut frames: Vec<_> = self.slowest_frames.iter().map(|f| f.0.clone()).collect();
-        frames.sort_by_key(|frame| frame.frame_index);
-        frames
-    }
-
-    /// Clean history of the slowest frames.
-    pub fn clear_slowest(&mut self) {
-        self.slowest_frames.clear();
-    }
-
-    /// How many frames of recent history to store.
-    pub fn max_recent(&self) -> usize {
-        self.max_recent
-    }
-
-    /// How many frames of recent history to store.
-    pub fn set_max_history(&mut self, max_recent: usize) {
-        self.max_recent = max_recent;
-    }
-
-    /// How many slow "spike" frames to store.
-    pub fn max_slow(&self) -> usize {
-        self.max_slow
-    }
-
-    /// How many slow "spike" frames to store.
-    pub fn set_max_slow(&mut self, max_slow: usize) {
-        self.max_slow = max_slow;
-    }
-
-    /// Export profile data as a `.puffin` file.
-    #[cfg(feature = "serialization")]
-    pub fn save_to_path(&self, path: &std::path::Path) -> anyhow::Result<()> {
-        let mut file = std::fs::File::create(path)?;
-        self.save_to_writer(&mut file)
-    }
-
-    /// Export profile data as a `.puffin` file.
-    #[cfg(feature = "serialization")]
-    pub fn save_to_writer(&self, write: &mut impl std::io::Write) -> anyhow::Result<()> {
-        write.write_all(b"PUF0")?;
-
-        let slowest_frames = self.slowest_frames.iter().map(|f| &f.0);
-        let mut frames: Vec<_> = slowest_frames.chain(self.recent_frames.iter()).collect();
-        frames.sort_by_key(|frame| frame.frame_index);
-        frames.dedup_by_key(|frame| frame.frame_index);
-
-        for frame in frames {
-            frame.write_into(write)?;
-        }
-        Ok(())
-    }
-
-    /// Import profile data from a `.puffin` file.
-    #[cfg(feature = "serialization")]
-    pub fn load_path(path: &std::path::Path) -> anyhow::Result<Self> {
-        let mut file = std::fs::File::open(path)?;
-        Self::load_reader(&mut file)
-    }
-
-    /// Import profile data from a `.puffin` file.
-    #[cfg(feature = "serialization")]
-    pub fn load_reader(read: &mut impl std::io::Read) -> anyhow::Result<Self> {
-        let mut magic = [0_u8; 4];
-        read.read_exact(&mut magic)?;
-        if &magic != b"PUF0" {
-            anyhow::bail!("Expected .puffin magic header of 'PUF0', found {:?}", magic);
-        }
-
-        let mut slf = Self {
-            max_recent: usize::MAX,
-            ..Default::default()
-        };
-        while let Some(frame) = FrameData::read_next(read)? {
-            slf.add_frame(frame.into());
-        }
-
-        Ok(slf)
     }
 
     /// Call this function with each new finished frame.

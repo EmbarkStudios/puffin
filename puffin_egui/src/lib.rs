@@ -109,7 +109,7 @@ pub fn profiler_window(ctx: &egui::CtxRef) -> bool {
     open
 }
 
-static PROFILE_UI: once_cell::sync::Lazy<Mutex<ProfilerUi>> =
+static PROFILE_UI: once_cell::sync::Lazy<Mutex<GlobalProfilerUi>> =
     once_cell::sync::Lazy::new(Default::default);
 
 /// Show the profiler.
@@ -120,11 +120,42 @@ pub fn profiler_ui(ui: &mut egui::Ui) {
     profile_ui.ui(ui);
 }
 
-fn latest_frames() -> Frames {
-    let profiler = GlobalProfiler::lock();
+fn latest_frames(frame_view: &FrameView) -> Frames {
     Frames {
-        recent: profiler.recent_frames().cloned().collect(),
-        slowest: profiler.slowest_frames_chronological(),
+        recent: frame_view.recent_frames().cloned().collect(),
+        slowest: frame_view.slowest_frames_chronological(),
+    }
+}
+
+// ----------------------------------------------------------------------------
+
+/// Show [`puffin::GlobalProfiler`], i.e. profile the app we are running in.
+#[derive(Default)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+#[cfg_attr(feature = "serde", serde(default))]
+pub struct GlobalProfilerUi {
+    #[cfg_attr(feature = "serde", serde(skip))]
+    global_frame_view: GlobalFrameView,
+    pub profiler_ui: ProfilerUi,
+}
+
+impl GlobalProfilerUi {
+    /// Show an [`egui::Window`] with the profiler contents.
+    ///
+    /// If you want to control the window yourself, use [`Self::ui`] instead.
+    ///
+    /// Returns `false` if the user closed the profile window.
+    pub fn window(&mut self, ctx: &egui::CtxRef) -> bool {
+        let mut frame_view = self.global_frame_view.lock();
+        self.profiler_ui.window(ctx, &mut frame_view)
+    }
+
+    /// Show the profiler.
+    ///
+    /// Call this from within an [`egui::Window`], or use [`Self::window`] instead.
+    pub fn ui(&mut self, ui: &mut egui::Ui) {
+        let mut frame_view = self.global_frame_view.lock();
+        self.profiler_ui.ui(ui, &mut frame_view);
     }
 }
 
@@ -181,50 +212,51 @@ impl ProfilerUi {
     /// If you want to control the window yourself, use [`Self::ui`] instead.
     ///
     /// Returns `false` if the user closed the profile window.
-    pub fn window(&mut self, ctx: &egui::CtxRef) -> bool {
+    pub fn window(&mut self, ctx: &egui::CtxRef, frame_view: &mut FrameView) -> bool {
         puffin::profile_function!();
         let mut open = true;
         egui::Window::new("Profiler")
             .default_size([1024.0, 600.0])
             .open(&mut open)
-            .show(ctx, |ui| self.ui(ui));
+            .show(ctx, |ui| self.ui(ui, frame_view));
         open
     }
 
     /// The frames we can select between
-    fn frames(&self) -> Frames {
+    fn frames(&self, frame_view: &FrameView) -> Frames {
         self.paused
             .as_ref()
-            .map_or_else(latest_frames, |paused| paused.frames.clone())
+            .map_or_else(|| latest_frames(frame_view), |paused| paused.frames.clone())
     }
 
     /// Pause on the specific frame
-    fn pause_and_select(&mut self, selected: Arc<FrameData>) {
+    fn pause_and_select(&mut self, frame_view: &FrameView, selected: Arc<FrameData>) {
         if let Some(paused) = &mut self.paused {
             paused.selected = selected;
         } else {
             self.paused = Some(Paused {
                 selected,
-                frames: self.frames(),
+                frames: self.frames(frame_view),
             });
         }
     }
 
-    fn selected_frame(&self) -> Option<Arc<FrameData>> {
+    fn selected_frame(&self, frame_view: &FrameView) -> Option<Arc<FrameData>> {
         self.paused
             .as_ref()
             .map(|paused| paused.selected.clone())
-            .or_else(|| GlobalProfiler::lock().latest_frame())
+            .or_else(|| frame_view.latest_frame())
     }
 
-    fn selected_frame_index(&self) -> Option<FrameIndex> {
-        self.selected_frame().map(|frame| frame.frame_index)
+    fn selected_frame_index(&self, frame_view: &FrameView) -> Option<FrameIndex> {
+        self.selected_frame(frame_view)
+            .map(|frame| frame.frame_index)
     }
 
     /// Show the profiler.
     ///
     /// Call this from within an [`egui::Window`], or use [`Self::window`] instead.
-    pub fn ui(&mut self, ui: &mut egui::Ui) {
+    pub fn ui(&mut self, ui: &mut egui::Ui, frame_view: &mut FrameView) {
         #![allow(clippy::collapsible_else_if)]
         puffin::profile_function!();
 
@@ -238,10 +270,10 @@ impl ProfilerUi {
         egui::CollapsingHeader::new("Frames")
             .default_open(true)
             .show(ui, |ui| {
-                hovered_frame = self.show_frames(ui);
+                hovered_frame = self.show_frames(ui, frame_view);
             });
 
-        let frame = match hovered_frame.or_else(|| self.selected_frame()) {
+        let frame = match hovered_frame.or_else(|| self.selected_frame(frame_view)) {
             Some(frame) => frame,
             None => {
                 ui.label("No profiling data");
@@ -270,9 +302,9 @@ impl ProfilerUi {
                         .clicked()
                         || ui.input().key_pressed(egui::Key::Space)
                     {
-                        let latest = GlobalProfiler::lock().latest_frame();
+                        let latest = frame_view.latest_frame();
                         if let Some(latest) = latest {
-                            self.pause_and_select(latest);
+                            self.pause_and_select(frame_view, latest);
                         }
                     }
                 });
@@ -309,8 +341,12 @@ impl ProfilerUi {
     }
 
     /// Returns hovered, if any
-    fn show_frames(&mut self, ui: &mut egui::Ui) -> Option<Arc<FrameData>> {
-        let frames = self.frames();
+    fn show_frames(
+        &mut self,
+        ui: &mut egui::Ui,
+        frame_view: &mut FrameView,
+    ) -> Option<Arc<FrameData>> {
+        let frames = self.frames(frame_view);
 
         let mut hovered_frame = None;
 
@@ -320,7 +356,13 @@ impl ProfilerUi {
             ui.label("Recent:");
 
             Frame::dark_canvas(ui.style()).show(ui, |ui| {
-                self.show_frame_list(ui, &frames.recent, longest_count, &mut hovered_frame);
+                self.show_frame_list(
+                    ui,
+                    frame_view,
+                    &frames.recent,
+                    longest_count,
+                    &mut hovered_frame,
+                );
             });
 
             ui.end_row();
@@ -330,11 +372,17 @@ impl ProfilerUi {
                 ui.add_space(16.0); // make it a bit more centered
                 ui.label("Slowest:");
                 if ui.button("Clear").clicked() {
-                    GlobalProfiler::lock().clear_slowest();
+                    frame_view.clear_slowest();
                 }
             });
             Frame::dark_canvas(ui.style()).show(ui, |ui| {
-                self.show_frame_list(ui, &frames.slowest, longest_count, &mut hovered_frame);
+                self.show_frame_list(
+                    ui,
+                    frame_view,
+                    &frames.slowest,
+                    longest_count,
+                    &mut hovered_frame,
+                );
             });
         });
 
@@ -344,6 +392,7 @@ impl ProfilerUi {
     fn show_frame_list(
         &mut self,
         ui: &mut egui::Ui,
+        frame_view: &FrameView,
         frames: &[Arc<FrameData>],
         longest_count: usize,
         hovered_frame: &mut Option<Arc<FrameData>>,
@@ -365,7 +414,7 @@ impl ProfilerUi {
         let frame_spacing = 2.0;
         let frame_width = frame_width_including_spacing - frame_spacing;
 
-        let selected_frame_index = self.selected_frame_index();
+        let selected_frame_index = self.selected_frame_index(frame_view);
 
         for (i, frame) in frames.iter().enumerate() {
             let x = rect.right() - (frames.len() as f32 - i as f32) * frame_width_including_spacing;
@@ -394,7 +443,7 @@ impl ProfilerUi {
                 });
             }
             if is_hovered && response.clicked() {
-                self.pause_and_select(frame.clone());
+                self.pause_and_select(frame_view, frame.clone());
             }
 
             let color = if is_selected {

@@ -4,6 +4,7 @@ All notable changes to the egui crate will be documented in this file.
 
 
 ## Unreleased
+* `ProfilerUi` now takes by argument the profiling data to view. You may want to use `GlobalProfilerUi` instead.
 
 
 ## 0.7.0 - 2021-09-06
