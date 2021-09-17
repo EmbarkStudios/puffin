@@ -533,7 +533,7 @@ impl ProfilerUi {
         ui.next_column();
 
         ui.text("Slowest:");
-        if ui.button("Clear", Default::default()) {
+        if ui.button("Clear") {
             self.frame_view.lock().clear_slowest();
         }
         ui.next_column();
