@@ -16,7 +16,6 @@ include = [ "**/*.rs", "Cargo.toml"]
 anyhow = "1"
 log = "0.4"
 puffin = { version = "0.9.0", path = "../puffin", features = ["serialization"] }
-serde = { version = "1", features = ["derive"] }
 
 [dev-dependencies]
 simple_logger = "1.11"
