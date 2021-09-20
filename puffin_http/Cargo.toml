@@ -1,6 +1,6 @@
 [package]
 name = "puffin_http"
-version = "0.5.1"
+version = "0.6.0"
 authors = ["Embark <opensource@embark-studios.com>"]
 description = "HTTP server/client for puffin profiler data"
 license = "MIT OR Apache-2.0"
@@ -15,7 +15,7 @@ include = [ "**/*.rs", "Cargo.toml"]
 [dependencies]
 anyhow = "1"
 log = "0.4"
-puffin = { version = "0.8.0", path = "../puffin", features = ["serialization"] }
+puffin = { version = "0.9.0", path = "../puffin", features = ["serialization"] }
 serde = { version = "1", features = ["derive"] }
 
 [dev-dependencies]

@@ -4,6 +4,7 @@ All notable changes to `puffin_viewer` will be documented in this file.
 
 
 ## Unreleased
+* Update `puffin`, `puffin_egui` and `puffin_http`.
 
 
 ## 0.6.1 - 2021-09-08
