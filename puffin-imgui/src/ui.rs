@@ -106,7 +106,7 @@ impl Sorting {
 
     fn ui(&mut self, ui: &imgui::Ui<'_>) {
         ui.text("Sort threads by:");
-        ui.same_line(0.0);
+        ui.same_line();
 
         let dir = if self.reversed { '^' } else { 'v' };
 
@@ -114,9 +114,9 @@ impl Sorting {
             let selected = self.sort_by == sort_by;
 
             let label = if selected {
-                im_str!("{:?} {}", sort_by, dir)
+                format!("{:?} {}", sort_by, dir)
             } else {
-                im_str!("{:?}", sort_by)
+                format!("{:?}", sort_by)
             };
 
             if ui.radio_button_bool(&label, selected) {
@@ -128,7 +128,7 @@ impl Sorting {
                 }
             }
 
-            ui.same_line(0.0);
+            ui.same_line();
         }
         ui.new_line();
     }
@@ -263,7 +263,7 @@ impl ProfilerUi {
     /// If you want to control the window yourself, use [`Self::ui`] instead.
     pub fn window(&mut self, ui: &Ui<'_>) -> bool {
         let mut open = true;
-        imgui::Window::new(im_str!("Profiler"))
+        imgui::Window::new("Profiler")
             .position([10.0, 25.0], Condition::FirstUseEver)
             .size([800.0, 600.0], Condition::FirstUseEver)
             .bg_alpha(0.99) // Transparency can be distracting
@@ -318,11 +318,11 @@ impl ProfilerUi {
         #![allow(clippy::collapsible_else_if)]
 
         if !puffin::are_scopes_on() {
-            ui.text_colored(ERROR_COLOR, im_str!("The puffin profiler is OFF!"));
+            ui.text_colored(ERROR_COLOR, "The puffin profiler is OFF!");
         }
 
         let mut hovered_frame = None;
-        if imgui::CollapsingHeader::new(im_str!("Frames"))
+        if imgui::CollapsingHeader::new("Frames")
             .default_open(false)
             .build(ui)
         {
@@ -343,7 +343,7 @@ impl ProfilerUi {
 
         let (min_ns, max_ns) = frame.range_ns;
 
-        ui.button(im_str!("Help!"), Default::default());
+        ui.button("Help!");
         if ui.is_item_hovered() {
             ui.tooltip_text(
                 "Drag to pan. \n\
@@ -354,17 +354,17 @@ impl ProfilerUi {
             );
         }
 
-        ui.same_line(0.0);
+        ui.same_line();
 
         let play_pause_button_size = [54.0, 0.0];
         if self.paused.is_some() {
-            if ui.button(im_str!("Resume"), play_pause_button_size)
+            if ui.button_with_size("Resume", play_pause_button_size)
                 || ui.is_key_pressed(imgui::Key::Space)
             {
                 self.paused = None;
             }
         } else {
-            if ui.button(im_str!("Pause"), play_pause_button_size)
+            if ui.button_with_size("Pause", play_pause_button_size)
                 || ui.is_key_pressed(imgui::Key::Space)
             {
                 let latest = self.frame_view.lock().latest_frame();
@@ -377,13 +377,13 @@ impl ProfilerUi {
             ui.tooltip_text("Toggle with spacebar.");
         }
 
-        ui.same_line(0.0);
+        ui.same_line();
         ui.checkbox(
-            im_str!("Merge children with same ID"),
+            "Merge children with same ID",
             &mut self.options.merge_scopes,
         );
 
-        ui.text(im_str!(
+        ui.text(format!(
             "Showing frame #{}, {:.1} ms, {} threads, {} scopes, {:.1} kB",
             frame.frame_index,
             (max_ns - min_ns) as f64 * 1e-6,
@@ -404,7 +404,7 @@ impl ProfilerUi {
         let draw_list = ui.get_window_draw_list();
 
         // Make it scrollable:
-        imgui::ChildWindow::new(im_str!("flamegraph")).build(ui, || {
+        imgui::ChildWindow::new("flamegraph").build(ui, || {
             let info = Info {
                 start_ns: min_ns,
                 canvas_min: content_min,
@@ -423,7 +423,7 @@ impl ProfilerUi {
                 );
 
                 // An invisible button for the canvas allows us to catch input for it.
-                ui.invisible_button(im_str!("canvas"), used_space.into());
+                ui.invisible_button("canvas", used_space.into());
                 self.interact_with_canvas(ui, max_ns - min_ns, (content_min, content_max));
             });
         });
@@ -517,7 +517,7 @@ impl ProfilerUi {
 
         let longest_count = frames.recent.len().max(frames.slowest.len());
 
-        ui.columns(2, im_str!("columns"), false);
+        ui.columns(2, "columns", false);
         ui.set_column_width(0, 64.0);
 
         ui.text("Recent:");
@@ -533,7 +533,7 @@ impl ProfilerUi {
         ui.next_column();
 
         ui.text("Slowest:");
-        if ui.button(im_str!("Clear"), Default::default()) {
+        if ui.button("Clear") {
             self.frame_view.lock().clear_slowest();
         }
         ui.next_column();
@@ -546,7 +546,7 @@ impl ProfilerUi {
         );
         ui.next_column();
 
-        ui.columns(1, im_str!(""), false);
+        ui.columns(1, "", false);
 
         hovered_frame
     }
@@ -596,7 +596,7 @@ impl ProfilerUi {
 
                 if is_hovered {
                     *hovered_frame = Some(frame.clone());
-                    ui.tooltip_text(im_str!("{:.1} ms", frame.duration_ns() as f64 * 1e-6));
+                    ui.tooltip_text(format!("{:.1} ms", frame.duration_ns() as f64 * 1e-6));
                 }
                 if is_hovered && ui.is_mouse_clicked(MouseButton::Left) {
                     self.pause_and_select(frame.clone());
@@ -648,7 +648,7 @@ impl ProfilerUi {
         self.is_zooming &= !ui.is_mouse_released(zoom_button);
 
         let pan_delta = if self.is_panning {
-            let pan_delta = ui.mouse_drag_delta(pan_button);
+            let pan_delta = ui.mouse_drag_delta_with_button(pan_button);
             ui.reset_mouse_drag_delta(pan_button);
             pan_delta
         } else {
@@ -661,7 +661,7 @@ impl ProfilerUi {
         }
 
         let zoom_factor = if self.is_zooming {
-            let zoom_delta = ui.mouse_drag_delta(zoom_button)[1];
+            let zoom_delta = ui.mouse_drag_delta_with_button(zoom_button)[1];
             ui.reset_mouse_drag_delta(zoom_button);
             (zoom_delta * 0.01).exp()
         } else {
@@ -1047,7 +1047,7 @@ fn merge_scope_tooltip(ui: &Ui<'_>, merge: &MergeScope<'_>) {
 
 fn paint_thread_info(info: &Info<'_>, thread_info: &ThreadInfo, pos: [f32; 2]) {
     let text = &thread_info.name;
-    let text_size = info.ui.calc_text_size(&ImString::new(text), false, 0.0);
+    let text_size = info.ui.calc_text_size(&ImString::new(text));
 
     info.draw_list
         .add_rect(

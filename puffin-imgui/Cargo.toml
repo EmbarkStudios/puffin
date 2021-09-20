@@ -1,6 +1,6 @@
 [package]
 name = "puffin-imgui"
-version = "0.11.0"
+version = "0.12.0"
 authors = ["Embark <opensource@embark-studios.com>"]
 description = "ImGui GUI bindings for the Puffin profiler"
 license = "MIT OR Apache-2.0"
@@ -10,15 +10,17 @@ repository = "https://github.com/EmbarkStudios/puffin"
 readme = "README.md"
 categories = ["development-tools::profiling", "gui"]
 keywords = ["profiler", "instrumentation", "gamedev"]
-include = [ "**/*.rs", "Cargo.toml"]
+include = ["**/*.rs", "Cargo.toml"]
 
 [dependencies]
-imgui = { version = "0.7" }
+imgui = { version = "0.8" }
 natord = "1.0.9"
-puffin = { version = "0.8.0", path = "../puffin" }
+puffin = { version = "0.8.1", path = "../puffin" }
 serde = { version = "1", features = ["derive"] }
 
 [dev-dependencies]
 glium = { version = "0.29", default-features = true }
-imgui-glium-renderer = "0.7"
-imgui-winit-support = "0.7"
+imgui-glium-renderer = "0.8"
+imgui-winit-support = { version = "0.8", default-features = false, features = [
+    "winit-24",
+] }
