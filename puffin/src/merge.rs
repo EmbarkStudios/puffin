@@ -9,17 +9,17 @@ use std::collections::HashMap;
 pub struct MergeScope<'s> {
     /// The aggregated information.
     ///
-    /// `record.duration_ns` is the sum `self.pieces`.
+    /// `record.duration_ns` is the sum [`Self::pieces`].
     pub record: Record<'s>,
 
-    /// These are the raw scopes that got merged into `self.record`.
-    /// All these scopes have the same `id` is `self.record`.
+    /// These are the raw scopes that got merged into [`Self::record`].
+    /// All these scopes have the same `id` is [`Self::record`].
     pub pieces: Vec<MergePiece<'s>>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct MergePiece<'s> {
-    /// The start of the scope relative to its *parent* `Scope` (not to any `MergeScope`).
+    /// The start of the scope relative to its *parent* [`Scope`] (not to any [`MergeScope`]).
     pub relative_start_ns: NanoSecond,
     /// The raw scope, just like it is found in the input stream
     pub scope: Scope<'s>,
