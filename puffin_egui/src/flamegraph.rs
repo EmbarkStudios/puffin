@@ -1,7 +1,6 @@
 use super::{ERROR_COLOR, HOVER_COLOR};
 use egui::*;
 use puffin::*;
-use std::collections::BTreeMap;
 use std::sync::Arc;
 
 const TEXT_STYLE: TextStyle = TextStyle::Body;
@@ -30,27 +29,19 @@ impl Default for Sorting {
 }
 
 impl Sorting {
-    fn sort(
-        self,
-        thread_streams: &BTreeMap<ThreadInfo, Arc<StreamInfo>>,
-    ) -> Vec<(ThreadInfo, Arc<StreamInfo>)> {
-        let mut vec: Vec<_> = thread_streams
-            .iter()
-            .map(|(info, stream)| (info.clone(), stream.clone()))
-            .collect();
-
+    fn sort(self, mut threads: Vec<ThreadInfo>) -> Vec<ThreadInfo> {
         match self.sort_by {
             SortBy::Time => {
-                vec.sort_by_key(|(info, _)| info.start_time_ns);
+                threads.sort_by_key(|info| info.start_time_ns);
             }
             SortBy::Name => {
-                vec.sort_by(|(a, _), (b, _)| natord::compare_ignore_case(&a.name, &b.name));
+                threads.sort_by(|a, b| natord::compare_ignore_case(&a.name, &b.name));
             }
         }
         if self.reversed {
-            vec.reverse();
+            threads.reverse();
         }
-        vec
+        threads
     }
 
     fn ui(&mut self, ui: &mut egui::Ui) {
@@ -173,7 +164,7 @@ impl Info {
 }
 
 /// Show the flamegraph.
-pub fn ui(ui: &mut egui::Ui, options: &mut Options, frame: &FrameData) {
+pub fn ui(ui: &mut egui::Ui, options: &mut Options, frames: &vec1::Vec1<Arc<FrameData>>) {
     ui.horizontal(|ui| {
         ui.checkbox(&mut options.merge_scopes, "Merge children with same ID");
         ui.separator();
@@ -196,7 +187,8 @@ pub fn ui(ui: &mut egui::Ui, options: &mut Options, frame: &FrameData) {
             let canvas = ui.available_rect_before_wrap();
             let response = ui.interact(canvas, ui.id(), Sense::click_and_drag());
 
-            let (min_ns, max_ns) = frame.range_ns;
+            let min_ns = frames.first().range_ns.0;
+            let max_ns = frames.last().range_ns.1;
             let info = Info {
                 ctx: ui.ctx().clone(),
                 canvas,
@@ -210,7 +202,7 @@ pub fn ui(ui: &mut egui::Ui, options: &mut Options, frame: &FrameData) {
 
             let where_to_put_timeline = info.painter.add(Shape::Noop);
 
-            let max_y = ui_canvas(options, &info, frame, (min_ns, max_ns));
+            let max_y = ui_canvas(options, &info, frames, (min_ns, max_ns));
 
             let mut used_rect = canvas;
             used_rect.max.y = max_y;
@@ -230,7 +222,7 @@ pub fn ui(ui: &mut egui::Ui, options: &mut Options, frame: &FrameData) {
 fn ui_canvas(
     options: &mut Options,
     info: &Info,
-    frame: &FrameData,
+    frames: &vec1::Vec1<Arc<FrameData>>,
     (min_ns, max_ns): (NanoSecond, NanoSecond),
 ) -> f32 {
     puffin::profile_function!();
@@ -244,16 +236,20 @@ fn ui_canvas(
     let mut cursor_y = info.canvas.top();
     cursor_y += info.text_height; // Leave room for time labels
 
-    let thread_streams = options.sorting.sort(&frame.thread_streams);
+    let threads = frames
+        .iter()
+        .flat_map(|f| f.thread_streams.keys().cloned())
+        .collect();
+    let threads = options.sorting.sort(threads);
 
-    for (thread, stream_info) in &thread_streams {
+    for thread_info in threads {
         // Visual separator between threads:
         cursor_y += 2.0;
         let line_y = cursor_y;
         cursor_y += 2.0;
 
         let text_pos = pos2(info.canvas.min.x, cursor_y);
-        paint_thread_info(info, thread, text_pos);
+        paint_thread_info(info, &thread_info, text_pos);
         cursor_y += info.text_height;
 
         // draw on top of thread info background:
@@ -265,23 +261,28 @@ fn ui_canvas(
             Stroke::new(1.0, Rgba::from_white_alpha(0.5)),
         );
 
-        let mut paint_stream = || -> Result<()> {
+        let mut paint_streams = || -> Result<()> {
+            let streams = frames
+                .iter()
+                .filter_map(|frame| frame.thread_streams.get(&thread_info))
+                .map(|stream_info| &stream_info.stream);
             if options.merge_scopes {
-                let merges =
-                    puffin::merge_scopes_in_streams(vec![&stream_info.stream].into_iter())?;
+                let merges = puffin::merge_scopes_in_streams(streams)?;
                 for merge in merges {
                     paint_merge_scope(info, options, 0, &merge, 0, cursor_y)?;
                 }
             } else {
-                let top_scopes = Reader::from_start(&stream_info.stream).read_top_scopes()?;
-                for scope in top_scopes {
-                    paint_scope(info, options, &stream_info.stream, &scope, 0, cursor_y)?;
+                for stream in streams {
+                    let top_scopes = Reader::from_start(stream).read_top_scopes()?;
+                    for scope in top_scopes {
+                        paint_scope(info, options, stream, &scope, 0, cursor_y)?;
+                    }
                 }
             }
             Ok(())
         };
 
-        if let Err(err) = paint_stream() {
+        if let Err(err) = paint_streams() {
             let text = format!("Profiler stream error: {:?}", err);
             info.painter.text(
                 pos2(info.canvas.min.x, cursor_y),
@@ -292,7 +293,15 @@ fn ui_canvas(
             );
         }
 
-        cursor_y += stream_info.depth as f32 * (options.rect_height + options.spacing);
+        let mut max_depth = 0;
+        for stream_info in frames
+            .iter()
+            .filter_map(|frame| frame.thread_streams.get(&thread_info))
+        {
+            max_depth = stream_info.depth.max(max_depth);
+        }
+
+        cursor_y += max_depth as f32 * (options.rect_height + options.spacing);
 
         cursor_y += info.text_height; // Extra spacing between threads
     }

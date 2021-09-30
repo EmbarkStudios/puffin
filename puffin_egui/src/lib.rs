@@ -337,7 +337,7 @@ impl ProfilerUi {
         ui.separator();
 
         match self.view {
-            View::Flamegraph => flamegraph::ui(ui, &mut self.options, &frames.last()), // TODO: show all frames
+            View::Flamegraph => flamegraph::ui(ui, &mut self.options, &frames),
             View::Stats => stats::ui(ui, &frames),
         }
     }
