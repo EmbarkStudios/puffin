@@ -1,7 +1,6 @@
-use super::{ERROR_COLOR, HOVER_COLOR};
+use super::{SelectedFrames, ERROR_COLOR, HOVER_COLOR};
 use egui::*;
 use puffin::*;
-use std::sync::Arc;
 
 const TEXT_STYLE: TextStyle = TextStyle::Body;
 
@@ -164,7 +163,7 @@ impl Info {
 }
 
 /// Show the flamegraph.
-pub fn ui(ui: &mut egui::Ui, options: &mut Options, frames: &vec1::Vec1<Arc<FrameData>>) {
+pub fn ui(ui: &mut egui::Ui, options: &mut Options, frames: &SelectedFrames) {
     ui.horizontal(|ui| {
         ui.checkbox(&mut options.merge_scopes, "Merge children with same ID");
         ui.separator();
@@ -187,8 +186,7 @@ pub fn ui(ui: &mut egui::Ui, options: &mut Options, frames: &vec1::Vec1<Arc<Fram
             let canvas = ui.available_rect_before_wrap();
             let response = ui.interact(canvas, ui.id(), Sense::click_and_drag());
 
-            let min_ns = frames.first().range_ns.0;
-            let max_ns = frames.last().range_ns.1;
+            let (min_ns, max_ns) = frames.range_ns;
             let info = Info {
                 ctx: ui.ctx().clone(),
                 canvas,
@@ -222,7 +220,7 @@ pub fn ui(ui: &mut egui::Ui, options: &mut Options, frames: &vec1::Vec1<Arc<Fram
 fn ui_canvas(
     options: &mut Options,
     info: &Info,
-    frames: &vec1::Vec1<Arc<FrameData>>,
+    frames: &SelectedFrames,
     (min_ns, max_ns): (NanoSecond, NanoSecond),
 ) -> f32 {
     puffin::profile_function!();
@@ -236,10 +234,7 @@ fn ui_canvas(
     let mut cursor_y = info.canvas.top();
     cursor_y += info.text_height; // Leave room for time labels
 
-    let threads = frames
-        .iter()
-        .flat_map(|f| f.thread_streams.keys().cloned())
-        .collect();
+    let threads = frames.threads.keys().cloned().collect();
     let threads = options.sorting.sort(threads);
 
     for thread_info in threads {
@@ -262,20 +257,15 @@ fn ui_canvas(
         );
 
         let mut paint_streams = || -> Result<()> {
-            let streams = frames
-                .iter()
-                .filter_map(|frame| frame.thread_streams.get(&thread_info))
-                .map(|stream_info| &stream_info.stream);
             if options.merge_scopes {
-                let merges = puffin::merge_scopes_in_streams(streams)?;
-                for merge in merges {
-                    paint_merge_scope(info, options, 0, &merge, 0, cursor_y)?;
+                for merge in &frames.threads[&thread_info].merges {
+                    paint_merge_scope(info, options, 0, merge, 0, cursor_y)?;
                 }
             } else {
-                for stream in streams {
-                    let top_scopes = Reader::from_start(stream).read_top_scopes()?;
+                for stream_info in &frames.threads[&thread_info].streams {
+                    let top_scopes = Reader::from_start(&stream_info.stream).read_top_scopes()?;
                     for scope in top_scopes {
-                        paint_scope(info, options, stream, &scope, 0, cursor_y)?;
+                        paint_scope(info, options, &stream_info.stream, &scope, 0, cursor_y)?;
                     }
                 }
             }
@@ -293,14 +283,7 @@ fn ui_canvas(
             );
         }
 
-        let mut max_depth = 0;
-        for stream_info in frames
-            .iter()
-            .filter_map(|frame| frame.thread_streams.get(&thread_info))
-        {
-            max_depth = stream_info.depth.max(max_depth);
-        }
-
+        let max_depth = frames.threads[&thread_info].max_depth;
         cursor_y += max_depth as f32 * (options.rect_height + options.spacing);
 
         cursor_y += info.text_height; // Extra spacing between threads
@@ -645,9 +628,9 @@ fn paint_merge_scope(
     let record = Record {
         start_ns: ns_offset + merge.relative_start_ns,
         duration_ns: merge.total_duration_ns,
-        id: merge.id,
-        location: merge.location,
-        data: merge.data,
+        id: &merge.id,
+        location: &merge.location,
+        data: &merge.data,
     };
 
     let result = paint_record(info, options, &prefix, &record, top_y);

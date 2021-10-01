@@ -32,13 +32,28 @@ pub struct MergeScope<'s> {
     /// Number of pieces that got merged together to us.
     pub num_pieces: usize,
     /// The common identifier that we merged using.
-    pub id: &'s str,
+    pub id: std::borrow::Cow<'s, str>,
     /// only set if all children had the same
-    pub location: &'s str,
+    pub location: std::borrow::Cow<'s, str>,
     /// only set if all children had the same
-    pub data: &'s str,
+    pub data: std::borrow::Cow<'s, str>,
 
     pub children: Vec<MergeScope<'s>>,
+}
+
+impl<'s> MergeScope<'s> {
+    pub fn into_owned(self) -> MergeScope<'static> {
+        MergeScope::<'static> {
+            relative_start_ns: self.relative_start_ns,
+            total_duration_ns: self.total_duration_ns,
+            max_duration_ns: self.max_duration_ns,
+            num_pieces: self.num_pieces,
+            id: std::borrow::Cow::Owned(self.id.into_owned()),
+            location: std::borrow::Cow::Owned(self.location.into_owned()),
+            data: std::borrow::Cow::Owned(self.data.into_owned()),
+            children: self.children.into_iter().map(Self::into_owned).collect(),
+        }
+    }
 }
 
 impl<'s> MergeNode<'s> {
@@ -89,9 +104,9 @@ impl<'s> MergeNode<'s> {
             total_duration_ns,
             max_duration_ns: slowest_ns,
             num_pieces,
-            id,
-            location,
-            data,
+            id: id.into(),
+            location: location.into(),
+            data: data.into(),
             children: build(self.children),
         }
     }

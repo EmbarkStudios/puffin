@@ -86,7 +86,10 @@ pub use {egui, puffin};
 
 use egui::*;
 use puffin::*;
-use std::sync::{Arc, Mutex};
+use std::{
+    collections::HashMap,
+    sync::{Arc, Mutex},
+};
 
 const ERROR_COLOR: Color32 = Color32::RED;
 const HOVER_COLOR: Rgba = Rgba::from_rgb(0.8, 0.8, 0.8);
@@ -117,13 +120,6 @@ static PROFILE_UI: once_cell::sync::Lazy<Mutex<GlobalProfilerUi>> =
 pub fn profiler_ui(ui: &mut egui::Ui) {
     let mut profile_ui = PROFILE_UI.lock().unwrap();
     profile_ui.ui(ui);
-}
-
-fn latest_frames(frame_view: &FrameView) -> Frames {
-    Frames {
-        recent: frame_view.recent_frames().cloned().collect(),
-        slowest: frame_view.slowest_frames_chronological(),
-    }
 }
 
 // ----------------------------------------------------------------------------
@@ -160,18 +156,106 @@ impl GlobalProfilerUi {
 
 // ----------------------------------------------------------------------------
 
-/// The frames we can select between
+/// The frames we can chose between to select something to vis.
 #[derive(Clone)]
-pub struct Frames {
+pub struct AvailableFrames {
     pub recent: Vec<Arc<FrameData>>,
     pub slowest: Vec<Arc<FrameData>>,
+}
+
+impl AvailableFrames {
+    fn latest(frame_view: &FrameView) -> Self {
+        Self {
+            recent: frame_view.recent_frames().cloned().collect(),
+            slowest: frame_view.slowest_frames_chronological(),
+        }
+    }
+}
+
+/// Multiple streams for one thread.
+#[derive(Clone)]
+pub struct Streams {
+    streams: Vec<Arc<StreamInfo>>,
+    merges: Vec<MergeScope<'static>>,
+    max_depth: usize,
+}
+
+impl Streams {
+    pub fn from_vec(streams: Vec<Arc<StreamInfo>>) -> Self {
+        crate::profile_function!();
+        let merges = puffin::merge_scopes_in_streams(streams.iter().map(|si| &si.stream)).unwrap();
+        let merges = merges.into_iter().map(|ms| ms.into_owned()).collect();
+
+        let mut max_depth = 0;
+        for stream_info in &streams {
+            max_depth = stream_info.depth.max(max_depth);
+        }
+
+        Self {
+            streams,
+            merges,
+            max_depth,
+        }
+    }
+}
+
+/// Selected frames ready to be viewed.
+/// Never empty.
+#[derive(Clone)]
+pub struct SelectedFrames {
+    /// ordered, but not necessarily in sequence
+    pub frames: vec1::Vec1<Arc<FrameData>>,
+    pub range_ns: (NanoSecond, NanoSecond),
+    pub threads: HashMap<ThreadInfo, Streams>,
+}
+
+impl SelectedFrames {
+    fn try_from_vec(frames: Vec<Arc<FrameData>>) -> Option<Self> {
+        let frames = vec1::Vec1::try_from_vec(frames).ok()?;
+        Some(Self::from_vec1(frames))
+    }
+
+    fn from_vec1(mut frames: vec1::Vec1<Arc<FrameData>>) -> Self {
+        frames.sort_by_key(|f| f.frame_index);
+        frames.dedup_by_key(|f| f.frame_index);
+
+        let min_ns = frames.first().range_ns.0;
+        let max_ns = frames.last().range_ns.1;
+
+        let mut threads: HashMap<ThreadInfo, Vec<Arc<StreamInfo>>> = HashMap::new();
+        for frame in &frames {
+            for (ti, si) in &frame.thread_streams {
+                threads.entry(ti.clone()).or_default().push(si.clone());
+            }
+        }
+
+        let threads = threads
+            .drain()
+            .map(|(ti, streams)| (ti, Streams::from_vec(streams)))
+            .collect();
+
+        Self {
+            frames,
+            range_ns: (min_ns, max_ns),
+            threads,
+        }
+    }
+
+    /// Number of frames
+    pub fn len(&self) -> usize {
+        self.frames.len()
+    }
+
+    pub fn contains(&self, frame_index: u64) -> bool {
+        self.frames.iter().any(|f| f.frame_index == frame_index)
+    }
 }
 
 #[derive(Clone)]
 pub struct Paused {
     /// What we are viewing
-    selected: Vec<Arc<FrameData>>,
-    frames: Frames,
+    selected: SelectedFrames,
+    frames: AvailableFrames,
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -222,16 +306,15 @@ impl ProfilerUi {
     }
 
     /// The frames we can select between
-    fn frames(&self, frame_view: &FrameView) -> Frames {
-        self.paused
-            .as_ref()
-            .map_or_else(|| latest_frames(frame_view), |paused| paused.frames.clone())
+    fn frames(&self, frame_view: &FrameView) -> AvailableFrames {
+        self.paused.as_ref().map_or_else(
+            || AvailableFrames::latest(frame_view),
+            |paused| paused.frames.clone(),
+        )
     }
 
     /// Pause on the specific frame
-    fn pause_and_select(&mut self, frame_view: &FrameView, mut selected: Vec<Arc<FrameData>>) {
-        selected.sort_by_key(|f| f.frame_index);
-        selected.dedup_by_key(|f| f.frame_index);
+    fn pause_and_select(&mut self, frame_view: &FrameView, selected: SelectedFrames) {
         if let Some(paused) = &mut self.paused {
             paused.selected = selected;
         } else {
@@ -242,20 +325,14 @@ impl ProfilerUi {
         }
     }
 
-    fn selected_frames(&self, frame_view: &FrameView) -> Vec<Arc<FrameData>> {
-        if let Some(paused) = &self.paused {
-            paused.selected.clone()
-        } else if let Some(latest_frame) = frame_view.latest_frame() {
-            vec![latest_frame]
-        } else {
-            vec![]
-        }
-    }
-
     fn is_selected(&self, frame_view: &FrameView, frame_index: u64) -> bool {
-        self.selected_frames(frame_view)
-            .iter()
-            .any(|f| f.frame_index == frame_index)
+        if let Some(paused) = &self.paused {
+            paused.selected.contains(frame_index)
+        } else if let Some(latest_frame) = frame_view.latest_frame() {
+            latest_frame.frame_index == frame_index
+        } else {
+            false
+        }
     }
 
     /// Show the profiler.
@@ -279,12 +356,16 @@ impl ProfilerUi {
             });
 
         let frames = if let Some(hovered_frame) = hovered_frame {
-            vec![hovered_frame]
+            SelectedFrames::try_from_vec(vec![hovered_frame])
+        } else if let Some(paused) = &self.paused {
+            Some(paused.selected.clone())
+        } else if let Some(latest_frame) = frame_view.latest_frame() {
+            SelectedFrames::try_from_vec(vec![latest_frame])
         } else {
-            self.selected_frames(frame_view)
+            None
         };
 
-        let frames = if let Ok(frames) = vec1::Vec1::try_from_vec(frames) {
+        let frames = if let Some(frames) = frames {
             frames
         } else {
             ui.label("No profiling data");
@@ -314,7 +395,10 @@ impl ProfilerUi {
                     {
                         let latest = frame_view.latest_frame();
                         if let Some(latest) = latest {
-                            self.pause_and_select(frame_view, vec![latest]);
+                            self.pause_and_select(
+                                frame_view,
+                                SelectedFrames::from_vec1(vec1::vec1![latest]),
+                            );
                         }
                     }
                 });
@@ -338,7 +422,7 @@ impl ProfilerUi {
 
         match self.view {
             View::Flamegraph => flamegraph::ui(ui, &mut self.options, &frames),
-            View::Stats => stats::ui(ui, &frames),
+            View::Stats => stats::ui(ui, &frames.frames),
         }
     }
 
@@ -481,13 +565,15 @@ impl ProfilerUi {
             painter.rect_filled(short_rect, 0.0, color);
         }
 
-        if !new_selection.is_empty() {
+        if let Some(new_selection) = SelectedFrames::try_from_vec(new_selection) {
             self.pause_and_select(frame_view, new_selection);
         }
     }
 }
 
-fn frames_info_ui(ui: &mut egui::Ui, frames: &vec1::Vec1<Arc<FrameData>>) {
+fn frames_info_ui(ui: &mut egui::Ui, frames: &SelectedFrames) {
+    let frames = &frames.frames;
+
     let mut sum_ns = 0;
     let mut sum_scopes = 0;
     let mut sum_bytes = 0;
