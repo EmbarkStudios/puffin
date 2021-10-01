@@ -1005,7 +1005,7 @@ fn paint_merge_scope(
                 info,
                 options,
                 record.start_ns,
-                &merged_child,
+                merged_child,
                 depth + 1,
                 min_y,
             )?;

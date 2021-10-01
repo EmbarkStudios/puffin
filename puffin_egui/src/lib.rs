@@ -241,11 +241,6 @@ impl SelectedFrames {
         }
     }
 
-    /// Number of frames
-    pub fn len(&self) -> usize {
-        self.frames.len()
-    }
-
     pub fn contains(&self, frame_index: u64) -> bool {
         self.frames.iter().any(|f| f.frame_index == frame_index)
     }

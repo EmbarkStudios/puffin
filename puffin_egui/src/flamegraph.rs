@@ -637,7 +637,7 @@ fn paint_merge_scope(
 
     if result != PaintResult::Culled {
         for child in &merge.children {
-            paint_merge_scope(info, options, record.start_ns, &child, depth + 1, min_y)?;
+            paint_merge_scope(info, options, record.start_ns, child, depth + 1, min_y)?;
         }
 
         if result == PaintResult::Hovered {
