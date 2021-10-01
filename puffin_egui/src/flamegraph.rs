@@ -627,7 +627,7 @@ fn paint_merge_scope(
         format!("{:.1}x ", merge.num_pieces as f64 / info.num_frames as f64)
     };
 
-    let suffix = if info.num_frames <= 0 {
+    let suffix = if info.num_frames <= 1 {
         ""
     } else {
         "per frame"
@@ -659,6 +659,8 @@ fn paint_merge_scope(
 }
 
 fn merge_scope_tooltip(ui: &mut egui::Ui, merge: &MergeScope<'_>, num_frames: usize) {
+    #![allow(clippy::collapsible_else_if)]
+
     ui.monospace(format!("id:       {}", merge.id));
     if !merge.location.is_empty() {
         ui.monospace(format!("location: {}", merge.location));

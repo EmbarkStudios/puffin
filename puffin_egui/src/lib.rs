@@ -230,7 +230,7 @@ impl SelectedFrames {
 
         let mut threads: BTreeSet<ThreadInfo> = BTreeSet::new();
         for frame in &frames {
-            for (ti, _) in &frame.thread_streams {
+            for ti in frame.thread_streams.keys() {
                 threads.insert(ti.clone());
             }
         }
