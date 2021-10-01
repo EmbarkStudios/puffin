@@ -87,7 +87,7 @@ pub use {egui, puffin};
 use egui::*;
 use puffin::*;
 use std::{
-    collections::{HashMap, HashSet},
+    collections::{BTreeMap, BTreeSet},
     sync::{Arc, Mutex},
 };
 
@@ -215,7 +215,7 @@ pub struct SelectedFrames {
     pub frames: vec1::Vec1<Arc<FrameData>>,
     pub raw_range_ns: (NanoSecond, NanoSecond),
     pub merged_range_ns: (NanoSecond, NanoSecond),
-    pub threads: HashMap<ThreadInfo, Streams>,
+    pub threads: BTreeMap<ThreadInfo, Streams>,
 }
 
 impl SelectedFrames {
@@ -228,19 +228,16 @@ impl SelectedFrames {
         frames.sort_by_key(|f| f.frame_index);
         frames.dedup_by_key(|f| f.frame_index);
 
-        let mut threads: HashSet<ThreadInfo> = HashSet::new();
+        let mut threads: BTreeSet<ThreadInfo> = BTreeSet::new();
         for frame in &frames {
             for (ti, _) in &frame.thread_streams {
                 threads.insert(ti.clone());
             }
         }
 
-        let threads: HashMap<ThreadInfo, Streams> = threads
-            .drain()
-            .map(|ti| {
-                let stream = Streams::new(&frames, &ti);
-                (ti, stream)
-            })
+        let threads: BTreeMap<ThreadInfo, Streams> = threads
+            .iter()
+            .map(|ti| (ti.clone(), Streams::new(&frames, ti)))
             .collect();
 
         let mut merged_min_ns = NanoSecond::MAX;
@@ -589,42 +586,39 @@ impl ProfilerUi {
     }
 }
 
-fn frames_info_ui(ui: &mut egui::Ui, frames: &SelectedFrames) {
-    let frames = &frames.frames;
-
+fn frames_info_ui(ui: &mut egui::Ui, selection: &SelectedFrames) {
     let mut sum_ns = 0;
     let mut sum_scopes = 0;
     let mut sum_bytes = 0;
 
-    let mut threads = std::collections::HashSet::new();
-
-    for frame in frames {
+    for frame in &selection.frames {
         let (min_ns, max_ns) = frame.range_ns;
         sum_ns += max_ns - min_ns;
 
-        threads.extend(frame.thread_streams.keys());
         sum_scopes += frame.num_scopes;
         sum_bytes += frame.num_bytes;
     }
 
-    let frame_indices = if frames.len() == 1 {
-        format!("frame #{}", frames[0].frame_index)
-    } else if frames.len() as u64 == frames.last().frame_index - frames.first().frame_index + 1 {
+    let frame_indices = if selection.frames.len() == 1 {
+        format!("frame #{}", selection.frames[0].frame_index)
+    } else if selection.frames.len() as u64
+        == selection.frames.last().frame_index - selection.frames.first().frame_index + 1
+    {
         format!(
             "{} frames (#{} - #{})",
-            frames.len(),
-            frames.first().frame_index,
-            frames.last().frame_index
+            selection.frames.len(),
+            selection.frames.first().frame_index,
+            selection.frames.last().frame_index
         )
     } else {
-        format!("{} frames", frames.len())
+        format!("{} frames", selection.frames.len())
     };
 
     ui.label(format!(
         "Showing {}, {:.1} ms, {} threads, {} scopes, {:.1} kB",
         frame_indices,
         sum_ns as f64 * 1e-6,
-        threads.len(),
+        selection.threads.len(),
         sum_scopes,
         sum_bytes as f64 * 1e-3
     ));
