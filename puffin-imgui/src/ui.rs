@@ -467,20 +467,14 @@ impl ProfilerUi {
                 .build();
 
             let mut paint_stream = || -> Result<()> {
-                let top_scopes = Reader::from_start(&stream_info.stream).read_top_scopes()?;
                 if self.options.merge_scopes {
-                    let merges = puffin::merge_top_scopes(&top_scopes);
+                    let merges =
+                        puffin::merge_scopes_in_streams(vec![&stream_info.stream].into_iter())?;
                     for merge in merges {
-                        paint_merge_scope(
-                            info,
-                            &mut self.options,
-                            &stream_info.stream,
-                            &merge,
-                            0,
-                            cursor_y,
-                        )?;
+                        paint_merge_scope(info, &mut self.options, 0, &merge, 0, cursor_y)?;
                     }
                 } else {
+                    let top_scopes = Reader::from_start(&stream_info.stream).read_top_scopes()?;
                     for scope in top_scopes {
                         paint_scope(
                             info,
@@ -982,23 +976,39 @@ fn paint_scope(
 fn paint_merge_scope(
     info: &Info<'_>,
     options: &mut Options,
-    stream: &Stream,
+    ns_offset: NanoSecond,
     merge: &MergeScope<'_>,
     depth: usize,
     min_y: f32,
 ) -> Result<PaintResult> {
     let top_y = min_y + (depth as f32) * (options.rect_height + options.spacing);
 
-    let prefix = if merge.pieces.len() <= 1 {
+    let prefix = if merge.num_pieces <= 1 {
         String::default()
     } else {
-        format!("{}x ", merge.pieces.len())
+        format!("{}x ", merge.num_pieces)
     };
-    let result = paint_record(info, options, &prefix, &merge.record, top_y);
+
+    let record = Record {
+        start_ns: ns_offset + merge.relative_start_ns,
+        duration_ns: merge.total_duration_ns,
+        id: &merge.id,
+        location: &merge.location,
+        data: &merge.data,
+    };
+
+    let result = paint_record(info, options, &prefix, &record, top_y);
 
     if result != PaintResult::Culled {
-        for merged_child in merge_children_of_pieces(stream, merge)? {
-            paint_merge_scope(info, options, stream, &merged_child, depth + 1, min_y)?;
+        for merged_child in &merge.children {
+            paint_merge_scope(
+                info,
+                options,
+                record.start_ns,
+                &merged_child,
+                depth + 1,
+                min_y,
+            )?;
         }
 
         if result == PaintResult::Hovered {
@@ -1011,37 +1021,33 @@ fn paint_merge_scope(
 }
 
 fn merge_scope_tooltip(ui: &Ui<'_>, merge: &MergeScope<'_>) {
-    ui.text(&format!("id:       {}", merge.record.id));
-    if !merge.record.location.is_empty() {
-        ui.text(&format!("location: {}", merge.record.location));
+    ui.text(&format!("id:       {}", merge.id));
+    if !merge.location.is_empty() {
+        ui.text(&format!("location: {}", merge.location));
     }
-    if !merge.record.data.is_empty() {
-        ui.text(&format!("data:     {}", merge.record.data));
+    if !merge.data.is_empty() {
+        ui.text(&format!("data:     {}", merge.data));
     }
 
-    if merge.pieces.len() <= 1 {
+    if merge.num_pieces <= 1 {
         ui.text(&format!(
             "duration: {:6.3} ms",
-            to_ms(merge.record.duration_ns)
+            to_ms(merge.total_duration_ns)
         ));
     } else {
-        ui.text(&format!("sum of:   {} scopes", merge.pieces.len()));
+        ui.text(&format!("sum of:   {} scopes", merge.num_pieces));
         ui.text(&format!(
             "total:    {:6.3} ms",
-            to_ms(merge.record.duration_ns)
+            to_ms(merge.total_duration_ns)
         ));
-
         ui.text(&format!(
             "mean:     {:6.3} ms",
-            to_ms(merge.record.duration_ns) / (merge.pieces.len() as f64),
+            to_ms(merge.total_duration_ns) / (merge.num_pieces as f64),
         ));
-        let max_duration_ns = merge
-            .pieces
-            .iter()
-            .map(|piece| piece.scope.record.duration_ns)
-            .max()
-            .unwrap();
-        ui.text(&format!("max:      {:6.3} ms", to_ms(max_duration_ns)));
+        ui.text(&format!(
+            "max:      {:6.3} ms",
+            to_ms(merge.max_duration_ns)
+        ));
     }
 }
 
