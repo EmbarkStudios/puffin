@@ -468,8 +468,8 @@ fn paint_record(
     record: &Record<'_>,
     top_y: f32,
 ) -> PaintResult {
-    let mut start_x = info.point_from_ns(options, record.start_ns);
-    let mut stop_x = info.point_from_ns(options, record.stop_ns());
+    let start_x = info.point_from_ns(options, record.start_ns);
+    let stop_x = info.point_from_ns(options, record.stop_ns());
     if info.canvas.max.x < start_x
         || stop_x < info.canvas.min.x
         || stop_x - start_x < options.cull_width
@@ -477,20 +477,12 @@ fn paint_record(
         return PaintResult::Culled;
     }
 
-    if stop_x - start_x < options.min_width {
-        // Make sure it is visible:
-        let center = 0.5 * (start_x + stop_x);
-        start_x = center - 0.5 * options.min_width;
-        stop_x = center + 0.5 * options.min_width;
-    }
-
     let bottom_y = top_y + options.rect_height;
 
+    let rect = Rect::from_min_max(pos2(start_x, top_y), pos2(stop_x, bottom_y));
+
     let is_hovered = if let Some(mouse_pos) = info.response.hover_pos() {
-        start_x <= mouse_pos.x
-            && mouse_pos.x <= stop_x
-            && top_y <= mouse_pos.y
-            && mouse_pos.y <= bottom_y
+        rect.contains(mouse_pos)
     } else {
         false
     };
@@ -505,8 +497,6 @@ fn paint_record(
         ));
     }
 
-    let rect_min = pos2(start_x, top_y);
-    let rect_max = pos2(stop_x, bottom_y);
     let rect_color = if is_hovered {
         HOVER_COLOR
     } else {
@@ -514,20 +504,19 @@ fn paint_record(
         color_from_duration(record.duration_ns)
     };
 
-    info.painter.rect_filled(
-        Rect::from_min_max(rect_min, rect_max),
-        options.rounding,
-        rect_color,
-    );
+    if rect.width() <= options.min_width {
+        // faster to draw it as a thin line
+        info.painter.line_segment(
+            [rect.center_top(), rect.center_bottom()],
+            egui::Stroke::new(options.min_width, rect_color),
+        );
+    } else {
+        info.painter.rect_filled(rect, options.rounding, rect_color);
+    }
 
     let wide_enough_for_text = stop_x - start_x > 32.0;
     if wide_enough_for_text {
-        let rect_min = rect_min.max(info.canvas.min);
-        let rect_max = rect_max.min(info.canvas.max);
-
-        let painter = info
-            .painter
-            .sub_region(Rect::from_min_max(rect_min, rect_max));
+        let painter = info.painter.sub_region(rect.intersect(info.canvas));
 
         let duration_ms = to_ms(record.duration_ns);
         let text = if record.data.is_empty() {
