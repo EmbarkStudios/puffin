@@ -87,7 +87,7 @@ pub use {egui, puffin};
 use egui::*;
 use puffin::*;
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     sync::{Arc, Mutex},
 };
 
@@ -176,14 +176,22 @@ impl AvailableFrames {
 #[derive(Clone)]
 pub struct Streams {
     streams: Vec<Arc<StreamInfo>>,
-    merges: Vec<MergeScope<'static>>,
+    merged_scopes: Vec<MergeScope<'static>>,
     max_depth: usize,
 }
 
 impl Streams {
-    pub fn from_vec(streams: Vec<Arc<StreamInfo>>) -> Self {
+    fn new(frames: &[Arc<FrameData>], thread_info: &ThreadInfo) -> Self {
         crate::profile_function!();
-        let merges = puffin::merge_scopes_in_streams(streams.iter().map(|si| &si.stream)).unwrap();
+
+        let mut streams = vec![];
+        for frame in frames {
+            if let Some(stream_info) = frame.thread_streams.get(thread_info) {
+                streams.push(stream_info.clone());
+            }
+        }
+
+        let merges = puffin::merge_scopes_for_thread(frames, thread_info).unwrap();
         let merges = merges.into_iter().map(|ms| ms.into_owned()).collect();
 
         let mut max_depth = 0;
@@ -193,7 +201,7 @@ impl Streams {
 
         Self {
             streams,
-            merges,
+            merged_scopes: merges,
             max_depth,
         }
     }
@@ -205,7 +213,8 @@ impl Streams {
 pub struct SelectedFrames {
     /// ordered, but not necessarily in sequence
     pub frames: vec1::Vec1<Arc<FrameData>>,
-    pub range_ns: (NanoSecond, NanoSecond),
+    pub raw_range_ns: (NanoSecond, NanoSecond),
+    pub merged_range_ns: (NanoSecond, NanoSecond),
     pub threads: HashMap<ThreadInfo, Streams>,
 }
 
@@ -219,24 +228,38 @@ impl SelectedFrames {
         frames.sort_by_key(|f| f.frame_index);
         frames.dedup_by_key(|f| f.frame_index);
 
-        let min_ns = frames.first().range_ns.0;
-        let max_ns = frames.last().range_ns.1;
-
-        let mut threads: HashMap<ThreadInfo, Vec<Arc<StreamInfo>>> = HashMap::new();
+        let mut threads: HashSet<ThreadInfo> = HashSet::new();
         for frame in &frames {
-            for (ti, si) in &frame.thread_streams {
-                threads.entry(ti.clone()).or_default().push(si.clone());
+            for (ti, _) in &frame.thread_streams {
+                threads.insert(ti.clone());
             }
         }
 
-        let threads = threads
+        let threads: HashMap<ThreadInfo, Streams> = threads
             .drain()
-            .map(|(ti, streams)| (ti, Streams::from_vec(streams)))
+            .map(|ti| {
+                let stream = Streams::new(&frames, &ti);
+                (ti, stream)
+            })
             .collect();
+
+        let mut merged_min_ns = NanoSecond::MAX;
+        let mut merged_max_ns = NanoSecond::MIN;
+        for stream in threads.values() {
+            for scope in &stream.merged_scopes {
+                let scope_start = scope.relative_start_ns;
+                let scope_end = scope_start + scope.duration_per_frame_ns;
+                merged_min_ns = merged_min_ns.min(scope_start);
+                merged_max_ns = merged_max_ns.max(scope_end);
+            }
+        }
+
+        let raw_range_ns = (frames.first().range_ns.0, frames.last().range_ns.1);
 
         Self {
             frames,
-            range_ns: (min_ns, max_ns),
+            raw_range_ns,
+            merged_range_ns: (merged_min_ns, merged_max_ns),
             threads,
         }
     }
@@ -588,7 +611,8 @@ fn frames_info_ui(ui: &mut egui::Ui, frames: &SelectedFrames) {
         format!("frame #{}", frames[0].frame_index)
     } else if frames.len() as u64 == frames.last().frame_index - frames.first().frame_index + 1 {
         format!(
-            "frames #{} - #{}",
+            "{} frames (#{} - #{})",
+            frames.len(),
             frames.first().frame_index,
             frames.last().frame_index
         )

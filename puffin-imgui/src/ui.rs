@@ -432,7 +432,7 @@ impl ProfilerUi {
     fn ui_canvas(
         &mut self,
         info: &Info<'_>,
-        frame: &FrameData,
+        frame: &Arc<FrameData>,
         (min_ns, max_ns): (NanoSecond, NanoSecond),
     ) -> f32 {
         if self.options.canvas_width_ns <= 0.0 {
@@ -468,8 +468,8 @@ impl ProfilerUi {
 
             let mut paint_stream = || -> Result<()> {
                 if self.options.merge_scopes {
-                    let merges =
-                        puffin::merge_scopes_in_streams(vec![&stream_info.stream].into_iter())?;
+                    let frames = vec![frame.clone()];
+                    let merges = puffin::merge_scopes_for_thread(&frames, thread_info)?;
                     for merge in merges {
                         paint_merge_scope(info, &mut self.options, 0, &merge, 0, cursor_y)?;
                     }
@@ -991,7 +991,7 @@ fn paint_merge_scope(
 
     let record = Record {
         start_ns: ns_offset + merge.relative_start_ns,
-        duration_ns: merge.total_duration_ns,
+        duration_ns: merge.duration_per_frame_ns,
         id: &merge.id,
         location: &merge.location,
         data: &merge.data,
@@ -1032,17 +1032,17 @@ fn merge_scope_tooltip(ui: &Ui<'_>, merge: &MergeScope<'_>) {
     if merge.num_pieces <= 1 {
         ui.text(&format!(
             "duration: {:6.3} ms",
-            to_ms(merge.total_duration_ns)
+            to_ms(merge.duration_per_frame_ns)
         ));
     } else {
         ui.text(&format!("sum of:   {} scopes", merge.num_pieces));
         ui.text(&format!(
             "total:    {:6.3} ms",
-            to_ms(merge.total_duration_ns)
+            to_ms(merge.duration_per_frame_ns)
         ));
         ui.text(&format!(
             "mean:     {:6.3} ms",
-            to_ms(merge.total_duration_ns) / (merge.num_pieces as f64),
+            to_ms(merge.duration_per_frame_ns) / (merge.num_pieces as f64),
         ));
         ui.text(&format!(
             "max:      {:6.3} ms",

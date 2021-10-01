@@ -174,6 +174,7 @@ pub struct Record<'s> {
 }
 
 impl<'s> Record<'s> {
+    #[inline]
     pub fn stop_ns(&self) -> NanoSecond {
         self.start_ns + self.duration_ns
     }
