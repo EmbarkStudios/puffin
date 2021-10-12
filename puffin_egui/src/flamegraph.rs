@@ -636,12 +636,19 @@ fn paint_merge_scope(
 ) -> Result<PaintResult> {
     let top_y = min_y + (depth as f32) * (options.rect_height + options.spacing);
 
-    let prefix = if merge.num_pieces <= 1 {
-        String::default()
-    } else if info.num_frames <= 1 {
-        format!("{}x ", merge.num_pieces)
+    let prefix = if info.num_frames <= 1 {
+        if merge.num_pieces <= 1 {
+            String::default()
+        } else {
+            format!("{}x ", merge.num_pieces)
+        }
     } else {
-        format!("{:.1}x ", merge.num_pieces as f64 / info.num_frames as f64)
+        let is_integral = merge.num_pieces % info.num_frames == 0;
+        if is_integral {
+            format!("{}x ", merge.num_pieces / info.num_frames)
+        } else {
+            format!("{:.2}x ", merge.num_pieces as f64 / info.num_frames as f64)
+        }
     };
 
     let suffix = if info.num_frames <= 1 {
@@ -685,6 +692,7 @@ fn merge_scope_tooltip(ui: &mut egui::Ui, merge: &MergeScope<'_>, num_frames: us
     if !merge.data.is_empty() {
         ui.monospace(format!("data:     {}", merge.data));
     }
+    ui.add_space(8.0);
 
     if num_frames <= 1 {
         if merge.num_pieces <= 1 {
@@ -693,45 +701,47 @@ fn merge_scope_tooltip(ui: &mut egui::Ui, merge: &MergeScope<'_>, num_frames: us
                 to_ms(merge.duration_per_frame_ns)
             ));
         } else {
-            ui.monospace(format!("sum of:   {} scopes", merge.num_pieces));
+            ui.monospace(format!("sum of {} scopes", merge.num_pieces));
             ui.monospace(format!(
-                "total:    {:7.3} ms",
+                "total: {:7.3} ms",
                 to_ms(merge.duration_per_frame_ns)
             ));
             ui.monospace(format!(
-                "mean:     {:7.3} ms",
+                "mean:  {:7.3} ms",
                 to_ms(merge.duration_per_frame_ns) / (merge.num_pieces as f64),
             ));
-            ui.monospace(format!("max:      {:7.3} ms", to_ms(merge.max_duration_ns)));
+            ui.monospace(format!("max:   {:7.3} ms", to_ms(merge.max_duration_ns)));
         }
     } else {
-        if merge.num_pieces <= 1 {
-            ui.monospace(format!(
-                "duration: {:7.3} ms / frame",
-                to_ms(merge.duration_per_frame_ns)
-            ));
+        ui.monospace(format!(
+            "{} calls over all {} frames",
+            merge.num_pieces, num_frames
+        ));
+
+        if merge.num_pieces == num_frames {
+            ui.monospace("1 call / frame");
+        } else if merge.num_pieces % num_frames == 0 {
+            ui.monospace(format!("{} calls / frame", merge.num_pieces / num_frames));
         } else {
             ui.monospace(format!(
-                "{} calls over all {} frames",
-                merge.num_pieces, num_frames
-            ));
-            ui.monospace(format!(
-                "{:.1} calls / frame",
+                "{:.3} calls / frame",
                 merge.num_pieces as f64 / num_frames as f64
             ));
-            ui.monospace(format!(
-                "{:7.3} ms / frame",
-                to_ms(merge.duration_per_frame_ns)
-            ));
-            ui.monospace(format!(
-                "{:7.3} ms / call",
-                to_ms(merge.total_duration_ns) / (merge.num_pieces as f64),
-            ));
-            ui.monospace(format!(
-                "{:7.3} ms for slowest call",
-                to_ms(merge.max_duration_ns)
-            ));
         }
+
+        ui.monospace(format!(
+            "{:7.3} ms / frame",
+            to_ms(merge.duration_per_frame_ns)
+        ));
+        ui.monospace(format!(
+            "{:7.3} ms / call",
+            to_ms(merge.total_duration_ns) / (merge.num_pieces as f64),
+        ));
+        ui.monospace(format!(
+            "{:7.3} ms for slowest call",
+            to_ms(merge.max_duration_ns)
+        ));
+        // }
     }
 }
 
