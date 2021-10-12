@@ -6,6 +6,10 @@ All notable changes to the egui crate will be documented in this file.
 ## Unreleased
 
 
+## 0.9.0 - 2021-10-1
+* You can now select multiple frames.
+
+
 ## 0.8.0 - 2021-09-20
 * `ProfilerUi` now takes by argument the profiling data to view. You may want to use `GlobalProfilerUi` instead.
 

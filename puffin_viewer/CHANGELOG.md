@@ -4,7 +4,10 @@ All notable changes to `puffin_viewer` will be documented in this file.
 
 
 ## Unreleased
-* Update `puffin`, `puffin_egui` and `puffin_http`.
+
+
+## 0.7.0 - 2021-10-12
+* You can now select multiple frames.
 
 
 ## 0.6.1 - 2021-09-08
