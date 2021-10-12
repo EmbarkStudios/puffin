@@ -86,7 +86,10 @@ pub use {egui, puffin};
 
 use egui::*;
 use puffin::*;
-use std::sync::{Arc, Mutex};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    sync::{Arc, Mutex},
+};
 
 const ERROR_COLOR: Color32 = Color32::RED;
 const HOVER_COLOR: Rgba = Rgba::from_rgb(0.8, 0.8, 0.8);
@@ -117,13 +120,6 @@ static PROFILE_UI: once_cell::sync::Lazy<Mutex<GlobalProfilerUi>> =
 pub fn profiler_ui(ui: &mut egui::Ui) {
     let mut profile_ui = PROFILE_UI.lock().unwrap();
     profile_ui.ui(ui);
-}
-
-fn latest_frames(frame_view: &FrameView) -> Frames {
-    Frames {
-        recent: frame_view.recent_frames().cloned().collect(),
-        slowest: frame_view.slowest_frames_chronological(),
-    }
 }
 
 // ----------------------------------------------------------------------------
@@ -160,18 +156,121 @@ impl GlobalProfilerUi {
 
 // ----------------------------------------------------------------------------
 
-/// The frames we can select between
+/// The frames we can chose between when selecting what frame(s) to view.
 #[derive(Clone)]
-pub struct Frames {
+pub struct AvailableFrames {
     pub recent: Vec<Arc<FrameData>>,
     pub slowest: Vec<Arc<FrameData>>,
+}
+
+impl AvailableFrames {
+    fn latest(frame_view: &FrameView) -> Self {
+        Self {
+            recent: frame_view.recent_frames().cloned().collect(),
+            slowest: frame_view.slowest_frames_chronological(),
+        }
+    }
+}
+
+/// Multiple streams for one thread.
+#[derive(Clone)]
+pub struct Streams {
+    streams: Vec<Arc<StreamInfo>>,
+    merged_scopes: Vec<MergeScope<'static>>,
+    max_depth: usize,
+}
+
+impl Streams {
+    fn new(frames: &[Arc<FrameData>], thread_info: &ThreadInfo) -> Self {
+        crate::profile_function!();
+
+        let mut streams = vec![];
+        for frame in frames {
+            if let Some(stream_info) = frame.thread_streams.get(thread_info) {
+                streams.push(stream_info.clone());
+            }
+        }
+
+        let merges = puffin::merge_scopes_for_thread(frames, thread_info).unwrap();
+        let merges = merges.into_iter().map(|ms| ms.into_owned()).collect();
+
+        let mut max_depth = 0;
+        for stream_info in &streams {
+            max_depth = stream_info.depth.max(max_depth);
+        }
+
+        Self {
+            streams,
+            merged_scopes: merges,
+            max_depth,
+        }
+    }
+}
+
+/// Selected frames ready to be viewed.
+/// Never empty.
+#[derive(Clone)]
+pub struct SelectedFrames {
+    /// ordered, but not necessarily in sequence
+    pub frames: vec1::Vec1<Arc<FrameData>>,
+    pub raw_range_ns: (NanoSecond, NanoSecond),
+    pub merged_range_ns: (NanoSecond, NanoSecond),
+    pub threads: BTreeMap<ThreadInfo, Streams>,
+}
+
+impl SelectedFrames {
+    fn try_from_vec(frames: Vec<Arc<FrameData>>) -> Option<Self> {
+        let frames = vec1::Vec1::try_from_vec(frames).ok()?;
+        Some(Self::from_vec1(frames))
+    }
+
+    fn from_vec1(mut frames: vec1::Vec1<Arc<FrameData>>) -> Self {
+        frames.sort_by_key(|f| f.frame_index);
+        frames.dedup_by_key(|f| f.frame_index);
+
+        let mut threads: BTreeSet<ThreadInfo> = BTreeSet::new();
+        for frame in &frames {
+            for ti in frame.thread_streams.keys() {
+                threads.insert(ti.clone());
+            }
+        }
+
+        let threads: BTreeMap<ThreadInfo, Streams> = threads
+            .iter()
+            .map(|ti| (ti.clone(), Streams::new(&frames, ti)))
+            .collect();
+
+        let mut merged_min_ns = NanoSecond::MAX;
+        let mut merged_max_ns = NanoSecond::MIN;
+        for stream in threads.values() {
+            for scope in &stream.merged_scopes {
+                let scope_start = scope.relative_start_ns;
+                let scope_end = scope_start + scope.duration_per_frame_ns;
+                merged_min_ns = merged_min_ns.min(scope_start);
+                merged_max_ns = merged_max_ns.max(scope_end);
+            }
+        }
+
+        let raw_range_ns = (frames.first().range_ns.0, frames.last().range_ns.1);
+
+        Self {
+            frames,
+            raw_range_ns,
+            merged_range_ns: (merged_min_ns, merged_max_ns),
+            threads,
+        }
+    }
+
+    pub fn contains(&self, frame_index: u64) -> bool {
+        self.frames.iter().any(|f| f.frame_index == frame_index)
+    }
 }
 
 #[derive(Clone)]
 pub struct Paused {
     /// What we are viewing
-    selected: Arc<FrameData>,
-    frames: Frames,
+    selected: SelectedFrames,
+    frames: AvailableFrames,
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -222,14 +321,15 @@ impl ProfilerUi {
     }
 
     /// The frames we can select between
-    fn frames(&self, frame_view: &FrameView) -> Frames {
-        self.paused
-            .as_ref()
-            .map_or_else(|| latest_frames(frame_view), |paused| paused.frames.clone())
+    fn frames(&self, frame_view: &FrameView) -> AvailableFrames {
+        self.paused.as_ref().map_or_else(
+            || AvailableFrames::latest(frame_view),
+            |paused| paused.frames.clone(),
+        )
     }
 
     /// Pause on the specific frame
-    fn pause_and_select(&mut self, frame_view: &FrameView, selected: Arc<FrameData>) {
+    fn pause_and_select(&mut self, frame_view: &FrameView, selected: SelectedFrames) {
         if let Some(paused) = &mut self.paused {
             paused.selected = selected;
         } else {
@@ -240,16 +340,14 @@ impl ProfilerUi {
         }
     }
 
-    fn selected_frame(&self, frame_view: &FrameView) -> Option<Arc<FrameData>> {
-        self.paused
-            .as_ref()
-            .map(|paused| paused.selected.clone())
-            .or_else(|| frame_view.latest_frame())
-    }
-
-    fn selected_frame_index(&self, frame_view: &FrameView) -> Option<FrameIndex> {
-        self.selected_frame(frame_view)
-            .map(|frame| frame.frame_index)
+    fn is_selected(&self, frame_view: &FrameView, frame_index: u64) -> bool {
+        if let Some(paused) = &self.paused {
+            paused.selected.contains(frame_index)
+        } else if let Some(latest_frame) = frame_view.latest_frame() {
+            latest_frame.frame_index == frame_index
+        } else {
+            false
+        }
     }
 
     /// Show the profiler.
@@ -272,12 +370,21 @@ impl ProfilerUi {
                 hovered_frame = self.show_frames(ui, frame_view);
             });
 
-        let frame = match hovered_frame.or_else(|| self.selected_frame(frame_view)) {
-            Some(frame) => frame,
-            None => {
-                ui.label("No profiling data");
-                return;
-            }
+        let frames = if let Some(hovered_frame) = hovered_frame {
+            SelectedFrames::try_from_vec(vec![hovered_frame])
+        } else if let Some(paused) = &self.paused {
+            Some(paused.selected.clone())
+        } else if let Some(latest_frame) = frame_view.latest_frame() {
+            SelectedFrames::try_from_vec(vec![latest_frame])
+        } else {
+            None
+        };
+
+        let frames = if let Some(frames) = frames {
+            frames
+        } else {
+            ui.label("No profiling data");
+            return;
         };
 
         // TODO: show age of data
@@ -303,21 +410,16 @@ impl ProfilerUi {
                     {
                         let latest = frame_view.latest_frame();
                         if let Some(latest) = latest {
-                            self.pause_and_select(frame_view, latest);
+                            self.pause_and_select(
+                                frame_view,
+                                SelectedFrames::from_vec1(vec1::vec1![latest]),
+                            );
                         }
                     }
                 });
             }
             ui.separator();
-            let (min_ns, max_ns) = frame.range_ns;
-            ui.label(format!(
-                "Showing frame #{}, {:.1} ms, {} threads, {} scopes, {:.1} kB",
-                frame.frame_index,
-                (max_ns - min_ns) as f64 * 1e-6,
-                frame.thread_streams.len(),
-                frame.num_scopes,
-                frame.num_bytes as f64 * 1e-3
-            ));
+            frames_info_ui(ui, &frames);
         });
 
         if self.paused.is_none() {
@@ -334,8 +436,8 @@ impl ProfilerUi {
         ui.separator();
 
         match self.view {
-            View::Flamegraph => flamegraph::ui(ui, &mut self.options, &frame),
-            View::Stats => stats::ui(ui, &frame),
+            View::Flamegraph => flamegraph::ui(ui, &mut self.options, &frames),
+            View::Stats => stats::ui(ui, &frames.frames),
         }
     }
 
@@ -352,6 +454,10 @@ impl ProfilerUi {
         let longest_count = frames.recent.len().max(frames.slowest.len());
 
         egui::Grid::new("frame_grid").num_columns(2).show(ui, |ui| {
+            ui.label("");
+            ui.label("Click to select a frame, or drag to select multiple frames.");
+            ui.end_row();
+
             ui.label("Recent:");
 
             Frame::dark_canvas(ui.style()).show(ui, |ui| {
@@ -405,7 +511,7 @@ impl ProfilerUi {
             ui.available_size_before_wrap_finite().x,
             self.options.frame_list_height,
         );
-        let (response, painter) = ui.allocate_painter(desired_size, Sense::drag());
+        let (response, painter) = ui.allocate_painter(desired_size, Sense::click_and_drag());
         let rect = response.rect;
 
         let frame_width_including_spacing =
@@ -413,7 +519,13 @@ impl ProfilerUi {
         let frame_spacing = 2.0;
         let frame_width = frame_width_including_spacing - frame_spacing;
 
-        let selected_frame_index = self.selected_frame_index(frame_view);
+        let viewing_multiple_frames = if let Some(paused) = &self.paused {
+            paused.selected.frames.len() > 1 && !self.options.merge_scopes
+        } else {
+            false
+        };
+
+        let mut new_selection = vec![];
 
         for (i, frame) in frames.iter().enumerate() {
             let x = rect.right() - (frames.len() as f32 - i as f32) * frame_width_including_spacing;
@@ -424,10 +536,11 @@ impl ProfilerUi {
 
             let duration = frame.duration_ns();
 
-            let is_selected = Some(frame.frame_index) == selected_frame_index;
+            let is_selected = self.is_selected(frame_view, frame.frame_index);
 
             let is_hovered = if let Some(mouse_pos) = response.hover_pos() {
                 response.hovered()
+                    && !response.dragged()
                     && frame_rect
                         .expand2(vec2(0.5 * frame_spacing, 0.0))
                         .contains(mouse_pos)
@@ -435,14 +548,26 @@ impl ProfilerUi {
                 false
             };
 
-            if is_hovered {
+            // preview when hovering is really annoying when viewing multiple frames
+            if is_hovered && !is_selected && !viewing_multiple_frames {
                 *hovered_frame = Some(frame.clone());
                 egui::show_tooltip_at_pointer(ui.ctx(), Id::new("puffin_frame_tooltip"), |ui| {
                     ui.label(format!("{:.1} ms", frame.duration_ns() as f64 * 1e-6));
                 });
             }
-            if is_hovered && response.clicked() {
-                self.pause_and_select(frame_view, frame.clone());
+
+            if response.dragged() {
+                if let (Some(start), Some(curr)) = (
+                    ui.input().pointer.press_origin(),
+                    ui.input().pointer.interact_pos(),
+                ) {
+                    let min_x = start.x.min(curr.x);
+                    let max_x = start.x.max(curr.x);
+                    let intersects = min_x <= frame_rect.right() && frame_rect.left() <= max_x;
+                    if intersects {
+                        new_selection.push(frame.clone());
+                    }
+                }
             }
 
             let color = if is_selected {
@@ -465,5 +590,47 @@ impl ProfilerUi {
             );
             painter.rect_filled(short_rect, 0.0, color);
         }
+
+        if let Some(new_selection) = SelectedFrames::try_from_vec(new_selection) {
+            self.pause_and_select(frame_view, new_selection);
+        }
     }
+}
+
+fn frames_info_ui(ui: &mut egui::Ui, selection: &SelectedFrames) {
+    let mut sum_ns = 0;
+    let mut sum_scopes = 0;
+    let mut sum_bytes = 0;
+
+    for frame in &selection.frames {
+        let (min_ns, max_ns) = frame.range_ns;
+        sum_ns += max_ns - min_ns;
+
+        sum_scopes += frame.num_scopes;
+        sum_bytes += frame.num_bytes;
+    }
+
+    let frame_indices = if selection.frames.len() == 1 {
+        format!("frame #{}", selection.frames[0].frame_index)
+    } else if selection.frames.len() as u64
+        == selection.frames.last().frame_index - selection.frames.first().frame_index + 1
+    {
+        format!(
+            "{} frames (#{} - #{})",
+            selection.frames.len(),
+            selection.frames.first().frame_index,
+            selection.frames.last().frame_index
+        )
+    } else {
+        format!("{} frames", selection.frames.len())
+    };
+
+    ui.label(format!(
+        "Showing {}, {:.1} ms, {} threads, {} scopes, {:.1} kB",
+        frame_indices,
+        sum_ns as f64 * 1e-6,
+        selection.threads.len(),
+        sum_scopes,
+        sum_bytes as f64 * 1e-3
+    ));
 }

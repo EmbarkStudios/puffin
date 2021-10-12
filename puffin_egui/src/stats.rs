@@ -1,9 +1,14 @@
 use puffin::*;
 
-pub fn ui(ui: &mut egui::Ui, frame: &FrameData) {
+pub fn ui(ui: &mut egui::Ui, frames: &[std::sync::Arc<FrameData>]) {
+    let mut threads = std::collections::HashSet::<&ThreadInfo>::new();
     let mut stats = Stats::default();
-    for stream in frame.thread_streams.values() {
-        collect_stream(&mut stats, &stream.stream).ok();
+
+    for frame in frames {
+        threads.extend(frame.thread_streams.keys());
+        for stream in frame.thread_streams.values() {
+            collect_stream(&mut stats, &stream.stream).ok();
+        }
     }
 
     let mut total_bytes = 0;
@@ -20,7 +25,7 @@ pub fn ui(ui: &mut egui::Ui, frame: &FrameData) {
         stats.scopes.len(),
         total_bytes as f32 * 1e-3,
         total_ns as f32 * 1e-6,
-        frame.thread_streams.len()
+        threads.len()
     ));
 
     ui.separator();

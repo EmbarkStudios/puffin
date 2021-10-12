@@ -174,6 +174,7 @@ pub struct Record<'s> {
 }
 
 impl<'s> Record<'s> {
+    #[inline]
     pub fn stop_ns(&self) -> NanoSecond {
         self.start_ns + self.duration_ns
     }
@@ -192,7 +193,7 @@ pub struct Scope<'s> {
 }
 
 /// Used to identify one source of profiling data.
-#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Clone, Debug, Hash, Eq, PartialEq, Ord, PartialOrd)]
 #[cfg_attr(
     feature = "serialization",
     derive(serde::Deserialize, serde::Serialize)

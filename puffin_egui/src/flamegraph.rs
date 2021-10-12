@@ -1,8 +1,6 @@
-use super::{ERROR_COLOR, HOVER_COLOR};
+use super::{SelectedFrames, ERROR_COLOR, HOVER_COLOR};
 use egui::*;
 use puffin::*;
-use std::collections::BTreeMap;
-use std::sync::Arc;
 
 const TEXT_STYLE: TextStyle = TextStyle::Body;
 
@@ -30,27 +28,19 @@ impl Default for Sorting {
 }
 
 impl Sorting {
-    fn sort(
-        self,
-        thread_streams: &BTreeMap<ThreadInfo, Arc<StreamInfo>>,
-    ) -> Vec<(ThreadInfo, Arc<StreamInfo>)> {
-        let mut vec: Vec<_> = thread_streams
-            .iter()
-            .map(|(info, stream)| (info.clone(), stream.clone()))
-            .collect();
-
+    fn sort(self, mut threads: Vec<ThreadInfo>) -> Vec<ThreadInfo> {
         match self.sort_by {
             SortBy::Time => {
-                vec.sort_by_key(|(info, _)| info.start_time_ns);
+                threads.sort_by_key(|info| info.start_time_ns);
             }
             SortBy::Name => {
-                vec.sort_by(|(a, _), (b, _)| natord::compare_ignore_case(&a.name, &b.name));
+                threads.sort_by(|a, b| natord::compare_ignore_case(&a.name, &b.name));
             }
         }
         if self.reversed {
-            vec.reverse();
+            threads.reverse();
         }
-        vec
+        threads
     }
 
     fn ui(&mut self, ui: &mut egui::Ui) {
@@ -155,6 +145,8 @@ struct Info {
     start_ns: NanoSecond,
     /// Time of last event
     stop_ns: NanoSecond,
+    /// How many frames we are viewing
+    num_frames: usize,
 }
 
 #[derive(Clone, Copy, Eq, PartialEq)]
@@ -173,9 +165,34 @@ impl Info {
 }
 
 /// Show the flamegraph.
-pub fn ui(ui: &mut egui::Ui, options: &mut Options, frame: &FrameData) {
+pub fn ui(ui: &mut egui::Ui, options: &mut Options, frames: &SelectedFrames) {
+    let mut reset_view = false;
+
+    let num_frames = frames.frames.len();
+
+    {
+        // reset view if number of selected frames changes (and we are viewing all of them):
+        let num_frames_id = ui.id().with("num_frames");
+        let num_frames_last_frame: usize = *ui.memory().id_data_temp.get_or_default(num_frames_id);
+        if num_frames_last_frame != num_frames && !options.merge_scopes {
+            reset_view = true;
+        }
+        ui.memory().id_data_temp.insert(num_frames_id, num_frames);
+    }
+
     ui.horizontal(|ui| {
-        ui.checkbox(&mut options.merge_scopes, "Merge children with same ID");
+        ui.horizontal(|ui| {
+            let changed = ui
+                .checkbox(&mut options.merge_scopes, "Merge children with same ID")
+                .changed();
+
+            // If we have multiple frames selected this will toggle
+            // if we view all the frames, or an average of them,
+            // and that difference is pretty massive, so help the user:
+            if changed && num_frames > 1 {
+                reset_view = true;
+            }
+        });
         ui.separator();
         ui.add(Label::new("Help!").text_color(ui.visuals().widgets.inactive.text_color()))
             .on_hover_text(
@@ -196,7 +213,12 @@ pub fn ui(ui: &mut egui::Ui, options: &mut Options, frame: &FrameData) {
             let canvas = ui.available_rect_before_wrap();
             let response = ui.interact(canvas, ui.id(), Sense::click_and_drag());
 
-            let (min_ns, max_ns) = frame.range_ns;
+            let (min_ns, max_ns) = if options.merge_scopes {
+                frames.merged_range_ns
+            } else {
+                frames.raw_range_ns
+            };
+
             let info = Info {
                 ctx: ui.ctx().clone(),
                 canvas,
@@ -205,12 +227,19 @@ pub fn ui(ui: &mut egui::Ui, options: &mut Options, frame: &FrameData) {
                 text_height: 15.0, // TODO
                 start_ns: min_ns,
                 stop_ns: max_ns,
+                num_frames: frames.frames.len(),
             };
+
+            if reset_view {
+                options.zoom_to_relative_ns_range =
+                    Some((info.ctx.input().time, (0, info.stop_ns - info.start_ns)));
+            }
+
             interact_with_canvas(options, &info.response, &info);
 
             let where_to_put_timeline = info.painter.add(Shape::Noop);
 
-            let max_y = ui_canvas(options, &info, frame, (min_ns, max_ns));
+            let max_y = ui_canvas(options, &info, frames, (min_ns, max_ns));
 
             let mut used_rect = canvas;
             used_rect.max.y = max_y;
@@ -230,7 +259,7 @@ pub fn ui(ui: &mut egui::Ui, options: &mut Options, frame: &FrameData) {
 fn ui_canvas(
     options: &mut Options,
     info: &Info,
-    frame: &FrameData,
+    frames: &SelectedFrames,
     (min_ns, max_ns): (NanoSecond, NanoSecond),
 ) -> f32 {
     puffin::profile_function!();
@@ -244,16 +273,17 @@ fn ui_canvas(
     let mut cursor_y = info.canvas.top();
     cursor_y += info.text_height; // Leave room for time labels
 
-    let thread_streams = options.sorting.sort(&frame.thread_streams);
+    let threads = frames.threads.keys().cloned().collect();
+    let threads = options.sorting.sort(threads);
 
-    for (thread, stream_info) in &thread_streams {
+    for thread_info in threads {
         // Visual separator between threads:
         cursor_y += 2.0;
         let line_y = cursor_y;
         cursor_y += 2.0;
 
         let text_pos = pos2(info.canvas.min.x, cursor_y);
-        paint_thread_info(info, thread, text_pos);
+        paint_thread_info(info, &thread_info, text_pos);
         cursor_y += info.text_height;
 
         // draw on top of thread info background:
@@ -265,22 +295,23 @@ fn ui_canvas(
             Stroke::new(1.0, Rgba::from_white_alpha(0.5)),
         );
 
-        let mut paint_stream = || -> Result<()> {
-            let top_scopes = Reader::from_start(&stream_info.stream).read_top_scopes()?;
+        let mut paint_streams = || -> Result<()> {
             if options.merge_scopes {
-                let merges = puffin::merge_top_scopes(&top_scopes);
-                for merge in merges {
-                    paint_merge_scope(info, options, &stream_info.stream, &merge, 0, cursor_y)?;
+                for merge in &frames.threads[&thread_info].merged_scopes {
+                    paint_merge_scope(info, options, 0, merge, 0, cursor_y)?;
                 }
             } else {
-                for scope in top_scopes {
-                    paint_scope(info, options, &stream_info.stream, &scope, 0, cursor_y)?;
+                for stream_info in &frames.threads[&thread_info].streams {
+                    let top_scopes = Reader::from_start(&stream_info.stream).read_top_scopes()?;
+                    for scope in top_scopes {
+                        paint_scope(info, options, &stream_info.stream, &scope, 0, cursor_y)?;
+                    }
                 }
             }
             Ok(())
         };
 
-        if let Err(err) = paint_stream() {
+        if let Err(err) = paint_streams() {
             let text = format!("Profiler stream error: {:?}", err);
             info.painter.text(
                 pos2(info.canvas.min.x, cursor_y),
@@ -291,7 +322,8 @@ fn ui_canvas(
             );
         }
 
-        cursor_y += stream_info.depth as f32 * (options.rect_height + options.spacing);
+        let max_depth = frames.threads[&thread_info].max_depth;
+        cursor_y += max_depth as f32 * (options.rect_height + options.spacing);
 
         cursor_y += info.text_height; // Extra spacing between threads
     }
@@ -472,11 +504,12 @@ fn paint_record(
     info: &Info,
     options: &mut Options,
     prefix: &str,
+    suffix: &str,
     record: &Record<'_>,
     top_y: f32,
 ) -> PaintResult {
-    let mut start_x = info.point_from_ns(options, record.start_ns);
-    let mut stop_x = info.point_from_ns(options, record.stop_ns());
+    let start_x = info.point_from_ns(options, record.start_ns);
+    let stop_x = info.point_from_ns(options, record.stop_ns());
     if info.canvas.max.x < start_x
         || stop_x < info.canvas.min.x
         || stop_x - start_x < options.cull_width
@@ -484,20 +517,12 @@ fn paint_record(
         return PaintResult::Culled;
     }
 
-    if stop_x - start_x < options.min_width {
-        // Make sure it is visible:
-        let center = 0.5 * (start_x + stop_x);
-        start_x = center - 0.5 * options.min_width;
-        stop_x = center + 0.5 * options.min_width;
-    }
-
     let bottom_y = top_y + options.rect_height;
 
+    let rect = Rect::from_min_max(pos2(start_x, top_y), pos2(stop_x, bottom_y));
+
     let is_hovered = if let Some(mouse_pos) = info.response.hover_pos() {
-        start_x <= mouse_pos.x
-            && mouse_pos.x <= stop_x
-            && top_y <= mouse_pos.y
-            && mouse_pos.y <= bottom_y
+        rect.contains(mouse_pos)
     } else {
         false
     };
@@ -512,8 +537,6 @@ fn paint_record(
         ));
     }
 
-    let rect_min = pos2(start_x, top_y);
-    let rect_max = pos2(stop_x, bottom_y);
     let rect_color = if is_hovered {
         HOVER_COLOR
     } else {
@@ -521,28 +544,27 @@ fn paint_record(
         color_from_duration(record.duration_ns)
     };
 
-    info.painter.rect_filled(
-        Rect::from_min_max(rect_min, rect_max),
-        options.rounding,
-        rect_color,
-    );
+    if rect.width() <= options.min_width {
+        // faster to draw it as a thin line
+        info.painter.line_segment(
+            [rect.center_top(), rect.center_bottom()],
+            egui::Stroke::new(options.min_width, rect_color),
+        );
+    } else {
+        info.painter.rect_filled(rect, options.rounding, rect_color);
+    }
 
     let wide_enough_for_text = stop_x - start_x > 32.0;
     if wide_enough_for_text {
-        let rect_min = rect_min.max(info.canvas.min);
-        let rect_max = rect_max.min(info.canvas.max);
-
-        let painter = info
-            .painter
-            .sub_region(Rect::from_min_max(rect_min, rect_max));
+        let painter = info.painter.sub_region(rect.intersect(info.canvas));
 
         let duration_ms = to_ms(record.duration_ns);
         let text = if record.data.is_empty() {
-            format!("{}{} {:6.3} ms", prefix, record.id, duration_ms)
+            format!("{}{} {:6.3} ms {}", prefix, record.id, duration_ms, suffix)
         } else {
             format!(
-                "{}{} {:?} {:6.3} ms",
-                prefix, record.id, record.data, duration_ms
+                "{}{} {:?} {:6.3} ms {}",
+                prefix, record.id, record.data, duration_ms, suffix
             )
         };
         let pos = pos2(
@@ -586,7 +608,7 @@ fn paint_scope(
 ) -> Result<PaintResult> {
     let top_y = min_y + (depth as f32) * (options.rect_height + options.spacing);
 
-    let result = paint_record(info, options, "", &scope.record, top_y);
+    let result = paint_record(info, options, "", "", &scope.record, top_y);
 
     if result != PaintResult::Culled {
         let mut num_children = 0;
@@ -605,7 +627,7 @@ fn paint_scope(
                     ui.monospace(format!("data:     {}", scope.record.data));
                 }
                 ui.monospace(format!(
-                    "duration: {:6.3} ms",
+                    "duration: {:7.3} ms",
                     to_ms(scope.record.duration_ns)
                 ));
                 ui.monospace(format!("children: {}", num_children));
@@ -619,28 +641,52 @@ fn paint_scope(
 fn paint_merge_scope(
     info: &Info,
     options: &mut Options,
-    stream: &Stream,
+    ns_offset: NanoSecond,
     merge: &MergeScope<'_>,
     depth: usize,
     min_y: f32,
 ) -> Result<PaintResult> {
     let top_y = min_y + (depth as f32) * (options.rect_height + options.spacing);
 
-    let prefix = if merge.pieces.len() <= 1 {
-        String::default()
+    let prefix = if info.num_frames <= 1 {
+        if merge.num_pieces <= 1 {
+            String::default()
+        } else {
+            format!("{}x ", merge.num_pieces)
+        }
     } else {
-        format!("{}x ", merge.pieces.len())
+        let is_integral = merge.num_pieces % info.num_frames == 0;
+        if is_integral {
+            format!("{}x ", merge.num_pieces / info.num_frames)
+        } else {
+            format!("{:.2}x ", merge.num_pieces as f64 / info.num_frames as f64)
+        }
     };
-    let result = paint_record(info, options, &prefix, &merge.record, top_y);
+
+    let suffix = if info.num_frames <= 1 {
+        ""
+    } else {
+        "per frame"
+    };
+
+    let record = Record {
+        start_ns: ns_offset + merge.relative_start_ns,
+        duration_ns: merge.duration_per_frame_ns,
+        id: &merge.id,
+        location: &merge.location,
+        data: &merge.data,
+    };
+
+    let result = paint_record(info, options, &prefix, suffix, &record, top_y);
 
     if result != PaintResult::Culled {
-        for merged_child in merge_children_of_pieces(stream, merge)? {
-            paint_merge_scope(info, options, stream, &merged_child, depth + 1, min_y)?;
+        for child in &merge.children {
+            paint_merge_scope(info, options, record.start_ns, child, depth + 1, min_y)?;
         }
 
         if result == PaintResult::Hovered {
             egui::show_tooltip_at_pointer(&info.ctx, Id::new("puffin_profiler_tooltip"), |ui| {
-                merge_scope_tooltip(ui, merge);
+                merge_scope_tooltip(ui, merge, info.num_frames);
             });
         }
     }
@@ -648,38 +694,66 @@ fn paint_merge_scope(
     Ok(result)
 }
 
-fn merge_scope_tooltip(ui: &mut egui::Ui, merge: &MergeScope<'_>) {
-    ui.monospace(format!("id:       {}", merge.record.id));
-    if !merge.record.location.is_empty() {
-        ui.monospace(format!("location: {}", merge.record.location));
-    }
-    if !merge.record.data.is_empty() {
-        ui.monospace(format!("data:     {}", merge.record.data));
-    }
+fn merge_scope_tooltip(ui: &mut egui::Ui, merge: &MergeScope<'_>, num_frames: usize) {
+    #![allow(clippy::collapsible_else_if)]
 
-    if merge.pieces.len() <= 1 {
-        ui.monospace(format!(
-            "duration: {:6.3} ms",
-            to_ms(merge.record.duration_ns)
-        ));
+    ui.monospace(format!("id:       {}", merge.id));
+    if !merge.location.is_empty() {
+        ui.monospace(format!("location: {}", merge.location));
+    }
+    if !merge.data.is_empty() {
+        ui.monospace(format!("data:     {}", merge.data));
+    }
+    ui.add_space(8.0);
+
+    if num_frames <= 1 {
+        if merge.num_pieces <= 1 {
+            ui.monospace(format!(
+                "duration: {:7.3} ms",
+                to_ms(merge.duration_per_frame_ns)
+            ));
+        } else {
+            ui.monospace(format!("sum of {} scopes", merge.num_pieces));
+            ui.monospace(format!(
+                "total: {:7.3} ms",
+                to_ms(merge.duration_per_frame_ns)
+            ));
+            ui.monospace(format!(
+                "mean:  {:7.3} ms",
+                to_ms(merge.duration_per_frame_ns) / (merge.num_pieces as f64),
+            ));
+            ui.monospace(format!("max:   {:7.3} ms", to_ms(merge.max_duration_ns)));
+        }
     } else {
-        ui.monospace(format!("sum of:   {} scopes", merge.pieces.len()));
         ui.monospace(format!(
-            "total:    {:6.3} ms",
-            to_ms(merge.record.duration_ns)
+            "{} calls over all {} frames",
+            merge.num_pieces, num_frames
         ));
 
+        if merge.num_pieces == num_frames {
+            ui.monospace("1 call / frame");
+        } else if merge.num_pieces % num_frames == 0 {
+            ui.monospace(format!("{} calls / frame", merge.num_pieces / num_frames));
+        } else {
+            ui.monospace(format!(
+                "{:.3} calls / frame",
+                merge.num_pieces as f64 / num_frames as f64
+            ));
+        }
+
         ui.monospace(format!(
-            "mean:     {:6.3} ms",
-            to_ms(merge.record.duration_ns) / (merge.pieces.len() as f64),
+            "{:7.3} ms / frame",
+            to_ms(merge.duration_per_frame_ns)
         ));
-        let max_duration_ns = merge
-            .pieces
-            .iter()
-            .map(|piece| piece.scope.record.duration_ns)
-            .max()
-            .unwrap();
-        ui.monospace(format!("max:      {:6.3} ms", to_ms(max_duration_ns)));
+        ui.monospace(format!(
+            "{:7.3} ms / call",
+            to_ms(merge.total_duration_ns) / (merge.num_pieces as f64),
+        ));
+        ui.monospace(format!(
+            "{:7.3} ms for slowest call",
+            to_ms(merge.max_duration_ns)
+        ));
+        // }
     }
 }
 
