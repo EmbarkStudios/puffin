@@ -190,12 +190,22 @@ fn test_merge() {
 
         stream
     };
-    let streams = vec![stream];
-    let merged = merge_scopes_in_streams(streams.iter()).unwrap();
+
+    let stream_info = StreamInfo::parse(stream).unwrap();
+    let mut thread_streams = BTreeMap::new();
+    let thread_info = ThreadInfo {
+        start_time_ns: Some(0),
+        name: "main".to_owned(),
+    };
+    thread_streams.insert(thread_info.clone(), stream_info);
+    let frame = FrameData::new(0, thread_streams).unwrap();
+    let frames = [Arc::new(frame)];
+    let merged = merge_scopes_for_thread(&frames, &thread_info).unwrap();
 
     let expected = vec![
         MergeScope {
             relative_start_ns: 100,
+            total_duration_ns: 2 * 100,
             duration_per_frame_ns: 2 * 100,
             max_duration_ns: 100,
             num_pieces: 2,
@@ -206,6 +216,7 @@ fn test_merge() {
         },
         MergeScope {
             relative_start_ns: 300, // moved forward to make place for "a" (as are all children)
+            total_duration_ns: 2 * 700,
             duration_per_frame_ns: 2 * 700,
             max_duration_ns: 700,
             num_pieces: 2,
@@ -215,6 +226,7 @@ fn test_merge() {
             children: vec![
                 MergeScope {
                     relative_start_ns: 200,
+                    total_duration_ns: 2 * 200,
                     duration_per_frame_ns: 2 * 200,
                     max_duration_ns: 200,
                     num_pieces: 2,
@@ -225,6 +237,7 @@ fn test_merge() {
                 },
                 MergeScope {
                     relative_start_ns: 600,
+                    total_duration_ns: 2 * 200,
                     duration_per_frame_ns: 2 * 200,
                     max_duration_ns: 200,
                     num_pieces: 2,
@@ -233,6 +246,7 @@ fn test_merge() {
                     data: "".into(),
                     children: vec![MergeScope {
                         relative_start_ns: 0,
+                        total_duration_ns: 2 * 100,
                         duration_per_frame_ns: 2 * 100,
                         max_duration_ns: 100,
                         num_pieces: 2,
