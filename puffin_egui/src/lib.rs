@@ -538,7 +538,7 @@ impl ProfilerUi {
                 false
             };
 
-            if is_hovered {
+            if is_hovered && !is_selected {
                 *hovered_frame = Some(frame.clone());
                 egui::show_tooltip_at_pointer(ui.ctx(), Id::new("puffin_frame_tooltip"), |ui| {
                     ui.label(format!("{:.1} ms", frame.duration_ns() as f64 * 1e-6));
