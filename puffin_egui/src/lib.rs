@@ -156,7 +156,7 @@ impl GlobalProfilerUi {
 
 // ----------------------------------------------------------------------------
 
-/// The frames we can chose between to select something to vis.
+/// The frames we can chose between when selecting what frame(s) to view.
 #[derive(Clone)]
 pub struct AvailableFrames {
     pub recent: Vec<Arc<FrameData>>,
