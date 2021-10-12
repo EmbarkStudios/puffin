@@ -454,6 +454,10 @@ impl ProfilerUi {
         let longest_count = frames.recent.len().max(frames.slowest.len());
 
         egui::Grid::new("frame_grid").num_columns(2).show(ui, |ui| {
+            ui.label("");
+            ui.label("Click to select a frame, or drag to select multiple frames.");
+            ui.end_row();
+
             ui.label("Recent:");
 
             Frame::dark_canvas(ui.style()).show(ui, |ui| {
