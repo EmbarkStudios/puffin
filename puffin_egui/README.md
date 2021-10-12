@@ -17,7 +17,7 @@ fn my_function() {
 }
 ```
 
-`puffin_egui` allows you to inspect the resulting profile data using [`egui`](https://github.com/emilk/egui), and immediate mode GUI library, using only one line of code:
+`puffin_egui` allows you to inspect the resulting profile data using [`egui`](https://github.com/emilk/egui) with only one line of code:
 
 ``` rust
 puffin_egui::profiler_window(egui_ctx);
