@@ -168,6 +168,18 @@ impl Info {
 pub fn ui(ui: &mut egui::Ui, options: &mut Options, frames: &SelectedFrames) {
     let mut reset_view = false;
 
+    let num_frames = frames.frames.len();
+
+    {
+        // reset view if number of selected frames changes (and we are viewing all of them):
+        let num_frames_id = ui.id().with("num_frames");
+        let num_frames_last_frame: usize = *ui.memory().id_data_temp.get_or_default(num_frames_id);
+        if num_frames_last_frame != num_frames && !options.merge_scopes {
+            reset_view = true;
+        }
+        ui.memory().id_data_temp.insert(num_frames_id, num_frames);
+    }
+
     ui.horizontal(|ui| {
         ui.horizontal(|ui| {
             let changed = ui
@@ -177,7 +189,7 @@ pub fn ui(ui: &mut egui::Ui, options: &mut Options, frames: &SelectedFrames) {
             // If we have multiple frames selected this will toggle
             // if we view all the frames, or an average of them,
             // and that difference is pretty massive, so help the user:
-            if changed && frames.frames.len() > 1 {
+            if changed && num_frames > 1 {
                 reset_view = true;
             }
         });
