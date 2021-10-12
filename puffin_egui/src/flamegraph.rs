@@ -166,9 +166,20 @@ impl Info {
 
 /// Show the flamegraph.
 pub fn ui(ui: &mut egui::Ui, options: &mut Options, frames: &SelectedFrames) {
+    let mut reset_view = false;
+
     ui.horizontal(|ui| {
         ui.horizontal(|ui| {
-            ui.checkbox(&mut options.merge_scopes, "Merge children with same ID");
+            let changed = ui
+                .checkbox(&mut options.merge_scopes, "Merge children with same ID")
+                .changed();
+
+            // If we have multiple frames selected this will toggle
+            // if we view all the frames, or an average of them,
+            // and that difference is pretty massive, so help the user:
+            if changed && frames.frames.len() > 1 {
+                reset_view = true;
+            }
         });
         ui.separator();
         ui.add(Label::new("Help!").text_color(ui.visuals().widgets.inactive.text_color()))
@@ -206,6 +217,12 @@ pub fn ui(ui: &mut egui::Ui, options: &mut Options, frames: &SelectedFrames) {
                 stop_ns: max_ns,
                 num_frames: frames.frames.len(),
             };
+
+            if reset_view {
+                options.zoom_to_relative_ns_range =
+                    Some((info.ctx.input().time, (0, info.stop_ns - info.start_ns)));
+            }
+
             interact_with_canvas(options, &info.response, &info);
 
             let where_to_put_timeline = info.painter.add(Shape::Noop);
