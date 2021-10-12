@@ -1321,9 +1321,9 @@ dependencies = [
 
 [[package]]
 name = "lz4_flex"
-version = "0.8.2"
+version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5827b976d911b5d2e42b2ccfc7c0d2461a1414e8280436885218762fc529b3f8"
+checksum = "177c079243f6867429aca5af5053747f57e329d44f0c58bebca078cd14873ec2"
 dependencies = [
  "twox-hash",
 ]
