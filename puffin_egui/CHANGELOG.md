@@ -4,10 +4,13 @@ All notable changes to the egui crate will be documented in this file.
 
 
 ## Unreleased
+
+
+## 0.9.1 - 2021-10-21
 * Add a scope filter to focus on certain scopes.
 
 
-## 0.9.0 - 2021-10-1
+## 0.9.0 - 2021-10-12
 * You can now select multiple frames.
 
 

@@ -6,6 +6,10 @@ All notable changes to `puffin_viewer` will be documented in this file.
 ## Unreleased
 
 
+## 0.7.1 - 2021-10-21
+* Add a scope filter to focus on certain scopes.
+
+
 ## 0.7.0 - 2021-10-12
 * You can now select multiple frames.
 
