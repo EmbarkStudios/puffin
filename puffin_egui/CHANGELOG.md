@@ -4,6 +4,7 @@ All notable changes to the egui crate will be documented in this file.
 
 
 ## Unreleased
+* Add a scope filter to focus on certain scopes.
 
 
 ## 0.9.0 - 2021-10-1

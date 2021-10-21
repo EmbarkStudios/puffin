@@ -71,7 +71,38 @@ impl Sorting {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug, Default)]
+struct Filter {
+    filter: String,
+}
+
+impl Filter {
+    fn ui(&mut self, ui: &mut egui::Ui) {
+        ui.horizontal(|ui| {
+            ui.label("Scope filter:");
+            ui.text_edit_singleline(&mut self.filter);
+            self.filter = self.filter.to_lowercase();
+            if ui.button("ｘ").clicked() {
+                self.filter.clear();
+            }
+        });
+    }
+
+    /// if true, show everything
+    fn is_empty(&self) -> bool {
+        self.filter.is_empty()
+    }
+
+    fn include(&self, id: &str) -> bool {
+        if self.filter.is_empty() {
+            true
+        } else {
+            id.to_lowercase().contains(&self.filter)
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "serde", serde(default))]
 pub struct Options {
@@ -101,6 +132,9 @@ pub struct Options {
 
     pub sorting: Sorting,
 
+    #[cfg_attr(feature = "serde", serde(skip))]
+    filter: Filter,
+
     /// Set when user clicks a scope.
     /// First part is `now()`, second is range.
     #[cfg_attr(feature = "serde", serde(skip))]
@@ -115,7 +149,7 @@ impl Default for Options {
 
             // cull_width: 0.5, // save some CPU?
             cull_width: 0.0, // no culling
-            min_width: 0.5,
+            min_width: 1.0,
 
             rect_height: 16.0,
             spacing: 4.0,
@@ -126,6 +160,7 @@ impl Default for Options {
             merge_scopes: true,
 
             sorting: Default::default(),
+            filter: Default::default(),
 
             zoom_to_relative_ns_range: None,
         }
@@ -203,9 +238,12 @@ pub fn ui(ui: &mut egui::Ui, options: &mut Options, frames: &SelectedFrames) {
             Press spacebar to pause/resume.",
             );
         ui.separator();
+
         // The number of threads can change between frames, so always show this even if there currently is only one thread:
         options.sorting.ui(ui);
     });
+
+    options.filter.ui(ui);
 
     Frame::dark_canvas(ui.style()).show(ui, |ui| {
         let available_height = ui.max_rect().bottom() - ui.min_rect().bottom();
@@ -405,6 +443,8 @@ fn paint_timeline(
         return shapes;
     }
 
+    let alpha_multiplier = if options.filter.is_empty() { 0.3 } else { 0.1 };
+
     // We show all measurements relative to start_ns
 
     let max_lines = canvas.width() / 4.0;
@@ -443,7 +483,7 @@ fn paint_timeline(
 
             shapes.push(egui::Shape::line_segment(
                 [pos2(line_x, canvas.min.y), pos2(line_x, canvas.max.y)],
-                Stroke::new(1.0, Rgba::from_white_alpha(line_alpha)),
+                Stroke::new(1.0, Rgba::from_white_alpha(line_alpha * alpha_multiplier)),
             ));
 
             let text_alpha = if big_line {
@@ -537,18 +577,28 @@ fn paint_record(
         ));
     }
 
-    let rect_color = if is_hovered {
+    let mut rect_color = if is_hovered {
         HOVER_COLOR
     } else {
-        // options.rect_color
         color_from_duration(record.duration_ns)
     };
 
-    if rect.width() <= options.min_width {
+    let mut min_width = options.min_width;
+
+    if !options.filter.is_empty() {
+        if options.filter.include(record.id) {
+            // keep full opacity
+            min_width *= 2.0; // make it more visible even when thin
+        } else {
+            rect_color = rect_color.multiply(0.075); // fade to highlight others
+        }
+    }
+
+    if rect.width() <= min_width {
         // faster to draw it as a thin line
         info.painter.line_segment(
             [rect.center_top(), rect.center_bottom()],
-            egui::Stroke::new(options.min_width, rect_color),
+            egui::Stroke::new(min_width, rect_color),
         );
     } else {
         info.painter.rect_filled(rect, options.rounding, rect_color);

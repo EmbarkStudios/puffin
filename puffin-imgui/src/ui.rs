@@ -134,6 +134,37 @@ impl Sorting {
     }
 }
 
+#[derive(Clone, Debug, Default)]
+struct Filter {
+    filter: String,
+}
+
+impl Filter {
+    fn ui(&mut self, ui: &imgui::Ui<'_>) {
+        ui.text("Scope filter:");
+        ui.same_line();
+        ui.input_text("##scopefilter", &mut self.filter).build();
+        self.filter = self.filter.to_lowercase();
+        ui.same_line();
+        if ui.button("X") {
+            self.filter.clear();
+        }
+    }
+
+    /// if true, show everything
+    fn is_empty(&self) -> bool {
+        self.filter.is_empty()
+    }
+
+    fn include(&self, id: &str) -> bool {
+        if self.filter.is_empty() {
+            true
+        } else {
+            id.to_lowercase().contains(&self.filter)
+        }
+    }
+}
+
 /// The frames we can select between
 #[derive(Clone)]
 pub struct Frames {
@@ -193,6 +224,8 @@ pub struct Options {
     pub merge_scopes: bool,
 
     pub sorting: Sorting,
+    #[serde(skip)]
+    filter: Filter,
 
     /// Set when user clicks a scope.
     /// First part is `now()`, second is range.
@@ -208,7 +241,7 @@ impl Default for Options {
 
             // cull_width: 0.5, // save some CPU?
             cull_width: 0.0, // no culling
-            min_width: 0.5,
+            min_width: 1.0,
 
             rect_height: 16.0,
             spacing: 4.0,
@@ -217,6 +250,7 @@ impl Default for Options {
             merge_scopes: true,
 
             sorting: Default::default(),
+            filter: Default::default(),
 
             zoom_to_relative_ns_range: None,
         }
@@ -394,6 +428,8 @@ impl ProfilerUi {
 
         // The number of threads can change between frames, so always show this even if there currently is only one thread:
         self.options.sorting.ui(ui);
+
+        self.options.filter.ui(ui);
 
         ui.separator();
 
@@ -718,6 +754,8 @@ fn paint_timeline(info: &Info<'_>, options: &Options, start_ns: NanoSecond) {
         return;
     }
 
+    let alpha_multiplier = if options.filter.is_empty() { 1.0 } else { 0.3 };
+
     // We show all measurements relative to start_ns
 
     let max_lines = 300.0;
@@ -753,7 +791,7 @@ fn paint_timeline(info: &Info<'_>, options: &Options, start_ns: NanoSecond) {
             } else {
                 tiny_alpha
             };
-            let line_color = [1.0, 1.0, 1.0, line_alpha];
+            let line_color = [1.0, 1.0, 1.0, line_alpha * alpha_multiplier];
 
             info.draw_list
                 .add_line(
@@ -822,12 +860,7 @@ fn paint_record(
         return PaintResult::Culled;
     }
 
-    if stop_x - start_x < options.min_width {
-        // Make sure it is visible:
-        let center = 0.5 * (start_x + stop_x);
-        start_x = center - 0.5 * options.min_width;
-        stop_x = center + 0.5 * options.min_width;
-    }
+    let mut min_width = options.min_width;
 
     let bottom_y = top_y + options.rect_height;
 
@@ -846,14 +879,31 @@ fn paint_record(
         ));
     }
 
-    let rect_min = Vec2::new(start_x, top_y);
-    let rect_max = Vec2::new(stop_x, bottom_y);
-    let rect_color = if is_hovered {
+    let mut rect_color = if is_hovered {
         HOVER_COLOR
     } else {
-        // options.rect_color
         color_from_duration(record.duration_ns)
     };
+
+    if !options.filter.is_empty() {
+        if options.filter.include(record.id) {
+            // keep full opacity
+            min_width *= 2.0; // make it more visible even when thin
+        } else {
+            rect_color[3] *= 0.3; // fade to highlight others
+        }
+    }
+
+    if stop_x - start_x < min_width {
+        // Make sure it is visible:
+        let center = 0.5 * (start_x + stop_x);
+        start_x = center - 0.5 * min_width;
+        stop_x = center + 0.5 * min_width;
+    }
+
+    let rect_min = Vec2::new(start_x, top_y);
+    let rect_max = Vec2::new(stop_x, bottom_y);
+
     let text_color = [0.0, 0.0, 0.0, 1.0];
 
     info.draw_list
