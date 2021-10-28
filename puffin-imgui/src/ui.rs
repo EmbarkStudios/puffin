@@ -293,6 +293,11 @@ impl<'ui> Info<'ui> {
 }
 
 impl ProfilerUi {
+    /// The frames we are looking at.
+    pub fn global_frame_view(&self) -> &GlobalFrameView {
+        &self.frame_view
+    }
+
     /// Show a [`imgui::Window`] with the profiler contents.
     /// If you want to control the window yourself, use [`Self::ui`] instead.
     pub fn window(&mut self, ui: &Ui<'_>) -> bool {

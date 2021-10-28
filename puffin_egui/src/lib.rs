@@ -152,6 +152,11 @@ impl GlobalProfilerUi {
         let mut frame_view = self.global_frame_view.lock();
         self.profiler_ui.ui(ui, &mut frame_view);
     }
+
+    /// The frames we are looking at.
+    pub fn global_frame_view(&self) -> &GlobalFrameView {
+        &self.global_frame_view
+    }
 }
 
 // ----------------------------------------------------------------------------
