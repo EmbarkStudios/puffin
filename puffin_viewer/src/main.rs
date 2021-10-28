@@ -82,13 +82,13 @@ use std::path::PathBuf;
 /// or open a .puffin recording file.
 #[derive(argh::FromArgs)]
 struct Arguments {
-    /// what .puffin file to open, e.g. `my/recording.puffin`.
-    #[argh(option)]
-    file: Option<String>,
-
     /// which server to connect to, e.g. `127.0.0.1:8585`.
     #[argh(option, default = "default_url()")]
     url: String,
+
+    /// what .puffin file to open, e.g. `my/recording.puffin`.
+    #[argh(positional)]
+    file: Option<String>,
 }
 
 fn default_url() -> String {
