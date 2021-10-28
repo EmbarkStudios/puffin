@@ -39,7 +39,7 @@ pub fn ui(ui: &mut egui::Ui, frames: &[std::sync::Arc<FrameData>]) {
     scopes.sort_by_key(|(_id_loc, scope_stats)| scope_stats.bytes);
     scopes.reverse();
 
-    egui::ScrollArea::auto_sized().show(ui, |ui| {
+    egui::ScrollArea::vertical().show(ui, |ui| {
         egui::Grid::new("table")
             .spacing([32.0, ui.spacing().item_spacing.y])
             .show(ui, |ui| {

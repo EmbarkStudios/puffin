@@ -508,7 +508,7 @@ impl ProfilerUi {
         }
 
         let desired_size = Vec2::new(
-            ui.available_size_before_wrap_finite().x,
+            ui.available_size_before_wrap().x,
             self.options.frame_list_height,
         );
         let (response, painter) = ui.allocate_painter(desired_size, Sense::click_and_drag());

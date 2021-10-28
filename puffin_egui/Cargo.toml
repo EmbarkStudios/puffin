@@ -24,7 +24,7 @@ include = [
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-egui = "0.14"
+egui = "0.15.0"
 natord = "1.0.9"
 once_cell = "1.7"
 puffin = { version = "0.10.0", path = "../puffin" }
@@ -32,6 +32,6 @@ serde = { version = "1", features = ["derive"], optional = true }
 vec1 = "1.8"
 
 [dev-dependencies]
-eframe = "0.14"
-egui-macroquad = "0.6.0"
+eframe = "0.15.0"
+egui-macroquad = "0.7.0"
 macroquad = "0.3"

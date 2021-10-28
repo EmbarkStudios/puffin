@@ -6,3 +6,7 @@ members = [
     "puffin-imgui",
     "puffin_viewer",
 ]
+
+[patch.crates-io]
+# For https://github.com/rust-windowing/winit/pull/2027
+winit = { git = "https://github.com/emilk/winit", branch = "fix-native-file-dialogs" }

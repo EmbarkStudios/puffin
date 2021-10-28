@@ -247,7 +247,7 @@ pub fn ui(ui: &mut egui::Ui, options: &mut Options, frames: &SelectedFrames) {
 
     Frame::dark_canvas(ui.style()).show(ui, |ui| {
         let available_height = ui.max_rect().bottom() - ui.min_rect().bottom();
-        ScrollArea::auto_sized().show(ui, |ui| {
+        ScrollArea::vertical().show(ui, |ui| {
             let canvas = ui.available_rect_before_wrap();
             let response = ui.interact(canvas, ui.id(), Sense::click_and_drag());
 
@@ -808,14 +808,14 @@ fn merge_scope_tooltip(ui: &mut egui::Ui, merge: &MergeScope<'_>, num_frames: us
 }
 
 fn paint_thread_info(info: &Info, thread: &ThreadInfo, pos: Pos2) {
-    let galley = info
-        .ctx
-        .fonts()
-        .layout_single_line(TEXT_STYLE, thread.name.clone());
-    let rect = Rect::from_min_size(pos, galley.size);
+    let galley = info.ctx.fonts().layout_no_wrap(
+        thread.name.clone(),
+        TEXT_STYLE,
+        Rgba::from_white_alpha(0.9).into(),
+    );
+    let rect = Rect::from_min_size(pos, galley.size());
 
     info.painter
         .rect_filled(rect.expand(2.0), 0.0, Rgba::from_black_alpha(0.5));
-    info.painter
-        .galley(rect.min, galley, Rgba::from_white_alpha(0.9).into());
+    info.painter.galley(rect.min, galley);
 }
