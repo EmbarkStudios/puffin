@@ -3,7 +3,7 @@ use puffin::GlobalProfiler;
 use std::{
     io::Write,
     net::{SocketAddr, TcpListener, TcpStream},
-    sync::{mpsc, Arc},
+    sync::Arc,
 };
 
 /// Maximum size of the backlog of packets to send to a client if they aren't reading fast enough.
@@ -15,6 +15,7 @@ const MAX_FRAMES_IN_QUEUE: usize = 30;
 /// Drop to stop transmitting and listening for new connections.
 pub struct Server {
     sink_id: puffin::FrameSinkId,
+    join_handle: Option<std::thread::JoinHandle<()>>,
 }
 
 impl Server {
@@ -25,9 +26,14 @@ impl Server {
             .set_nonblocking(true)
             .context("TCP set_nonblocking")?;
 
-        let (tx, rx): (mpsc::Sender<Arc<puffin::FrameData>>, _) = mpsc::channel();
+        // We use crossbeam_channel instead of `mpsc`,
+        // because on shutdown we want all frames to be sent.
+        // `mpsc::Receiver` stops receiving as soon as the `Sender` is dropped,
+        // but `crossbeam_channel` will continue until the channel is empty.
+        let (tx, rx): (crossbeam_channel::Sender<Arc<puffin::FrameData>>, _) =
+            crossbeam_channel::unbounded();
 
-        std::thread::Builder::new()
+        let join_handle = std::thread::Builder::new()
             .name("puffin-server".to_owned())
             .spawn(move || {
                 let mut server_impl = PuffinServerImpl {
@@ -50,23 +56,51 @@ impl Server {
             tx.send(frame).ok();
         }));
 
-        Ok(Server { sink_id })
+        Ok(Server {
+            sink_id,
+            join_handle: Some(join_handle),
+        })
     }
 }
 
 impl Drop for Server {
     fn drop(&mut self) {
         GlobalProfiler::lock().remove_sink(self.sink_id);
+
+        // Take care to send everything before we shut down:
+        if let Some(join_handle) = self.join_handle.take() {
+            join_handle.join().ok();
+        }
     }
 }
 
 type Packet = Arc<[u8]>;
 
+struct Client {
+    client_addr: SocketAddr,
+    packet_tx: Option<crossbeam_channel::Sender<Packet>>,
+    join_handle: Option<std::thread::JoinHandle<()>>,
+}
+
+impl Drop for Client {
+    fn drop(&mut self) {
+        // Take care to send everything before we shut down!
+
+        // Drop the sender to signal to shut down:
+        self.packet_tx = None;
+
+        // Wait for the shutdown:
+        if let Some(join_handle) = self.join_handle.take() {
+            join_handle.join().ok();
+        }
+    }
+}
+
 /// Listens for incoming connections
 /// and streams them puffin profiler data.
 struct PuffinServerImpl {
     tcp_listener: TcpListener,
-    clients: Vec<(SocketAddr, mpsc::SyncSender<Packet>)>,
+    clients: Vec<Client>,
 }
 
 impl PuffinServerImpl {
@@ -80,14 +114,18 @@ impl PuffinServerImpl {
 
                     log::info!("{} connected", client_addr);
 
-                    let (packet_tx, packet_rx) = mpsc::sync_channel(MAX_FRAMES_IN_QUEUE);
+                    let (packet_tx, packet_rx) = crossbeam_channel::bounded(MAX_FRAMES_IN_QUEUE);
 
-                    std::thread::Builder::new()
+                    let join_handle = std::thread::Builder::new()
                         .name("puffin-server-client".to_owned())
                         .spawn(move || client_loop(packet_rx, client_addr, tcp_stream))
                         .context("Couldn't spawn thread")?;
 
-                    self.clients.push((client_addr, packet_tx));
+                    self.clients.push(Client {
+                        client_addr,
+                        packet_tx: Some(packet_tx),
+                        join_handle: Some(join_handle),
+                    });
                 }
                 Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {
                     break; // Nothing to do for now.
@@ -116,26 +154,28 @@ impl PuffinServerImpl {
 
         let packet: Packet = packet.into();
 
-        self.clients.retain(
-            |(client_addr, packet_tx)| match packet_tx.try_send(packet.clone()) {
+        eprintln!("clients.retain");
+        self.clients.retain(|client| match &client.packet_tx {
+            None => false,
+            Some(packet_tx) => match packet_tx.try_send(packet.clone()) {
                 Ok(()) => true,
-                Err(mpsc::TrySendError::Disconnected(_)) => false,
-                Err(mpsc::TrySendError::Full(_)) => {
+                Err(crossbeam_channel::TrySendError::Disconnected(_)) => false,
+                Err(crossbeam_channel::TrySendError::Full(_)) => {
                     log::info!(
                         "puffin client {} is not accepting data fast enough; dropping a frame",
-                        client_addr
+                        client.client_addr
                     );
                     true
                 }
             },
-        );
+        });
 
         Ok(())
     }
 }
 
 fn client_loop(
-    packet_rx: mpsc::Receiver<Packet>,
+    packet_rx: crossbeam_channel::Receiver<Packet>,
     client_addr: SocketAddr,
     mut tcp_stream: TcpStream,
 ) {

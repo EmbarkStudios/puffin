@@ -4,10 +4,11 @@ All notable changes to `puffin_http` will be documented in this file.
 
 
 ## Unreleased
+* Send all outstanding frames on shutdown.
 
 
 ## 0.7.0 - 2021-10-12
-* Nothing new
+* Nothing new.
 
 
 ## 0.6.0 - 2021-09-20

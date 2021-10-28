@@ -1,4 +1,4 @@
-//! `puffin_server` is a library for streaming `puffin` profiler data over http.
+//! `puffin_server` is a library for streaming `puffin` profiler data over TCP.
 
 // BEGIN - Embark standard lints v0.4
 // do not change or add/remove here, but one can add exceptions after this section
