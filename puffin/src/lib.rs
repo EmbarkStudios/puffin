@@ -595,7 +595,8 @@ impl GlobalProfiler {
             .append(stream_info);
     }
 
-    /// Call this function with each new finished frame.
+    /// Tells [`GlobalProfiler`] to call this function with each new finished frame.
+    ///
     /// The returned [`FrameSinkId`] can be used to remove the sink with [`Self::remove_sink`].
     pub fn add_sink(&mut self, sink: FrameSink) -> FrameSinkId {
         let id = self.next_sink_id;
