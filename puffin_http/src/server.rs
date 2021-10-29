@@ -154,7 +154,6 @@ impl PuffinServerImpl {
 
         let packet: Packet = packet.into();
 
-        eprintln!("clients.retain");
         self.clients.retain(|client| match &client.packet_tx {
             None => false,
             Some(packet_tx) => match packet_tx.try_send(packet.clone()) {
