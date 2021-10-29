@@ -4,6 +4,9 @@ All notable changes to `puffin_viewer` will be documented in this file.
 
 
 ## Unreleased
+
+
+## 0.8.0 - 2021-10-29
 * Change `--file` option to instead be a positional argument.
 
 
