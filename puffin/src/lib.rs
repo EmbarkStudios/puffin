@@ -733,6 +733,7 @@ fn test_short_file_name() {
     assert_eq!(short_file_name(r"C:\\windows\is\weird\src.rs"), "src.rs");
 }
 
+#[allow(clippy::doc_markdown)] // clippy wants to put "MacBook" in ticks 🙄
 /// Automatically name the profiling scope based on function name.
 ///
 /// Names should be descriptive, ASCII and without spaces.
@@ -760,7 +761,7 @@ fn test_short_file_name() {
 /// }
 /// ```
 ///
-/// Overhead: around 210 ns on 2020 MacBook Pro
+/// Overhead: around 210 ns on 2020 Intel MacBook Pro.
 #[macro_export]
 macro_rules! profile_function {
     () => {
@@ -787,6 +788,7 @@ macro_rules! profile_function_data {
     };
 }
 
+#[allow(clippy::doc_markdown)] // clippy wants to put "MacBook" in ticks 🙄
 /// Profile the current scope with the given name (unique in the parent scope).
 ///
 /// Names should be descriptive, ASCII and without spaces.
@@ -796,7 +798,7 @@ macro_rules! profile_function_data {
 /// An optional second argument can be a string (e.g. a mesh name) to help diagnose what was slow.
 /// Example: `profile_scope!("load_mesh", mesh_name);`
 ///
-/// Overhead: around 140 ns on 2020 MacBook Pro
+/// Overhead: around 140 ns on 2020 Intel MacBook Pro.
 #[macro_export]
 macro_rules! profile_scope {
     ($id:expr) => {
