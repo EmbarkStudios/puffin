@@ -13,7 +13,7 @@ keywords = ["profiler", "instrumentation", "gamedev"]
 include = [ "**/*.rs", "Cargo.toml"]
 
 [dependencies]
-puffin_egui = { version = "0.9.1", path = "../puffin_egui" }
+puffin_egui = { version = "0.10.0", path = "../puffin_egui" }
 puffin = { version = "0.10.0", path = "../puffin", features = ["serialization"] }
 puffin_http = { version = "0.7.0", path = "../puffin_http" }
 
