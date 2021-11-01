@@ -630,12 +630,29 @@ fn frames_info_ui(ui: &mut egui::Ui, selection: &SelectedFrames) {
         format!("{} frames", selection.frames.len())
     };
 
-    ui.label(format!(
+    let mut label = format!(
         "Showing {}, {:.1} ms, {} threads, {} scopes, {:.1} kB",
         frame_indices,
         sum_ns as f64 * 1e-6,
         selection.threads.len(),
         sum_scopes,
         sum_bytes as f64 * 1e-3
-    ));
+    );
+
+    if let Some(time) = format_time(selection.raw_range_ns.0) {
+        label += &format!(" (recorded {})", time);
+    }
+
+    ui.label(label);
+}
+
+fn format_time(nanos: NanoSecond) -> Option<String> {
+    let years_since_epoch = nanos / 1_000_000_000 / 60 / 60 / 24 / 365;
+    if 50 <= years_since_epoch && years_since_epoch <= 150 {
+        use chrono::TimeZone as _;
+        let datetime = chrono::Utc.timestamp(nanos / 1_000_000_000, (nanos % 1_000_000_000) as _);
+        Some(datetime.format("%Y-%m-%d %H:%M:%S%.3f UTC").to_string())
+    } else {
+        None // `nanos` is likely not counting from epoch.
+    }
 }

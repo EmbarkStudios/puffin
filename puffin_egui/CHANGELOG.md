@@ -4,10 +4,11 @@ All notable changes to the egui crate will be documented in this file.
 
 
 ## Unreleased
+* Show date-time of when a frame was recorded.
 
 
 ## 0.10.0 - 2021-10-29
-* Update to egui 0.15
+* Update to egui 0.15.
 
 
 ## 0.9.1 - 2021-10-21

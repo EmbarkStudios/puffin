@@ -612,15 +612,25 @@ impl GlobalProfiler {
 
 // ----------------------------------------------------------------------------
 
-/// Returns monotonically increasing nanosecond count.
-/// It is undefined when `now_ns()=0` is.
+/// Returns a high-precision, monotonically increasing nanosecond count since unix epoch.
 #[inline]
 pub fn now_ns() -> NanoSecond {
     // This can maybe be optimized
     use once_cell::sync::Lazy;
     use std::time::Instant;
-    static START_TIME: Lazy<Instant> = Lazy::new(Instant::now);
-    START_TIME.elapsed().as_nanos() as NanoSecond
+
+    fn epoch_offset_and_start() -> (NanoSecond, Instant) {
+        if let Ok(duration_since_epoch) = std::time::UNIX_EPOCH.elapsed() {
+            let nanos_since_epoch = duration_since_epoch.as_nanos() as NanoSecond;
+            (nanos_since_epoch, Instant::now())
+        } else {
+            // system time is set before 1970. this should be quite rare.
+            (0, Instant::now())
+        }
+    }
+
+    static START_TIME: Lazy<(NanoSecond, Instant)> = Lazy::new(epoch_offset_and_start);
+    START_TIME.0 + START_TIME.1.elapsed().as_nanos() as NanoSecond
 }
 
 // ----------------------------------------------------------------------------
