@@ -126,6 +126,8 @@ pub struct Options {
     pub rounding: f32,
 
     pub frame_list_height: f32,
+    /// Distance between subsequent frames in the frame view.
+    pub frame_width: f32,
 
     /// Aggregate child scopes with the same id?
     pub merge_scopes: bool,
@@ -156,6 +158,7 @@ impl Default for Options {
             rounding: 4.0,
 
             frame_list_height: 48.0,
+            frame_width: 10.0,
 
             merge_scopes: true,
 

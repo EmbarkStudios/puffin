@@ -461,8 +461,6 @@ impl ProfilerUi {
 
         let mut hovered_frame = None;
 
-        let longest_count = frames.recent.len().max(frames.slowest.len());
-
         egui::Grid::new("frame_grid").num_columns(2).show(ui, |ui| {
             ui.label("");
             ui.label("Click to select a frame, or drag to select multiple frames.");
@@ -471,13 +469,11 @@ impl ProfilerUi {
             ui.label("Recent:");
 
             Frame::dark_canvas(ui.style()).show(ui, |ui| {
-                self.show_frame_list(
-                    ui,
-                    frame_view,
-                    &frames.recent,
-                    longest_count,
-                    &mut hovered_frame,
-                );
+                egui::ScrollArea::horizontal()
+                    .stick_to_right()
+                    .show(ui, |ui| {
+                        self.show_frame_list(ui, frame_view, &frames.recent, &mut hovered_frame);
+                    });
             });
 
             ui.end_row();
@@ -490,14 +486,14 @@ impl ProfilerUi {
                     frame_view.clear_slowest();
                 }
             });
+
+            // Show as many slow frames as we fit in the view:
             Frame::dark_canvas(ui.style()).show(ui, |ui| {
-                self.show_frame_list(
-                    ui,
-                    frame_view,
-                    &frames.slowest,
-                    longest_count,
-                    &mut hovered_frame,
-                );
+                let num_fit =
+                    (ui.available_size_before_wrap().x / self.options.frame_width).floor();
+                let num_fit = (num_fit as usize).at_least(1).at_most(frames.slowest.len());
+                let slowest_of_the_slow = puffin::select_slowest(&frames.slowest, num_fit);
+                self.show_frame_list(ui, frame_view, &slowest_of_the_slow, &mut hovered_frame);
             });
         });
 
@@ -509,7 +505,6 @@ impl ProfilerUi {
         ui: &mut egui::Ui,
         frame_view: &FrameView,
         frames: &[Arc<FrameData>],
-        longest_count: usize,
         hovered_frame: &mut Option<Arc<FrameData>>,
     ) {
         let mut slowest_frame = 0;
@@ -517,15 +512,15 @@ impl ProfilerUi {
             slowest_frame = frame.duration_ns().max(slowest_frame);
         }
 
+        let frame_width_including_spacing = self.options.frame_width;
+
         let desired_size = Vec2::new(
-            ui.available_size_before_wrap().x,
+            frames.len() as f32 * frame_width_including_spacing,
             self.options.frame_list_height,
         );
         let (response, painter) = ui.allocate_painter(desired_size, Sense::click_and_drag());
         let rect = response.rect;
 
-        let frame_width_including_spacing =
-            (rect.width() / (longest_count as f32)).max(4.0).min(20.0);
         let frame_spacing = 2.0;
         let frame_width = frame_width_including_spacing - frame_spacing;
 

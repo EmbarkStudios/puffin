@@ -96,7 +96,7 @@ mod profile_view;
 
 pub use data::*;
 pub use merge::*;
-pub use profile_view::{FrameView, GlobalFrameView};
+pub use profile_view::{select_slowest, FrameView, GlobalFrameView};
 
 use std::collections::BTreeMap;
 use std::sync::atomic::{AtomicBool, Ordering};

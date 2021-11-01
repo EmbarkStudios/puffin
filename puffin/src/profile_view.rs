@@ -9,14 +9,14 @@ pub struct FrameView {
     recent_frames: std::collections::VecDeque<Arc<FrameData>>,
     max_recent: usize,
 
-    slowest_frames: std::collections::BinaryHeap<OrderedData>,
+    slowest_frames: std::collections::BinaryHeap<OrderedByDuration>,
     max_slow: usize,
 }
 
 impl Default for FrameView {
     fn default() -> Self {
-        let max_recent = 128;
-        let max_slow = 128;
+        let max_recent = 60 * 60 * 15;
+        let max_slow = 256;
 
         Self {
             recent_frames: std::collections::VecDeque::with_capacity(max_recent),
@@ -42,7 +42,8 @@ impl FrameView {
         };
 
         if add_to_slowest {
-            self.slowest_frames.push(OrderedData(new_frame.clone()));
+            self.slowest_frames
+                .push(OrderedByDuration(new_frame.clone()));
             while self.slowest_frames.len() > self.max_slow {
                 self.slowest_frames.pop();
             }
@@ -159,23 +160,39 @@ impl FrameView {
 
 // ----------------------------------------------------------------------------
 
-#[derive(Clone)]
-struct OrderedData(Arc<FrameData>);
+/// Select the slowest frames, up to a certain count.
+pub fn select_slowest(frames: &[Arc<FrameData>], max: usize) -> Vec<Arc<FrameData>> {
+    let mut slowest: std::collections::BinaryHeap<OrderedByDuration> = Default::default();
+    for frame in frames {
+        slowest.push(OrderedByDuration(frame.clone()));
+        while slowest.len() > max {
+            slowest.pop();
+        }
+    }
+    let mut slowest: Vec<_> = slowest.drain().map(|x| x.0).collect();
+    slowest.sort_by_key(|frame| frame.frame_index);
+    slowest
+}
 
-impl PartialEq for OrderedData {
+// ----------------------------------------------------------------------------
+
+#[derive(Clone)]
+struct OrderedByDuration(Arc<FrameData>);
+
+impl PartialEq for OrderedByDuration {
     fn eq(&self, other: &Self) -> bool {
         self.0.duration_ns().eq(&other.0.duration_ns())
     }
 }
-impl Eq for OrderedData {}
+impl Eq for OrderedByDuration {}
 
-impl PartialOrd for OrderedData {
+impl PartialOrd for OrderedByDuration {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         Some(self.cmp(other))
     }
 }
 
-impl Ord for OrderedData {
+impl Ord for OrderedByDuration {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         self.0.duration_ns().cmp(&other.0.duration_ns()).reverse()
     }

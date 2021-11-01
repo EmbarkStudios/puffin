@@ -4,6 +4,7 @@ All notable changes to the egui crate will be documented in this file.
 
 
 ## Unreleased
+* Show scrollbar for history of recent frames.
 * Show date-time of when a frame was recorded.
 * Show compressed size of selected frame.
 

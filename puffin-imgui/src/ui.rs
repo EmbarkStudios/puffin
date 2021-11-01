@@ -227,6 +227,9 @@ pub struct Options {
     #[serde(skip)]
     filter: Filter,
 
+    /// Size of a frame in the frame-view, including padding
+    pub frame_width: f32,
+
     /// Set when user clicks a scope.
     /// First part is `now()`, second is range.
     #[serde(skip)]
@@ -251,6 +254,8 @@ impl Default for Options {
 
             sorting: Default::default(),
             filter: Default::default(),
+
+            frame_width: 10.0,
 
             zoom_to_relative_ns_range: None,
         }
@@ -550,21 +555,13 @@ impl ProfilerUi {
 
         let mut hovered_frame = None;
 
-        let longest_count = frames.recent.len().max(frames.slowest.len());
-
         ui.columns(2, "columns", false);
         ui.set_column_width(0, 64.0);
 
         ui.text("Recent:");
         ui.next_column();
 
-        self.show_frame_list(
-            ui,
-            "Recent frames",
-            &frames.recent,
-            longest_count,
-            &mut hovered_frame,
-        );
+        self.show_frame_list(ui, "Recent frames", &frames.recent, &mut hovered_frame);
         ui.next_column();
 
         ui.text("Slowest:");
@@ -572,13 +569,12 @@ impl ProfilerUi {
             self.frame_view.lock().clear_slowest();
         }
         ui.next_column();
-        self.show_frame_list(
-            ui,
-            "Slow spikes",
-            &frames.slowest,
-            longest_count,
-            &mut hovered_frame,
-        );
+        {
+            let num_fit = (ui.content_region_avail()[0] / self.options.frame_width).floor();
+            let num_fit = (num_fit as usize).max(1).min(frames.slowest.len());
+            let slowest_of_the_slow = puffin::select_slowest(&frames.slowest, num_fit);
+            self.show_frame_list(ui, "Slow spikes", &slowest_of_the_slow, &mut hovered_frame);
+        }
         ui.next_column();
 
         ui.columns(1, "", false);
@@ -591,7 +587,6 @@ impl ProfilerUi {
         ui: &Ui<'_>,
         label: &str,
         frames: &[Arc<FrameData>],
-        longest_count: usize,
         hovered_frame: &mut Option<Arc<FrameData>>,
     ) {
         let mut slowest_frame = 0;
@@ -603,7 +598,7 @@ impl ProfilerUi {
         let size = Vec2::new(ui.content_region_avail()[0], 48.0);
         let max = min + size;
 
-        let frame_width_including_spacing = (size.x / (longest_count as f32)).max(4.0).min(20.0);
+        let frame_width_including_spacing = self.options.frame_width;
         let frame_spacing = 2.0;
         let frame_width = frame_width_including_spacing - frame_spacing;
 
