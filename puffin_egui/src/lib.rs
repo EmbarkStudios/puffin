@@ -367,6 +367,11 @@ impl ProfilerUi {
                 .on_hover_text("Turn it on with puffin::set_scopes_on(true)");
         }
 
+        if frame_view.is_empty() {
+            ui.label("No profiling data");
+            return;
+        };
+
         let mut hovered_frame = None;
 
         egui::CollapsingHeader::new("Frames")

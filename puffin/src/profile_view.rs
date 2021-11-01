@@ -28,6 +28,10 @@ impl Default for FrameView {
 }
 
 impl FrameView {
+    pub fn is_empty(&self) -> bool {
+        self.recent_frames.is_empty() && self.slowest_frames.is_empty()
+    }
+
     pub fn add_frame(&mut self, new_frame: Arc<FrameData>) {
         let add_to_slowest = if self.slowest_frames.len() < self.max_slow {
             true
