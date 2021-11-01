@@ -5,6 +5,7 @@ All notable changes to the egui crate will be documented in this file.
 
 ## Unreleased
 * Show date-time of when a frame was recorded.
+* Show compressed size of selected frame.
 
 
 ## 0.10.0 - 2021-10-29

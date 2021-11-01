@@ -612,12 +612,21 @@ fn frames_info_ui(ui: &mut egui::Ui, selection: &SelectedFrames) {
     let mut sum_scopes = 0;
     let mut sum_bytes = 0;
 
+    let mut knows_compressed_size = true;
+    let mut sum_bytes_compressed = 0;
+
     for frame in &selection.frames {
         let (min_ns, max_ns) = frame.range_ns;
         sum_ns += max_ns - min_ns;
 
         sum_scopes += frame.num_scopes;
         sum_bytes += frame.num_bytes;
+
+        if let Some(compressed_size) = frame.compressed_size {
+            sum_bytes_compressed += compressed_size;
+        } else {
+            knows_compressed_size = false;
+        }
     }
 
     let frame_indices = if selection.frames.len() == 1 {
@@ -635,7 +644,7 @@ fn frames_info_ui(ui: &mut egui::Ui, selection: &SelectedFrames) {
         format!("{} frames", selection.frames.len())
     };
 
-    let mut label = format!(
+    let mut info = format!(
         "Showing {}, {:.1} ms, {} threads, {} scopes, {:.1} kB",
         frame_indices,
         sum_ns as f64 * 1e-6,
@@ -644,11 +653,15 @@ fn frames_info_ui(ui: &mut egui::Ui, selection: &SelectedFrames) {
         sum_bytes as f64 * 1e-3
     );
 
-    if let Some(time) = format_time(selection.raw_range_ns.0) {
-        label += &format!(" (recorded {})", time);
+    if knows_compressed_size {
+        info += &format!(" ({:.1} kB compressed)", sum_bytes_compressed as f64 * 1e-3);
     }
 
-    ui.label(label);
+    if let Some(time) = format_time(selection.raw_range_ns.0) {
+        info += &format!(". Recorded {}", time);
+    }
+
+    ui.label(info);
 }
 
 fn format_time(nanos: NanoSecond) -> Option<String> {

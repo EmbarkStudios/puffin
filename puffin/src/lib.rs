@@ -291,8 +291,13 @@ pub struct FrameData {
     pub frame_index: FrameIndex,
     pub thread_streams: BTreeMap<ThreadInfo, Arc<StreamInfo>>,
     pub range_ns: (NanoSecond, NanoSecond),
+    /// The uncompressed size
     pub num_bytes: usize,
     pub num_scopes: usize,
+
+    /// Size of the compressed data (in bytes), if this was decompressed.
+    #[cfg_attr(feature = "serde", serde(default, skip))]
+    pub compressed_size: Option<usize>,
 }
 
 impl FrameData {
@@ -324,6 +329,7 @@ impl FrameData {
                 range_ns: (min_ns, max_ns),
                 num_bytes,
                 num_scopes,
+                compressed_size: None,
             })
         } else {
             Err(Error::Empty)
@@ -380,32 +386,34 @@ impl FrameData {
             if &header == b"PFD0" {
                 let mut compressed_length = [0_u8; 4];
                 read.read_exact(&mut compressed_length)?;
-                let mut compressed = vec![0_u8; u32::from_le_bytes(compressed_length) as usize];
+                let compressed_length = u32::from_le_bytes(compressed_length) as usize;
+                let mut compressed = vec![0_u8; compressed_length];
                 read.read_exact(&mut compressed)?;
 
                 let serialized =
                     lz4_flex::decompress_size_prepended(&compressed).context("lz4 decompress")?;
 
                 use bincode::Options as _;
-                Ok(Some(
-                    bincode::options()
-                        .deserialize(&serialized)
-                        .context("bincode deserialize")?,
-                ))
+                let mut frame: Self = bincode::options()
+                    .deserialize(&serialized)
+                    .context("bincode deserialize")?;
+                frame.compressed_size = Some(compressed_length);
+                Ok(Some(frame))
             } else if &header == b"PFD1" {
                 let mut compressed_length = [0_u8; 4];
                 read.read_exact(&mut compressed_length)?;
-                let mut compressed = vec![0_u8; u32::from_le_bytes(compressed_length) as usize];
+                let compressed_length = u32::from_le_bytes(compressed_length) as usize;
+                let mut compressed = vec![0_u8; compressed_length];
                 read.read_exact(&mut compressed)?;
 
                 let serialized = zstd::decode_all(&compressed[..]).context("zstd decompress")?;
 
                 use bincode::Options as _;
-                Ok(Some(
-                    bincode::options()
-                        .deserialize(&serialized)
-                        .context("bincode deserialize")?,
-                ))
+                let mut frame: Self = bincode::options()
+                    .deserialize(&serialized)
+                    .context("bincode deserialize")?;
+                frame.compressed_size = Some(compressed_length);
+                Ok(Some(frame))
             } else {
                 anyhow::bail!("Failed to decode: this data is newer than this reader. Please update your puffin version!");
             }
