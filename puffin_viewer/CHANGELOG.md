@@ -4,6 +4,7 @@ All notable changes to `puffin_viewer` will be documented in this file.
 
 
 ## Unreleased
+* Use [`egui_glow`](https://github.com/emilk/egui/tree/master/egui_glow) backend (slightly experimental, but compiles and runs faster).
 
 
 ## 0.8.0 - 2021-10-29

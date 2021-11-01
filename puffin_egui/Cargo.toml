@@ -33,6 +33,6 @@ serde = { version = "1", features = ["derive"], optional = true }
 vec1 = "1.8"
 
 [dev-dependencies]
-eframe = "0.15.0"
+eframe = { version = "0.15.0", default-features = false, features = ["egui_glow"] }
 egui-macroquad = "0.7.0"
 macroquad = "0.3"
