@@ -123,10 +123,7 @@ pub type NanoSecond = i64;
 
 /// Stream of profiling events from one thread.
 #[derive(Clone, Default)]
-#[cfg_attr(
-    feature = "serialization",
-    derive(serde::Deserialize, serde::Serialize)
-)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 pub struct Stream(Vec<u8>);
 
 impl Stream {
@@ -194,10 +191,7 @@ pub struct Scope<'s> {
 
 /// Used to identify one source of profiling data.
 #[derive(Clone, Debug, Hash, Eq, PartialEq, Ord, PartialOrd)]
-#[cfg_attr(
-    feature = "serialization",
-    derive(serde::Deserialize, serde::Serialize)
-)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 pub struct ThreadInfo {
     /// Useful for ordering threads.
     pub start_time_ns: Option<NanoSecond>,
@@ -211,10 +205,7 @@ pub type FrameIndex = u64;
 
 /// A `Stream` plus some info about it.
 #[derive(Clone)]
-#[cfg_attr(
-    feature = "serialization",
-    derive(serde::Deserialize, serde::Serialize)
-)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 pub struct StreamInfo {
     /// The raw profile data.
     pub stream: Stream,
@@ -283,10 +274,7 @@ impl StreamInfo {
 
 /// One frame worth of profile data, collected from many sources.
 #[derive(Clone)]
-#[cfg_attr(
-    feature = "serialization",
-    derive(serde::Deserialize, serde::Serialize)
-)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 pub struct FrameData {
     pub frame_index: FrameIndex,
     pub thread_streams: BTreeMap<ThreadInfo, Arc<StreamInfo>>,
