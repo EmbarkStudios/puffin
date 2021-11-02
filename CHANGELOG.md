@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 * `now_ns` now returns nanoseconds since unix epoch.
+* Make scope merging deterministic.
 
 
 ## 0.10.0 - 2021-10-12

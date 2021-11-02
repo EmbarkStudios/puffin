@@ -1,5 +1,5 @@
 use crate::{FrameData, NanoSecond, Reader, Result, Scope, Stream, ThreadInfo};
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 /// Temporary structure while building a `MergeScope`.
 #[derive(Default)]
@@ -9,7 +9,7 @@ struct MergeNode<'s> {
     pieces: Vec<MergePiece<'s>>,
 
     /// indexed by their id
-    children: HashMap<&'s str, MergeNode<'s>>,
+    children: BTreeMap<&'s str, MergeNode<'s>>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -116,10 +116,10 @@ impl<'s> MergeNode<'s> {
     }
 }
 
-fn build<'s>(mut nodes: HashMap<&'s str, MergeNode<'s>>, num_frames: i64) -> Vec<MergeScope<'s>> {
+fn build<'s>(nodes: BTreeMap<&'s str, MergeNode<'s>>, num_frames: i64) -> Vec<MergeScope<'s>> {
     let mut scopes: Vec<_> = nodes
-        .drain()
-        .map(|(_, node)| node.build(num_frames))
+        .into_values()
+        .map(|node| node.build(num_frames))
         .collect();
 
     // Earliest first:
@@ -140,7 +140,7 @@ pub fn merge_scopes_for_thread<'s>(
     frames: &'s [std::sync::Arc<FrameData>],
     thread_info: &ThreadInfo,
 ) -> Result<Vec<MergeScope<'s>>> {
-    let mut top_nodes: HashMap<&'s str, MergeNode<'s>> = Default::default();
+    let mut top_nodes: BTreeMap<&'s str, MergeNode<'s>> = Default::default();
 
     for frame in frames {
         if let Some(stream_info) = frame.thread_streams.get(thread_info) {
