@@ -8,6 +8,7 @@ All notable changes to the egui crate will be documented in this file.
 * Show date-time of when a frame was recorded.
 * Show compressed size of selected frame.
 * Fix occasional flickering when viewing merged scopes.
+* Handle gaps in incoming frames.
 
 
 ## 0.10.0 - 2021-10-29

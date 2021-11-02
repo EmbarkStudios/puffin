@@ -33,6 +33,16 @@ impl FrameView {
     }
 
     pub fn add_frame(&mut self, new_frame: Arc<FrameData>) {
+        if let Some(last) = self.recent_frames.back() {
+            if new_frame.frame_index <= last.frame_index {
+                // A frame from the past!?
+                // Likely we are `puffin_viewer`, and the server restarted.
+                // The safe choice is to clear everything:
+                self.recent_frames.clear();
+                self.slowest_frames.clear();
+            }
+        }
+
         let add_to_slowest = if self.slowest_frames.len() < self.max_slow {
             true
         } else if let Some(fastest_of_the_slow) = self.slowest_frames.peek() {
@@ -46,15 +56,6 @@ impl FrameView {
                 .push(OrderedByDuration(new_frame.clone()));
             while self.slowest_frames.len() > self.max_slow {
                 self.slowest_frames.pop();
-            }
-        }
-
-        if let Some(last) = self.recent_frames.back() {
-            if new_frame.frame_index != last.frame_index + 1 {
-                // Keep `recent_frames` consecutive.
-                // Important when loading .puffin files which has both
-                // the slowest frames and most recent frames in the same stream.
-                self.recent_frames.clear();
             }
         }
 

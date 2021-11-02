@@ -472,7 +472,13 @@ impl ProfilerUi {
                 egui::ScrollArea::horizontal()
                     .stick_to_right()
                     .show(ui, |ui| {
-                        self.show_frame_list(ui, frame_view, &frames.recent, &mut hovered_frame);
+                        self.show_frame_list(
+                            ui,
+                            frame_view,
+                            &frames.recent,
+                            false,
+                            &mut hovered_frame,
+                        );
                     });
             });
 
@@ -493,7 +499,13 @@ impl ProfilerUi {
                     (ui.available_size_before_wrap().x / self.options.frame_width).floor();
                 let num_fit = (num_fit as usize).at_least(1).at_most(frames.slowest.len());
                 let slowest_of_the_slow = puffin::select_slowest(&frames.slowest, num_fit);
-                self.show_frame_list(ui, frame_view, &slowest_of_the_slow, &mut hovered_frame);
+                self.show_frame_list(
+                    ui,
+                    frame_view,
+                    &slowest_of_the_slow,
+                    true,
+                    &mut hovered_frame,
+                );
             });
         });
 
@@ -505,6 +517,7 @@ impl ProfilerUi {
         ui: &mut egui::Ui,
         frame_view: &FrameView,
         frames: &[Arc<FrameData>],
+        tight: bool,
         hovered_frame: &mut Option<Arc<FrameData>>,
     ) {
         let mut slowest_frame = 0;
@@ -514,10 +527,15 @@ impl ProfilerUi {
 
         let frame_width_including_spacing = self.options.frame_width;
 
-        let desired_size = Vec2::new(
-            frames.len() as f32 * frame_width_including_spacing,
-            self.options.frame_list_height,
-        );
+        let desired_width = if tight {
+            frames.len() as f32 * frame_width_including_spacing
+        } else {
+            // leave gaps in the view for the missing frames
+            let num_frames = frames[frames.len() - 1].frame_index + 1 - frames[0].frame_index;
+            num_frames as f32 * frame_width_including_spacing
+        };
+
+        let desired_size = Vec2::new(desired_width, self.options.frame_list_height);
         let (response, painter) = ui.allocate_painter(desired_size, Sense::click_and_drag());
         let rect = response.rect;
 
@@ -533,7 +551,15 @@ impl ProfilerUi {
         let mut new_selection = vec![];
 
         for (i, frame) in frames.iter().enumerate() {
-            let x = rect.right() - (frames.len() as f32 - i as f32) * frame_width_including_spacing;
+            let x = if tight {
+                rect.right() - (frames.len() as f32 - i as f32) * frame_width_including_spacing
+            } else {
+                let latest_frame_index = frames[frames.len() - 1].frame_index;
+                rect.right()
+                    - (latest_frame_index + 1 - frame.frame_index) as f32
+                        * frame_width_including_spacing
+            };
+
             let frame_rect = Rect::from_min_max(
                 Pos2::new(x, rect.top()),
                 Pos2::new(x + frame_width, rect.bottom()),
