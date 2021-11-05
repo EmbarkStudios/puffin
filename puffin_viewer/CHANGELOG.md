@@ -4,6 +4,7 @@ All notable changes to `puffin_viewer` will be documented in this file.
 
 
 ## Unreleased
+* Fix vertical scrolling in flamgraph
 
 
 ## 0.9.1 - 2021-11-05

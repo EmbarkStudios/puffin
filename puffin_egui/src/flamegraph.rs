@@ -251,7 +251,8 @@ pub fn ui(ui: &mut egui::Ui, options: &mut Options, frames: &SelectedFrames) {
     Frame::dark_canvas(ui.style()).show(ui, |ui| {
         let available_height = ui.max_rect().bottom() - ui.min_rect().bottom();
         ScrollArea::vertical().show(ui, |ui| {
-            let canvas = ui.available_rect_before_wrap();
+            let mut canvas = ui.available_rect_before_wrap();
+            canvas.max.y = f32::INFINITY;
             let response = ui.interact(canvas, ui.id(), Sense::click_and_drag());
 
             let (min_ns, max_ns) = if options.merge_scopes {

@@ -4,6 +4,7 @@ All notable changes to the egui crate will be documented in this file.
 
 
 ## Unreleased
+* Fix vertical scrolling in flamgraph
 
 
 ## 0.10.2 - 2021-11-05
