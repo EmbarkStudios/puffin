@@ -1442,10 +1442,11 @@ checksum = "308d96db8debc727c3fd9744aac51751243420e46edf401010908da7f8d5e57c"
 
 [[package]]
 name = "ndk"
-version = "0.3.0"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8794322172319b972f528bf90c6b467be0079f1fa82780ffb431088e741a73ab"
+checksum = "d64d6af06fde0e527b1ba5c7b79a6cc89cfc46325b0b2887dffe8f70197e0c3c"
 dependencies = [
+ "bitflags",
  "jni-sys",
  "ndk-sys",
  "num_enum",
@@ -1454,9 +1455,9 @@ dependencies = [
 
 [[package]]
 name = "ndk-glue"
-version = "0.3.0"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c5caf0c24d51ac1c905c27d4eda4fa0635bbe0de596b8f79235e0b17a4d29385"
+checksum = "d3e9e94628f24e7a3cb5b96a2dc5683acd9230bf11991c2a1677b87695138420"
 dependencies = [
  "lazy_static",
  "libc",
@@ -2750,7 +2751,7 @@ checksum = "712e227841d057c1ee1cd2fb22fa7e5a5461ae8e48fa2ca79ec42cfc1931183f"
 [[package]]
 name = "winit"
 version = "0.25.0"
-source = "git+https://github.com/emilk/winit?branch=fix-native-file-dialogs#d4ad9e411b4d4b196095f4e2819889f1d77ca57e"
+source = "git+https://github.com/rust-windowing/winit?rev=387567a917e1944a3848ee7d21c14013a1a4f55d#387567a917e1944a3848ee7d21c14013a1a4f55d"
 dependencies = [
  "bitflags",
  "block",
