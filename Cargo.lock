@@ -1811,7 +1811,7 @@ dependencies = [
 
 [[package]]
 name = "puffin-imgui"
-version = "0.13.3"
+version = "0.13.4"
 dependencies = [
  "glium",
  "imgui",
@@ -1824,7 +1824,7 @@ dependencies = [
 
 [[package]]
 name = "puffin_egui"
-version = "0.10.1"
+version = "0.10.2"
 dependencies = [
  "chrono",
  "eframe",
@@ -1851,7 +1851,7 @@ dependencies = [
 
 [[package]]
 name = "puffin_viewer"
-version = "0.9.0"
+version = "0.9.1"
 dependencies = [
  "argh",
  "eframe",

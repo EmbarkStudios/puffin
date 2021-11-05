@@ -4,6 +4,9 @@ All notable changes to the egui crate will be documented in this file.
 
 
 ## Unreleased
+
+
+## 0.10.2 - 2021-11-05
 * Normalize frame height based on what frames are visible.
 
 
