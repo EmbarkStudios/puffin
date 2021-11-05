@@ -292,7 +292,7 @@ impl Default for View {
 }
 
 /// Contains settings for the profiler.
-#[derive(Clone, Default)]
+#[derive(Clone)]
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "serde", serde(default))]
 pub struct ProfilerUi {
@@ -303,6 +303,20 @@ pub struct ProfilerUi {
     /// If `None`, we show the latest frames.
     #[cfg_attr(feature = "serde", serde(skip))]
     paused: Option<Paused>,
+
+    /// Used to normalize frame height in frame view
+    slowest_frame: f32,
+}
+
+impl Default for ProfilerUi {
+    fn default() -> Self {
+        Self {
+            options: Default::default(),
+            view: Default::default(),
+            paused: None,
+            slowest_frame: 0.16,
+        }
+    }
 }
 
 impl ProfilerUi {
@@ -472,13 +486,16 @@ impl ProfilerUi {
                 egui::ScrollArea::horizontal()
                     .stick_to_right()
                     .show(ui, |ui| {
-                        self.show_frame_list(
+                        let slowest_visible = self.show_frame_list(
                             ui,
                             frame_view,
                             &frames.recent,
                             false,
                             &mut hovered_frame,
+                            self.slowest_frame,
                         );
+                        // quickly, but smoothly, normalize frame height:
+                        self.slowest_frame = lerp(self.slowest_frame..=slowest_visible as f32, 0.2);
                     });
             });
 
@@ -499,12 +516,19 @@ impl ProfilerUi {
                     (ui.available_size_before_wrap().x / self.options.frame_width).floor();
                 let num_fit = (num_fit as usize).at_least(1).at_most(frames.slowest.len());
                 let slowest_of_the_slow = puffin::select_slowest(&frames.slowest, num_fit);
+
+                let mut slowest_frame = 0;
+                for frame in &slowest_of_the_slow {
+                    slowest_frame = frame.duration_ns().max(slowest_frame);
+                }
+
                 self.show_frame_list(
                     ui,
                     frame_view,
                     &slowest_of_the_slow,
                     true,
                     &mut hovered_frame,
+                    slowest_frame as f32,
                 );
             });
         });
@@ -512,6 +536,7 @@ impl ProfilerUi {
         hovered_frame
     }
 
+    /// Returns the slowest visible frame
     fn show_frame_list(
         &mut self,
         ui: &mut egui::Ui,
@@ -519,12 +544,8 @@ impl ProfilerUi {
         frames: &[Arc<FrameData>],
         tight: bool,
         hovered_frame: &mut Option<Arc<FrameData>>,
-    ) {
-        let mut slowest_frame = 0;
-        for frame in frames {
-            slowest_frame = frame.duration_ns().max(slowest_frame);
-        }
-
+        slowest_frame: f32,
+    ) -> NanoSecond {
         let frame_width_including_spacing = self.options.frame_width;
 
         let desired_width = if tight {
@@ -549,6 +570,7 @@ impl ProfilerUi {
         };
 
         let mut new_selection = vec![];
+        let mut slowest_visible_frame = 0;
 
         for (i, frame) in frames.iter().enumerate() {
             let x = if tight {
@@ -565,66 +587,75 @@ impl ProfilerUi {
                 Pos2::new(x + frame_width, rect.bottom()),
             );
 
-            let duration = frame.duration_ns();
+            if ui.clip_rect().intersects(frame_rect) {
+                let duration = frame.duration_ns();
+                slowest_visible_frame = duration.max(slowest_visible_frame);
 
-            let is_selected = self.is_selected(frame_view, frame.frame_index);
+                let is_selected = self.is_selected(frame_view, frame.frame_index);
 
-            let is_hovered = if let Some(mouse_pos) = response.hover_pos() {
-                response.hovered()
-                    && !response.dragged()
-                    && frame_rect
-                        .expand2(vec2(0.5 * frame_spacing, 0.0))
-                        .contains(mouse_pos)
-            } else {
-                false
-            };
+                let is_hovered = if let Some(mouse_pos) = response.hover_pos() {
+                    response.hovered()
+                        && !response.dragged()
+                        && frame_rect
+                            .expand2(vec2(0.5 * frame_spacing, 0.0))
+                            .contains(mouse_pos)
+                } else {
+                    false
+                };
 
-            // preview when hovering is really annoying when viewing multiple frames
-            if is_hovered && !is_selected && !viewing_multiple_frames {
-                *hovered_frame = Some(frame.clone());
-                egui::show_tooltip_at_pointer(ui.ctx(), Id::new("puffin_frame_tooltip"), |ui| {
-                    ui.label(format!("{:.1} ms", frame.duration_ns() as f64 * 1e-6));
-                });
-            }
+                // preview when hovering is really annoying when viewing multiple frames
+                if is_hovered && !is_selected && !viewing_multiple_frames {
+                    *hovered_frame = Some(frame.clone());
+                    egui::show_tooltip_at_pointer(
+                        ui.ctx(),
+                        Id::new("puffin_frame_tooltip"),
+                        |ui| {
+                            ui.label(format!("{:.1} ms", frame.duration_ns() as f64 * 1e-6));
+                        },
+                    );
+                }
 
-            if response.dragged() {
-                if let (Some(start), Some(curr)) = (
-                    ui.input().pointer.press_origin(),
-                    ui.input().pointer.interact_pos(),
-                ) {
-                    let min_x = start.x.min(curr.x);
-                    let max_x = start.x.max(curr.x);
-                    let intersects = min_x <= frame_rect.right() && frame_rect.left() <= max_x;
-                    if intersects {
-                        new_selection.push(frame.clone());
+                if response.dragged() {
+                    if let (Some(start), Some(curr)) = (
+                        ui.input().pointer.press_origin(),
+                        ui.input().pointer.interact_pos(),
+                    ) {
+                        let min_x = start.x.min(curr.x);
+                        let max_x = start.x.max(curr.x);
+                        let intersects = min_x <= frame_rect.right() && frame_rect.left() <= max_x;
+                        if intersects {
+                            new_selection.push(frame.clone());
+                        }
                     }
                 }
+
+                let color = if is_selected {
+                    Rgba::WHITE
+                } else if is_hovered {
+                    HOVER_COLOR
+                } else {
+                    Rgba::from_rgb(0.6, 0.6, 0.4)
+                };
+
+                // Transparent, full height:
+                let alpha = if is_selected || is_hovered { 0.6 } else { 0.25 };
+                painter.rect_filled(frame_rect, 0.0, color * alpha);
+
+                // Opaque, height based on duration:
+                let mut short_rect = frame_rect;
+                short_rect.min.y = lerp(
+                    frame_rect.bottom_up_range(),
+                    duration as f32 / slowest_frame as f32,
+                );
+                painter.rect_filled(short_rect, 0.0, color);
             }
-
-            let color = if is_selected {
-                Rgba::WHITE
-            } else if is_hovered {
-                HOVER_COLOR
-            } else {
-                Rgba::from_rgb(0.6, 0.6, 0.4)
-            };
-
-            // Transparent, full height:
-            let alpha = if is_selected || is_hovered { 0.6 } else { 0.25 };
-            painter.rect_filled(frame_rect, 0.0, color * alpha);
-
-            // Opaque, height based on duration:
-            let mut short_rect = frame_rect;
-            short_rect.min.y = lerp(
-                frame_rect.bottom_up_range(),
-                duration as f32 / slowest_frame as f32,
-            );
-            painter.rect_filled(short_rect, 0.0, color);
         }
 
         if let Some(new_selection) = SelectedFrames::try_from_vec(new_selection) {
             self.pause_and_select(frame_view, new_selection);
         }
+
+        slowest_visible_frame
     }
 }
 

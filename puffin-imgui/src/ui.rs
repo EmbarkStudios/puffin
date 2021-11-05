@@ -179,7 +179,7 @@ pub struct Paused {
     frames: Frames,
 }
 
-#[derive(Default, Deserialize, Serialize)]
+#[derive(Deserialize, Serialize)]
 #[serde(default)]
 pub struct ProfilerUi {
     pub options: Options,
@@ -196,6 +196,22 @@ pub struct ProfilerUi {
     /// If `None`, we show the latest frames.
     #[serde(skip)]
     paused: Option<Paused>,
+
+    /// How we normalize the frame view:
+    slowest_frame: f32,
+}
+
+impl Default for ProfilerUi {
+    fn default() -> Self {
+        Self {
+            options: Default::default(),
+            frame_view: Default::default(),
+            is_panning: false,
+            is_zooming: false,
+            paused: None,
+            slowest_frame: 0.17,
+        }
+    }
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -561,7 +577,15 @@ impl ProfilerUi {
         ui.text("Recent:");
         ui.next_column();
 
-        self.show_frame_list(ui, "Recent frames", &frames.recent, &mut hovered_frame);
+        let slowest_visible = self.show_frame_list(
+            ui,
+            "Recent frames",
+            &frames.recent,
+            &mut hovered_frame,
+            self.slowest_frame,
+        );
+        // quickly, but smoothly, normalize frame height:
+        self.slowest_frame = lerp(self.slowest_frame..=slowest_visible as f32, 0.2);
         ui.next_column();
 
         ui.text("Slowest:");
@@ -573,7 +597,19 @@ impl ProfilerUi {
             let num_fit = (ui.content_region_avail()[0] / self.options.frame_width).floor();
             let num_fit = (num_fit as usize).max(1).min(frames.slowest.len());
             let slowest_of_the_slow = puffin::select_slowest(&frames.slowest, num_fit);
-            self.show_frame_list(ui, "Slow spikes", &slowest_of_the_slow, &mut hovered_frame);
+
+            let mut slowest_frame = 0;
+            for frame in &slowest_of_the_slow {
+                slowest_frame = frame.duration_ns().max(slowest_frame);
+            }
+
+            self.show_frame_list(
+                ui,
+                "Slow spikes",
+                &slowest_of_the_slow,
+                &mut hovered_frame,
+                slowest_frame as f32,
+            );
         }
         ui.next_column();
 
@@ -582,18 +618,15 @@ impl ProfilerUi {
         hovered_frame
     }
 
+    /// Returns the slowest visible frame
     fn show_frame_list(
         &mut self,
         ui: &Ui<'_>,
         label: &str,
         frames: &[Arc<FrameData>],
         hovered_frame: &mut Option<Arc<FrameData>>,
-    ) {
-        let mut slowest_frame = 0;
-        for frame in frames {
-            slowest_frame = frame.duration_ns().max(slowest_frame);
-        }
-
+        slowest_frame: f32,
+    ) -> NanoSecond {
         let min: Vec2 = ui.cursor_screen_pos().into();
         let size = Vec2::new(ui.content_region_avail()[0], 48.0);
         let max = min + size;
@@ -609,53 +642,61 @@ impl ProfilerUi {
 
         let mouse_pos: Vec2 = ui.io().mouse_pos.into();
 
+        let mut slowest_visible_frame = 0;
+
         draw_list.with_clip_rect_intersect(min.into(), max.into(), || {
             for (i, frame) in frames.iter().enumerate() {
                 let x = max.x - (frames.len() as f32 - i as f32) * frame_width_including_spacing;
                 let mut rect_min = Vec2::new(x, min.y);
                 let rect_max = Vec2::new(x + frame_width, max.y);
 
-                let duration = frame.duration_ns();
+                let is_visible = min.x <= rect_max.x && rect_min.x <= max.x;
+                if is_visible {
+                    let duration = frame.duration_ns();
+                    slowest_visible_frame = duration.max(slowest_visible_frame);
 
-                let is_selected = Some(frame.frame_index) == selected_frame_index;
+                    let is_selected = Some(frame.frame_index) == selected_frame_index;
 
-                let is_hovered = rect_min.x - 0.5 * frame_spacing <= mouse_pos.x
-                    && mouse_pos.x < rect_max.x + 0.5 * frame_spacing
-                    && rect_min.y <= mouse_pos.y
-                    && mouse_pos.y <= rect_max.y;
+                    let is_hovered = rect_min.x - 0.5 * frame_spacing <= mouse_pos.x
+                        && mouse_pos.x < rect_max.x + 0.5 * frame_spacing
+                        && rect_min.y <= mouse_pos.y
+                        && mouse_pos.y <= rect_max.y;
 
-                if is_hovered {
-                    *hovered_frame = Some(frame.clone());
-                    ui.tooltip_text(format!("{:.1} ms", frame.duration_ns() as f64 * 1e-6));
+                    if is_hovered {
+                        *hovered_frame = Some(frame.clone());
+                        ui.tooltip_text(format!("{:.1} ms", frame.duration_ns() as f64 * 1e-6));
+                    }
+                    if is_hovered && ui.is_mouse_clicked(MouseButton::Left) {
+                        self.pause_and_select(frame.clone());
+                    }
+
+                    let mut color = if is_selected {
+                        [1.0; 4]
+                    } else if is_hovered {
+                        HOVER_COLOR
+                    } else {
+                        [0.6, 0.6, 0.4, 1.0]
+                    };
+
+                    // Transparent, full height:
+                    color[3] = if is_selected || is_hovered { 0.6 } else { 0.25 };
+                    draw_list
+                        .add_rect(rect_min.into(), rect_max.into(), color)
+                        .filled(true)
+                        .build();
+
+                    // Opaque, height based on duration:
+                    color[3] = 1.0;
+                    rect_min.y = lerp(max.y..=min.y, duration as f32 / slowest_frame);
+                    draw_list
+                        .add_rect(rect_min.into(), rect_max.into(), color)
+                        .filled(true)
+                        .build();
                 }
-                if is_hovered && ui.is_mouse_clicked(MouseButton::Left) {
-                    self.pause_and_select(frame.clone());
-                }
-
-                let mut color = if is_selected {
-                    [1.0; 4]
-                } else if is_hovered {
-                    HOVER_COLOR
-                } else {
-                    [0.6, 0.6, 0.4, 1.0]
-                };
-
-                // Transparent, full height:
-                color[3] = if is_selected || is_hovered { 0.6 } else { 0.25 };
-                draw_list
-                    .add_rect(rect_min.into(), rect_max.into(), color)
-                    .filled(true)
-                    .build();
-
-                // Opaque, height based on duration:
-                color[3] = 1.0;
-                rect_min.y = lerp(max.y..=min.y, duration as f32 / slowest_frame as f32);
-                draw_list
-                    .add_rect(rect_min.into(), rect_max.into(), color)
-                    .filled(true)
-                    .build();
             }
         });
+
+        slowest_visible_frame
     }
 
     fn interact_with_canvas(

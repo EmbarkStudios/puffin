@@ -4,6 +4,7 @@ All notable changes to `puffin_viewer` will be documented in this file.
 
 
 ## Unreleased
+* Normalize frame height based on what frames are visible.
 
 
 ## 0.9.0 - 2021-11-02

@@ -144,9 +144,13 @@ fn main() {
             .unwrap();
 
         sleep_ms(14);
-        if frame_counter % 7 == 0 {
+        if frame_counter % 49 == 0 {
             puffin::profile_scope!("Spike");
-            std::thread::sleep(std::time::Duration::from_millis(10))
+            std::thread::sleep(std::time::Duration::from_millis(20))
+        }
+        if frame_counter % 343 == 0 {
+            puffin::profile_scope!("Big spike");
+            std::thread::sleep(std::time::Duration::from_millis(50))
         }
 
         for _ in 0..1000 {

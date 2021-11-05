@@ -6,6 +6,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 ## Unreleased
+* Normalize frame height based on what frames are visible.
 
 
 ## 0.13.3 - 2021-11-02
