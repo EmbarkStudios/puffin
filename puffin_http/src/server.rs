@@ -3,7 +3,10 @@ use puffin::GlobalProfiler;
 use std::{
     io::Write,
     net::{SocketAddr, TcpListener, TcpStream},
-    sync::Arc,
+    sync::{
+        atomic::{AtomicUsize, Ordering},
+        Arc,
+    },
 };
 
 /// Maximum size of the backlog of packets to send to a client if they aren't reading fast enough.
@@ -16,6 +19,7 @@ const MAX_FRAMES_IN_QUEUE: usize = 30;
 pub struct Server {
     sink_id: puffin::FrameSinkId,
     join_handle: Option<std::thread::JoinHandle<()>>,
+    num_clients: Arc<AtomicUsize>,
 }
 
 impl Server {
@@ -33,12 +37,16 @@ impl Server {
         let (tx, rx): (crossbeam_channel::Sender<Arc<puffin::FrameData>>, _) =
             crossbeam_channel::unbounded();
 
+        let num_clients = Arc::new(AtomicUsize::default());
+        let num_clients_cloned = num_clients.clone();
+
         let join_handle = std::thread::Builder::new()
             .name("puffin-server".to_owned())
             .spawn(move || {
                 let mut server_impl = PuffinServerImpl {
                     tcp_listener,
                     clients: Default::default(),
+                    num_clients: num_clients_cloned,
                 };
 
                 while let Ok(frame) = rx.recv() {
@@ -59,7 +67,13 @@ impl Server {
         Ok(Server {
             sink_id,
             join_handle: Some(join_handle),
+            num_clients,
         })
+    }
+
+    /// Number of clients currently connected.
+    pub fn num_clients(&self) -> usize {
+        self.num_clients.load(Ordering::SeqCst)
     }
 }
 
@@ -101,6 +115,7 @@ impl Drop for Client {
 struct PuffinServerImpl {
     tcp_listener: TcpListener,
     clients: Vec<Client>,
+    num_clients: Arc<AtomicUsize>,
 }
 
 impl PuffinServerImpl {
@@ -126,6 +141,7 @@ impl PuffinServerImpl {
                         packet_tx: Some(packet_tx),
                         join_handle: Some(join_handle),
                     });
+                    self.num_clients.store(self.clients.len(), Ordering::SeqCst);
                 }
                 Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {
                     break; // Nothing to do for now.
@@ -168,6 +184,7 @@ impl PuffinServerImpl {
                 }
             },
         });
+        self.num_clients.store(self.clients.len(), Ordering::SeqCst);
 
         Ok(())
     }

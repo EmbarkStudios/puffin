@@ -4,6 +4,7 @@ All notable changes to `puffin_http` will be documented in this file.
 
 
 ## Unreleased
+* Add `Server::num_clients`.
 
 
 ## 0.7.2 - 2021-10-28
@@ -37,4 +38,3 @@ All notable changes to `puffin_http` will be documented in this file.
 
 ## 0.3.0
 * Initial release
-
