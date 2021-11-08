@@ -204,6 +204,7 @@ impl Info {
 
 /// Show the flamegraph.
 pub fn ui(ui: &mut egui::Ui, options: &mut Options, frames: &SelectedFrames) {
+    puffin::profile_function!();
     let mut reset_view = false;
 
     let num_frames = frames.frames.len();

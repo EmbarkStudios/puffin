@@ -230,6 +230,7 @@ impl SelectedFrames {
     }
 
     fn from_vec1(mut frames: vec1::Vec1<Arc<FrameData>>) -> Self {
+        puffin::profile_function!();
         frames.sort_by_key(|f| f.frame_index);
         frames.dedup_by_key(|f| f.frame_index);
 
@@ -471,6 +472,8 @@ impl ProfilerUi {
         ui: &mut egui::Ui,
         frame_view: &mut FrameView,
     ) -> Option<Arc<FrameData>> {
+        puffin::profile_function!();
+
         let frames = self.frames(frame_view);
 
         let mut hovered_frame = None;

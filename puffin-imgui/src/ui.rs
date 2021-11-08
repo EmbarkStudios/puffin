@@ -377,6 +377,8 @@ impl ProfilerUi {
     pub fn ui(&mut self, ui: &Ui<'_>) {
         #![allow(clippy::collapsible_else_if)]
 
+        puffin::profile_function!();
+
         if !puffin::are_scopes_on() {
             ui.text_colored(ERROR_COLOR, "The puffin profiler is OFF!");
         }
@@ -497,6 +499,8 @@ impl ProfilerUi {
         frame: &Arc<FrameData>,
         (min_ns, max_ns): (NanoSecond, NanoSecond),
     ) -> f32 {
+        puffin::profile_function!();
+
         if self.options.canvas_width_ns <= 0.0 {
             self.options.canvas_width_ns = (max_ns - min_ns) as f32;
             self.options.zoom_to_relative_ns_range = None;
@@ -531,7 +535,10 @@ impl ProfilerUi {
             let mut paint_stream = || -> Result<()> {
                 if self.options.merge_scopes {
                     let frames = vec![frame.clone()];
-                    let merges = puffin::merge_scopes_for_thread(&frames, thread_info)?;
+                    let merges = {
+                        puffin::profile_scope!("merge_scopes");
+                        puffin::merge_scopes_for_thread(&frames, thread_info)?
+                    };
                     for merge in merges {
                         paint_merge_scope(info, &mut self.options, 0, &merge, 0, cursor_y)?;
                     }
@@ -567,6 +574,7 @@ impl ProfilerUi {
 
     /// Returns hovered, if any
     fn show_frames(&mut self, ui: &Ui<'_>) -> Option<Arc<FrameData>> {
+        puffin::profile_function!();
         let frames = self.frames();
 
         let mut hovered_frame = None;
