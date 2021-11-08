@@ -1,6 +1,6 @@
 [package]
 name = "puffin_viewer"
-version = "0.9.1"
+version = "0.9.2"
 authors = ["Embark <opensource@embark-studios.com>"]
 description = "Viewer GUI for puffin profiler data"
 license = "MIT OR Apache-2.0"
@@ -13,9 +13,9 @@ keywords = ["profiler", "instrumentation", "gamedev"]
 include = [ "**/*.rs", "Cargo.toml"]
 
 [dependencies]
-puffin_egui = { version = "0.10.2", path = "../puffin_egui" }
+puffin_egui = { version = "0.10.3", path = "../puffin_egui" }
 puffin = { version = "0.10.1", path = "../puffin", features = ["serialization"] }
-puffin_http = { version = "0.7.0", path = "../puffin_http" }
+puffin_http = { version = "0.7.3", path = "../puffin_http" }
 
 argh = "0.1"
 eframe = { version = "0.15.0", default-features = false, features = ["egui_glow", "persistence"] }

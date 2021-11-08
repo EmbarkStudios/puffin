@@ -4,6 +4,9 @@ All notable changes to the egui crate will be documented in this file.
 
 
 ## Unreleased
+
+
+## 0.10.3 - 2021-11-08
 * Fix vertical scrolling in flamgraph.
 * Show thread names in stats tab.
 
