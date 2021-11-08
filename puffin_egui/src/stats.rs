@@ -6,8 +6,8 @@ pub fn ui(ui: &mut egui::Ui, frames: &[std::sync::Arc<FrameData>]) {
 
     for frame in frames {
         threads.extend(frame.thread_streams.keys());
-        for stream in frame.thread_streams.values() {
-            collect_stream(&mut stats, &stream.stream).ok();
+        for (thread_info, stream) in &frame.thread_streams {
+            collect_stream(&mut stats, &thread_info.name, &stream.stream).ok();
         }
     }
 
@@ -33,16 +33,17 @@ pub fn ui(ui: &mut egui::Ui, frames: &[std::sync::Arc<FrameData>]) {
     let mut scopes: Vec<_> = stats
         .scopes
         .iter()
-        .map(|(key, value)| (*key, *value))
+        .map(|(key, value)| (key, *value))
         .collect();
-    scopes.sort_by_key(|(id_loc, _)| *id_loc);
-    scopes.sort_by_key(|(_id_loc, scope_stats)| scope_stats.bytes);
+    scopes.sort_by_key(|(key, _)| *key);
+    scopes.sort_by_key(|(_key, scope_stats)| scope_stats.bytes);
     scopes.reverse();
 
     egui::ScrollArea::vertical().show(ui, |ui| {
         egui::Grid::new("table")
             .spacing([32.0, ui.spacing().item_spacing.y])
             .show(ui, |ui| {
+                ui.heading("Thread");
                 ui.heading("Location");
                 ui.heading("ID");
                 ui.heading("Count");
@@ -52,9 +53,10 @@ pub fn ui(ui: &mut egui::Ui, frames: &[std::sync::Arc<FrameData>]) {
                 ui.heading("Max self time");
                 ui.end_row();
 
-                for (id_loc, stats) in &scopes {
-                    ui.label(id_loc.location);
-                    ui.label(id_loc.id);
+                for (key, stats) in &scopes {
+                    ui.label(&key.thread_name);
+                    ui.label(key.location);
+                    ui.label(key.id);
                     ui.monospace(format!("{:>5}", stats.count));
                     ui.monospace(format!("{:>6.1} kB", stats.bytes as f32 * 1e-3));
                     ui.monospace(format!("{:>8.1} µs", stats.total_self_ns as f32 * 1e-3));
@@ -71,13 +73,14 @@ pub fn ui(ui: &mut egui::Ui, frames: &[std::sync::Arc<FrameData>]) {
 
 #[derive(Default)]
 struct Stats<'s> {
-    scopes: std::collections::HashMap<IdAndLocation<'s>, ScopeStats>,
+    scopes: std::collections::HashMap<Key<'s>, ScopeStats>,
 }
 
-#[derive(Copy, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
-struct IdAndLocation<'s> {
+#[derive(Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
+struct Key<'s> {
     id: &'s str,
     location: &'s str,
+    thread_name: String,
 }
 
 #[derive(Copy, Clone, Default)]
@@ -92,30 +95,36 @@ struct ScopeStats {
     max_ns: NanoSecond,
 }
 
-fn collect_stream<'s>(stats: &mut Stats<'s>, stream: &'s puffin::Stream) -> puffin::Result<()> {
+fn collect_stream<'s>(
+    stats: &mut Stats<'s>,
+    thread_name: &str,
+    stream: &'s puffin::Stream,
+) -> puffin::Result<()> {
     for scope in puffin::Reader::from_start(stream) {
-        collect_scope(stats, stream, &scope?)?;
+        collect_scope(stats, thread_name, stream, &scope?)?;
     }
     Ok(())
 }
 
 fn collect_scope<'s>(
     stats: &mut Stats<'s>,
+    thread_name: &str,
     stream: &'s puffin::Stream,
     scope: &puffin::Scope<'s>,
 ) -> puffin::Result<()> {
     let mut ns_used_by_children = 0;
     for child_scope in Reader::with_offset(stream, scope.child_begin_position)? {
         let child_scope = &child_scope?;
-        collect_scope(stats, stream, child_scope)?;
+        collect_scope(stats, thread_name, stream, child_scope)?;
         ns_used_by_children += child_scope.record.duration_ns;
     }
 
     let self_time = scope.record.duration_ns.saturating_sub(ns_used_by_children);
 
-    let key = IdAndLocation {
+    let key = Key {
         id: scope.record.id,
         location: scope.record.location,
+        thread_name: thread_name.to_owned(),
     };
     let scope_stats = stats.scopes.entry(key).or_default();
     scope_stats.count += 1;
