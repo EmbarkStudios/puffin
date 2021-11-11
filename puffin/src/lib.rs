@@ -121,6 +121,8 @@ pub fn are_scopes_on() -> bool {
 /// All times are expressed as integer nanoseconds since some event.
 pub type NanoSecond = i64;
 
+// ----------------------------------------------------------------------------
+
 /// Stream of profiling events from one thread.
 #[derive(Clone, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
@@ -139,8 +141,12 @@ impl Stream {
         &self.0
     }
 
-    pub fn append(&mut self, mut other: Self) {
-        self.0.append(&mut other.0);
+    pub fn clear(&mut self) {
+        self.0.clear();
+    }
+
+    fn extend(&mut self, bytes: &[u8]) {
+        self.0.extend(bytes);
     }
 }
 
@@ -149,6 +155,8 @@ impl From<Vec<u8>> for Stream {
         Self(v)
     }
 }
+
+// ----------------------------------------------------------------------------
 
 /// Used when parsing a Stream.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -203,7 +211,7 @@ pub struct ThreadInfo {
 
 pub type FrameIndex = u64;
 
-/// A `Stream` plus some info about it.
+/// A [`Stream`] plus some info about it.
 #[derive(Clone)]
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 pub struct StreamInfo {
@@ -261,13 +269,54 @@ impl StreamInfo {
         }
     }
 
-    pub fn append(&mut self, other: Self) {
-        self.stream.append(other.stream);
+    pub fn extend(&mut self, other: &StreamInfoRef<'_>) {
+        self.stream.extend(other.stream);
         self.num_scopes += other.num_scopes;
         self.depth = self.depth.max(other.depth);
         self.range_ns.0 = self.range_ns.0.min(other.range_ns.0);
         self.range_ns.1 = self.range_ns.1.max(other.range_ns.1);
     }
+
+    pub fn clear(&mut self) {
+        let Self {
+            stream,
+            num_scopes,
+            depth,
+            range_ns,
+        } = self;
+        stream.clear();
+        *num_scopes = 0;
+        *depth = 0;
+        *range_ns = (NanoSecond::MAX, NanoSecond::MIN);
+    }
+
+    pub fn as_stream_into_ref(&self) -> StreamInfoRef<'_> {
+        StreamInfoRef {
+            stream: self.stream.bytes(),
+            num_scopes: self.num_scopes,
+            depth: self.depth,
+            range_ns: self.range_ns,
+        }
+    }
+}
+
+/// A reference to the contents of a [`StreamInfo`].
+#[derive(Clone, Copy)]
+pub struct StreamInfoRef<'a> {
+    /// The raw profile data.
+    pub stream: &'a [u8],
+
+    /// Total number of scopes in the stream.
+    pub num_scopes: usize,
+
+    /// The depth of the deepest scope.
+    /// `0` mean no scopes, `1` some scopes without children, etc.
+    pub depth: usize,
+
+    /// The smallest and largest nanosecond value in the stream.
+    ///
+    /// The default value is `(NanoSecond::MAX, NanoSecond::MIN)` which indicates an empty stream.
+    pub range_ns: (NanoSecond, NanoSecond),
 }
 
 // ----------------------------------------------------------------------------
@@ -423,10 +472,10 @@ impl FrameData {
 // ----------------------------------------------------------------------------
 
 type NsSource = fn() -> NanoSecond;
-type ThreadReporter = fn(ThreadInfo, StreamInfo);
+type ThreadReporter = fn(ThreadInfo, &StreamInfoRef<'_>);
 
-/// Report a stream of profile data from a thread to the `GlobalProfiler` singleton.
-pub fn global_reporter(info: ThreadInfo, stream_info: StreamInfo) {
+/// Report a stream of profile data from a thread to the [`GlobalProfiler`] singleton.
+pub fn global_reporter(info: ThreadInfo, stream_info: &StreamInfoRef<'_>) {
     GlobalProfiler::lock().report(info, stream_info);
 }
 
@@ -455,10 +504,10 @@ impl Default for ThreadProfiler {
 impl ThreadProfiler {
     /// Explicit initialize with custom callbacks.
     ///
-    /// If not called, each thread will use the default nanosecond source
-    /// and report scopes to the global profiler.
+    /// If not called, each thread will use the default nanosecond source (`[now_ns]`)
+    /// and report scopes to the global profiler ([`global_reporter`]).
     ///
-    /// For instance, when compiling for WASM the default timing function (`puffin::now_ns`) won't work,
+    /// For instance, when compiling for WASM the default timing function (`[now_ns]`) won't work,
     /// so you'll want to call `puffin::ThreadProfiler::initialize(my_timing_function, puffin::global_reporter);`.
     pub fn initialize(now_ns: NsSource, reporter: ThreadReporter) {
         ThreadProfiler::call(|tp| {
@@ -502,12 +551,12 @@ impl ThreadProfiler {
                 start_time_ns: self.start_time_ns,
                 name: std::thread::current().name().unwrap_or_default().to_owned(),
             };
-            let stream_info = std::mem::take(&mut self.stream_info);
-            (self.reporter)(info, stream_info);
+            (self.reporter)(info, &self.stream_info.as_stream_into_ref());
+            self.stream_info.clear();
         }
     }
 
-    /// Do something with the thread local `ThreadProfiler`
+    /// Do something with the thread local [`ThreadProfiler`]
     #[inline]
     pub fn call<R>(f: impl Fn(&mut Self) -> R) -> R {
         thread_local! {
@@ -522,6 +571,7 @@ impl ThreadProfiler {
 /// Add these to [`GlobalProfiler`] with [`GlobalProfiler::add_sink`].
 pub type FrameSink = Box<dyn Fn(Arc<FrameData>) + Send>;
 
+/// Identifies a specific [`FrameSink`] when added to [`GlobalProfiler`].
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
 pub struct FrameSinkId(u64);
 
@@ -583,12 +633,12 @@ impl GlobalProfiler {
         }
     }
 
-    /// Report some profiling data. Called from `ThreadProfiler`.
-    pub fn report(&mut self, info: ThreadInfo, stream_info: StreamInfo) {
+    /// Report some profiling data. Called from [`ThreadProfiler`].
+    pub fn report(&mut self, info: ThreadInfo, stream_info: &StreamInfoRef<'_>) {
         self.current_frame
             .entry(info)
             .or_default()
-            .append(stream_info);
+            .extend(stream_info);
     }
 
     /// Tells [`GlobalProfiler`] to call this function with each new finished frame.
