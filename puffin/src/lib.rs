@@ -836,14 +836,6 @@ macro_rules! profile_function {
     };
 }
 
-#[deprecated = "Use puffin::profile_function!(data); instead"]
-#[macro_export]
-macro_rules! profile_function_data {
-    ($data:expr) => {
-        $crate::profile_function($data);
-    };
-}
-
 #[allow(clippy::doc_markdown)] // clippy wants to put "MacBook" in ticks 🙄
 /// Profile the current scope with the given name (unique in the parent scope).
 ///
@@ -870,13 +862,5 @@ macro_rules! profile_scope {
         } else {
             None
         };
-    };
-}
-
-#[deprecated = "Use puffin::profile_scope!(id, data) instead"]
-#[macro_export]
-macro_rules! profile_scope_data {
-    ($id:expr, $data:expr) => {
-        $crate::profile_scope_function($id, $data);
     };
 }

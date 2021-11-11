@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 * Introduce `StreamInfoRef` to avoid memory allocations.
+* Remove deprecated macros `profile_function_data` and `profile_scope_data`.
 
 
 ## 0.10.1 - 2021-11-02
