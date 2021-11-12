@@ -175,6 +175,14 @@ impl AvailableFrames {
             slowest: frame_view.slowest_frames_chronological(),
         }
     }
+
+    fn all_uniq(&self) -> Vec<Arc<FrameData>> {
+        let mut all = self.slowest.clone();
+        all.extend(self.recent.iter().cloned());
+        all.sort_by_key(|frame| frame.frame_index);
+        all.dedup_by_key(|frame| frame.frame_index);
+        all
+    }
 }
 
 /// Multiple streams for one thread.
@@ -535,6 +543,16 @@ impl ProfilerUi {
                 );
             });
         });
+
+        {
+            let uniq = frames.all_uniq();
+            let bytes: usize = uniq.iter().map(|frame| frame.num_bytes).sum();
+            ui.label(format!(
+                "{} frames recorded ({:.1} MB)",
+                uniq.len(),
+                bytes as f64 * 1e-6
+            ));
+        }
 
         hovered_frame
     }

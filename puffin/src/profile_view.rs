@@ -94,7 +94,7 @@ impl FrameView {
     }
 
     /// How many frames of recent history to store.
-    pub fn set_max_history(&mut self, max_recent: usize) {
+    pub fn set_max_recent(&mut self, max_recent: usize) {
         self.max_recent = max_recent;
     }
 

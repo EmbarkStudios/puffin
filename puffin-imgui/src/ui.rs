@@ -172,6 +172,16 @@ pub struct Frames {
     pub slowest: Vec<Arc<FrameData>>,
 }
 
+impl Frames {
+    fn all_uniq(&self) -> Vec<Arc<FrameData>> {
+        let mut all = self.slowest.clone();
+        all.extend(self.recent.iter().cloned());
+        all.sort_by_key(|frame| frame.frame_index);
+        all.dedup_by_key(|frame| frame.frame_index);
+        all
+    }
+}
+
 #[derive(Clone)]
 pub struct Paused {
     /// What we are viewing
@@ -578,6 +588,26 @@ impl ProfilerUi {
         let frames = self.frames();
 
         let mut hovered_frame = None;
+
+        {
+            let uniq = frames.all_uniq();
+            let bytes: usize = uniq.iter().map(|frame| frame.num_bytes).sum();
+            ui.text(format!(
+                "{} frames recorded ({:.1} MB)",
+                uniq.len(),
+                bytes as f64 * 1e-6
+            ));
+
+            let mut memory_length = self.frame_view.lock().max_recent() as u64;
+            imgui::Slider::new("Max frames to store", 10, 100_000)
+                .display_format(format!(
+                    "%d (~ {:.1} min at 60 Hz, ~ {:.0} MB)",
+                    memory_length as f32 / 60.0 / 60.0,
+                    memory_length as f32 * bytes as f32 / uniq.len() as f32 * 1e-6,
+                ))
+                .build(ui, &mut memory_length);
+            self.frame_view.lock().set_max_recent(memory_length as _);
+        }
 
         ui.columns(2, "columns", false);
         ui.set_column_width(0, 64.0);
