@@ -6,6 +6,10 @@ All notable changes to `puffin_http` will be documented in this file.
 ## Unreleased
 
 
+## 0.8.0 - 2021-11-12
+* Update to puffin 0.11.0.
+
+
 ## 0.7.3 - 2021-11-08
 * Add `Server::num_clients`.
 

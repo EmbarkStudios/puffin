@@ -1797,7 +1797,7 @@ dependencies = [
 
 [[package]]
 name = "puffin"
-version = "0.10.1"
+version = "0.11.0"
 dependencies = [
  "anyhow",
  "bincode",
@@ -1811,7 +1811,7 @@ dependencies = [
 
 [[package]]
 name = "puffin-imgui"
-version = "0.13.4"
+version = "0.14.0"
 dependencies = [
  "glium",
  "imgui",
@@ -1840,7 +1840,7 @@ dependencies = [
 
 [[package]]
 name = "puffin_http"
-version = "0.7.3"
+version = "0.8.0"
 dependencies = [
  "anyhow",
  "crossbeam-channel",
