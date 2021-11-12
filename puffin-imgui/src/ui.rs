@@ -176,8 +176,8 @@ impl Frames {
     fn all_uniq(&self) -> Vec<Arc<FrameData>> {
         let mut all = self.slowest.clone();
         all.extend(self.recent.iter().cloned());
-        all.sort_by_key(|frame| frame.frame_index);
-        all.dedup_by_key(|frame| frame.frame_index);
+        all.sort_by_key(|frame| frame.frame_index());
+        all.dedup_by_key(|frame| frame.frame_index());
         all
     }
 }
@@ -381,7 +381,7 @@ impl ProfilerUi {
     }
 
     fn selected_frame_index(&self) -> Option<FrameIndex> {
-        self.selected_frame().map(|frame| frame.frame_index)
+        self.selected_frame().map(|frame| frame.frame_index())
     }
 
     /// Show the profiler.
@@ -421,7 +421,7 @@ impl ProfilerUi {
 
         // TODO: show age of data
 
-        let (min_ns, max_ns) = frame.range_ns;
+        let (min_ns, max_ns) = frame.range_ns();
 
         ui.button("Help!");
         if ui.is_item_hovered() {
@@ -465,11 +465,11 @@ impl ProfilerUi {
 
         ui.text(format!(
             "Showing frame #{}, {:.1} ms, {} threads, {} scopes, {:.1} kB",
-            frame.frame_index,
+            frame.frame_index(),
             (max_ns - min_ns) as f64 * 1e-6,
             frame.thread_streams.len(),
-            frame.num_scopes,
-            frame.num_bytes as f64 * 1e-3
+            frame.meta.num_scopes,
+            frame.meta.num_bytes as f64 * 1e-3
         ));
 
         // The number of threads can change between frames, so always show this even if there currently is only one thread:
@@ -599,7 +599,7 @@ impl ProfilerUi {
 
         {
             let uniq = frames.all_uniq();
-            let bytes: usize = uniq.iter().map(|frame| frame.num_bytes).sum();
+            let bytes: usize = uniq.iter().map(|frame| frame.meta.num_bytes).sum();
             ui.text(format!(
                 "{} frames recorded ({:.1} MB)",
                 uniq.len(),
@@ -701,7 +701,7 @@ impl ProfilerUi {
                     let duration = frame.duration_ns();
                     slowest_visible_frame = duration.max(slowest_visible_frame);
 
-                    let is_selected = Some(frame.frame_index) == selected_frame_index;
+                    let is_selected = Some(frame.frame_index()) == selected_frame_index;
 
                     let is_hovered = rect_min.x - 0.5 * frame_spacing <= mouse_pos.x
                         && mouse_pos.x < rect_max.x + 0.5 * frame_spacing

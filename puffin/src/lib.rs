@@ -321,19 +321,25 @@ pub struct StreamInfoRef<'a> {
 
 // ----------------------------------------------------------------------------
 
-/// One frame worth of profile data, collected from many sources.
-#[derive(Clone)]
+/// Meta-information about a Frame.
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
-pub struct FrameData {
+#[derive(Clone, Debug)]
+pub struct FrameMeta {
+    /// What frame this is (counting from 0 at application startup).
     pub frame_index: FrameIndex,
-    pub thread_streams: BTreeMap<ThreadInfo, Arc<StreamInfo>>,
+    /// The span we cover.
     pub range_ns: (NanoSecond, NanoSecond),
-    /// The uncompressed size
+    /// The uncompressed size.
     pub num_bytes: usize,
+    /// Total number of scopes.
     pub num_scopes: usize,
+}
 
+/// One frame worth of profile data, collected from many sources.
+pub struct FrameData {
+    pub meta: FrameMeta,
+    pub thread_streams: BTreeMap<ThreadInfo, Arc<StreamInfo>>,
     /// Size of the compressed data (in bytes), if this was decompressed.
-    #[cfg_attr(feature = "serde", serde(default, skip))]
     pub compressed_size: Option<usize>,
 }
 
@@ -361,11 +367,13 @@ impl FrameData {
 
         if min_ns <= max_ns {
             Ok(Self {
-                frame_index,
+                meta: FrameMeta {
+                    frame_index,
+                    range_ns: (min_ns, max_ns),
+                    num_bytes,
+                    num_scopes,
+                },
                 thread_streams,
-                range_ns: (min_ns, max_ns),
-                num_bytes,
-                num_scopes,
                 compressed_size: None,
             })
         } else {
@@ -373,8 +381,16 @@ impl FrameData {
         }
     }
 
+    pub fn frame_index(&self) -> u64 {
+        self.meta.frame_index
+    }
+
+    pub fn range_ns(&self) -> (NanoSecond, NanoSecond) {
+        self.meta.range_ns
+    }
+
     pub fn duration_ns(&self) -> NanoSecond {
-        let (min, max) = self.range_ns;
+        let (min, max) = self.meta.range_ns;
         max - min
     }
 
@@ -382,21 +398,20 @@ impl FrameData {
     #[cfg(feature = "serialization")]
     pub fn write_into(&self, write: &mut impl std::io::Write) -> anyhow::Result<()> {
         use bincode::Options as _;
-        let serialized = bincode::options().serialize(self)?;
+        let meta_serialized = bincode::options().serialize(&self.meta)?;
+        let streams_serialized = bincode::options().serialize(&self.thread_streams)?;
 
-        if false {
-            let compressed = lz4_flex::compress_prepend_size(&serialized);
-            write.write_all(b"PFD0")?;
-            write.write_all(&(compressed.len() as u32).to_le_bytes())?;
-            write.write_all(&compressed)?;
-        } else {
-            // zstd cuts sizes in half compared to lz4_flex
-            let level = 3;
-            let compressed = zstd::encode_all(std::io::Cursor::new(&serialized), level)?;
-            write.write_all(b"PFD1")?;
-            write.write_all(&(compressed.len() as u32).to_le_bytes())?;
-            write.write_all(&compressed)?;
-        }
+        // zstd cuts sizes in half compared to lz4_flex
+        let level = 3;
+        let streams_compressed =
+            zstd::encode_all(std::io::Cursor::new(&streams_serialized), level)?;
+
+        write.write_all(b"PFD2")?;
+        write.write_all(&(meta_serialized.len() as u32).to_le_bytes())?;
+        write.write_all(&meta_serialized)?;
+        write.write_all(&(streams_compressed.len() as u32).to_le_bytes())?;
+        write.write_all(&streams_compressed)?;
+
         Ok(())
     }
 
@@ -407,6 +422,7 @@ impl FrameData {
     #[cfg(feature = "serialization")]
     pub fn read_next(read: &mut impl std::io::Read) -> anyhow::Result<Option<Self>> {
         use anyhow::Context as _;
+        use bincode::Options as _;
 
         let mut header = [0_u8; 4];
         if let Err(err) = read.read_exact(&mut header) {
@@ -414,6 +430,38 @@ impl FrameData {
                 return Ok(None);
             } else {
                 return Err(err.into());
+            }
+        }
+
+        #[derive(Clone)]
+        #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+        pub struct LegacyFrameData {
+            pub frame_index: FrameIndex,
+            pub thread_streams: BTreeMap<ThreadInfo, Arc<StreamInfo>>,
+            pub range_ns: (NanoSecond, NanoSecond),
+            pub num_bytes: usize,
+            pub num_scopes: usize,
+        }
+
+        impl LegacyFrameData {
+            fn into_frame_data(self, compressed_size: Option<usize>) -> FrameData {
+                let Self {
+                    frame_index,
+                    thread_streams,
+                    range_ns,
+                    num_bytes,
+                    num_scopes,
+                } = self;
+                FrameData {
+                    meta: FrameMeta {
+                        frame_index,
+                        range_ns,
+                        num_bytes,
+                        num_scopes,
+                    },
+                    thread_streams,
+                    compressed_size,
+                }
             }
         }
 
@@ -430,12 +478,10 @@ impl FrameData {
                 let serialized =
                     lz4_flex::decompress_size_prepended(&compressed).context("lz4 decompress")?;
 
-                use bincode::Options as _;
-                let mut frame: Self = bincode::options()
+                let legacy: LegacyFrameData = bincode::options()
                     .deserialize(&serialized)
                     .context("bincode deserialize")?;
-                frame.compressed_size = Some(compressed_length);
-                Ok(Some(frame))
+                Ok(Some(legacy.into_frame_data(Some(compressed_length))))
             } else if &header == b"PFD1" {
                 let mut compressed_length = [0_u8; 4];
                 read.read_exact(&mut compressed_length)?;
@@ -445,12 +491,42 @@ impl FrameData {
 
                 let serialized = zstd::decode_all(&compressed[..]).context("zstd decompress")?;
 
-                use bincode::Options as _;
-                let mut frame: Self = bincode::options()
+                let legacy: LegacyFrameData = bincode::options()
                     .deserialize(&serialized)
                     .context("bincode deserialize")?;
-                frame.compressed_size = Some(compressed_length);
-                Ok(Some(frame))
+                Ok(Some(legacy.into_frame_data(Some(compressed_length))))
+            } else if &header == b"PFD2" {
+                let mut meta_length = [0_u8; 4];
+                read.read_exact(&mut meta_length)?;
+                let meta_length = u32::from_le_bytes(meta_length) as usize;
+                let mut meta = vec![0_u8; meta_length];
+                read.read_exact(&mut meta)?;
+
+                let meta: FrameMeta = bincode::options()
+                    .deserialize(&meta)
+                    .context("bincode deserialize")?;
+
+                let mut streams_compressed_length = [0_u8; 4];
+                read.read_exact(&mut streams_compressed_length)?;
+                let streams_compressed_length =
+                    u32::from_le_bytes(streams_compressed_length) as usize;
+                let mut streams_compressed = vec![0_u8; streams_compressed_length];
+                read.read_exact(&mut streams_compressed)?;
+
+                // TODO: postpone decoding of the streams until needed!
+
+                let streams_serialized =
+                    zstd::decode_all(&streams_compressed[..]).context("zstd decompress")?;
+
+                let thread_streams: BTreeMap<ThreadInfo, Arc<StreamInfo>> = bincode::options()
+                    .deserialize(&streams_serialized)
+                    .context("bincode deserialize")?;
+
+                Ok(Some(Self {
+                    meta,
+                    thread_streams,
+                    compressed_size: Some(streams_compressed_length),
+                }))
             } else {
                 anyhow::bail!("Failed to decode: this data is newer than this reader. Please update your puffin version!");
             }
@@ -460,11 +536,10 @@ impl FrameData {
             read.read_exact(&mut bytes)?;
 
             use bincode::Options as _;
-            Ok(Some(
-                bincode::options()
-                    .deserialize(&bytes)
-                    .context("bincode deserialize")?,
-            ))
+            let legacy: LegacyFrameData = bincode::options()
+                .deserialize(&bytes)
+                .context("bincode deserialize")?;
+            Ok(Some(legacy.into_frame_data(None)))
         }
     }
 }

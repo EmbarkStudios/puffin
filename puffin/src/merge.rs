@@ -144,7 +144,7 @@ pub fn merge_scopes_for_thread<'s>(
 
     for frame in frames {
         if let Some(stream_info) = frame.thread_streams.get(thread_info) {
-            let offset_ns = frame.range_ns.0 - frames[0].range_ns.0; // make everything relative to first frame
+            let offset_ns = frame.meta.range_ns.0 - frames[0].meta.range_ns.0; // make everything relative to first frame
 
             let top_scopes = Reader::from_start(&stream_info.stream).read_top_scopes()?;
             for scope in top_scopes {

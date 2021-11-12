@@ -179,8 +179,8 @@ impl AvailableFrames {
     fn all_uniq(&self) -> Vec<Arc<FrameData>> {
         let mut all = self.slowest.clone();
         all.extend(self.recent.iter().cloned());
-        all.sort_by_key(|frame| frame.frame_index);
-        all.dedup_by_key(|frame| frame.frame_index);
+        all.sort_by_key(|frame| frame.frame_index());
+        all.dedup_by_key(|frame| frame.frame_index());
         all
     }
 }
@@ -239,8 +239,8 @@ impl SelectedFrames {
 
     fn from_vec1(mut frames: vec1::Vec1<Arc<FrameData>>) -> Self {
         puffin::profile_function!();
-        frames.sort_by_key(|f| f.frame_index);
-        frames.dedup_by_key(|f| f.frame_index);
+        frames.sort_by_key(|f| f.frame_index());
+        frames.dedup_by_key(|f| f.frame_index());
 
         let mut threads: BTreeSet<ThreadInfo> = BTreeSet::new();
         for frame in &frames {
@@ -265,7 +265,10 @@ impl SelectedFrames {
             }
         }
 
-        let raw_range_ns = (frames.first().range_ns.0, frames.last().range_ns.1);
+        let raw_range_ns = (
+            frames.first().meta.range_ns.0,
+            frames.last().meta.range_ns.1,
+        );
 
         Self {
             frames,
@@ -276,7 +279,7 @@ impl SelectedFrames {
     }
 
     pub fn contains(&self, frame_index: u64) -> bool {
-        self.frames.iter().any(|f| f.frame_index == frame_index)
+        self.frames.iter().any(|f| f.frame_index() == frame_index)
     }
 }
 
@@ -372,7 +375,7 @@ impl ProfilerUi {
         if let Some(paused) = &self.paused {
             paused.selected.contains(frame_index)
         } else if let Some(latest_frame) = frame_view.latest_frame() {
-            latest_frame.frame_index == frame_index
+            latest_frame.frame_index() == frame_index
         } else {
             false
         }
@@ -546,7 +549,7 @@ impl ProfilerUi {
 
         {
             let uniq = frames.all_uniq();
-            let bytes: usize = uniq.iter().map(|frame| frame.num_bytes).sum();
+            let bytes: usize = uniq.iter().map(|frame| frame.meta.num_bytes).sum();
             ui.label(format!(
                 "{} frames recorded ({:.1} MB)",
                 uniq.len(),
@@ -573,7 +576,7 @@ impl ProfilerUi {
             frames.len() as f32 * frame_width_including_spacing
         } else {
             // leave gaps in the view for the missing frames
-            let num_frames = frames[frames.len() - 1].frame_index + 1 - frames[0].frame_index;
+            let num_frames = frames[frames.len() - 1].frame_index() + 1 - frames[0].frame_index();
             num_frames as f32 * frame_width_including_spacing
         };
 
@@ -597,9 +600,9 @@ impl ProfilerUi {
             let x = if tight {
                 rect.right() - (frames.len() as f32 - i as f32) * frame_width_including_spacing
             } else {
-                let latest_frame_index = frames[frames.len() - 1].frame_index;
+                let latest_frame_index = frames[frames.len() - 1].frame_index();
                 rect.right()
-                    - (latest_frame_index + 1 - frame.frame_index) as f32
+                    - (latest_frame_index + 1 - frame.frame_index()) as f32
                         * frame_width_including_spacing
             };
 
@@ -612,7 +615,7 @@ impl ProfilerUi {
                 let duration = frame.duration_ns();
                 slowest_visible_frame = duration.max(slowest_visible_frame);
 
-                let is_selected = self.is_selected(frame_view, frame.frame_index);
+                let is_selected = self.is_selected(frame_view, frame.frame_index());
 
                 let is_hovered = if let Some(mouse_pos) = response.hover_pos() {
                     response.hovered()
@@ -689,11 +692,11 @@ fn frames_info_ui(ui: &mut egui::Ui, selection: &SelectedFrames) {
     let mut sum_bytes_compressed = 0;
 
     for frame in &selection.frames {
-        let (min_ns, max_ns) = frame.range_ns;
+        let (min_ns, max_ns) = frame.range_ns();
         sum_ns += max_ns - min_ns;
 
-        sum_scopes += frame.num_scopes;
-        sum_bytes += frame.num_bytes;
+        sum_scopes += frame.meta.num_scopes;
+        sum_bytes += frame.meta.num_bytes;
 
         if let Some(compressed_size) = frame.compressed_size {
             sum_bytes_compressed += compressed_size;
@@ -703,15 +706,15 @@ fn frames_info_ui(ui: &mut egui::Ui, selection: &SelectedFrames) {
     }
 
     let frame_indices = if selection.frames.len() == 1 {
-        format!("frame #{}", selection.frames[0].frame_index)
+        format!("frame #{}", selection.frames[0].frame_index())
     } else if selection.frames.len() as u64
-        == selection.frames.last().frame_index - selection.frames.first().frame_index + 1
+        == selection.frames.last().frame_index() - selection.frames.first().frame_index() + 1
     {
         format!(
             "{} frames (#{} - #{})",
             selection.frames.len(),
-            selection.frames.first().frame_index,
-            selection.frames.last().frame_index
+            selection.frames.first().frame_index(),
+            selection.frames.last().frame_index()
         )
     } else {
         format!("{} frames", selection.frames.len())
