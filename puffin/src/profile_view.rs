@@ -15,7 +15,7 @@ pub struct FrameView {
 
 impl Default for FrameView {
     fn default() -> Self {
-        let max_recent = 60 * 60 * 15;
+        let max_recent = 60 * 60 * 5;
         let max_slow = 256;
 
         Self {
