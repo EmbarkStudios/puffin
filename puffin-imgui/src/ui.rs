@@ -213,9 +213,12 @@ pub struct ProfilerUi {
 
 impl Default for ProfilerUi {
     fn default() -> Self {
+        let frame_view = GlobalFrameView::default();
+        frame_view.lock().set_max_recent(60 * 10); // We can't currently scroll back anyway
+
         Self {
             options: Default::default(),
-            frame_view: Default::default(),
+            frame_view,
             is_panning: false,
             is_zooming: false,
             paused: None,
@@ -389,8 +392,13 @@ impl ProfilerUi {
 
         puffin::profile_function!();
 
+        let mut scopes_on = puffin::are_scopes_on();
+        ui.checkbox("Profiling enabled", &mut scopes_on);
+        puffin::set_scopes_on(scopes_on);
+
         if !puffin::are_scopes_on() {
-            ui.text_colored(ERROR_COLOR, "The puffin profiler is OFF!");
+            ui.same_line();
+            ui.text_colored(ERROR_COLOR, "No new scopes are being recorded!");
         }
 
         let mut hovered_frame = None;
