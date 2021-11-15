@@ -89,6 +89,10 @@ struct Arguments {
     /// what .puffin file to open, e.g. `my/recording.puffin`.
     #[argh(positional)]
     file: Option<String>,
+
+    /// maximum number of frames to save in memory
+    #[argh(option)]
+    max_recent_frames: Option<usize>,
 }
 
 fn default_url() -> String {
@@ -119,9 +123,14 @@ fn main() {
             }
         }
     } else {
+        let client = puffin_http::Client::new(opt.url);
+        if let Some(max_recent_frames) = opt.max_recent_frames {
+            client.frame_view()
+                .set_max_recent(max_recent_frames);
+        }
         PuffinViewer {
             profiler_ui: Default::default(),
-            source: Source::Http(puffin_http::Client::new(opt.url)),
+            source: Source::Http(client),
             error: None,
         }
     };
