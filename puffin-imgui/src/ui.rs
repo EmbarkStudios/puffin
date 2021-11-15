@@ -608,10 +608,17 @@ impl ProfilerUi {
 
         {
             let uniq = frames.all_uniq();
-            let bytes: usize = uniq.iter().map(|frame| frame.meta.num_bytes).sum();
+
+            let mut bytes = 0;
+            let mut unpacked = 0;
+            for frame in &uniq {
+                bytes += frame.bytes_of_ram_used();
+                unpacked += frame.has_unpacked() as usize;
+            }
             ui.text(format!(
-                "{} frames recorded ({:.1} MB)",
+                "{} frames ({} unpacked) using approximately {:.1} MB.",
                 uniq.len(),
+                unpacked,
                 bytes as f64 * 1e-6
             ));
 

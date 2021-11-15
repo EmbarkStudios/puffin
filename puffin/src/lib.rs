@@ -444,9 +444,33 @@ impl FrameData {
         max - min
     }
 
-    /// Number of bytes used when compressed, if known.
+    /// Number of bytes used by the compressed data, if compressed.
     pub fn compressed_size(&self) -> Option<usize> {
         self.zstd_streams.read().as_ref().map(|c| c.len())
+    }
+
+    /// Number of bytes used when compressed, if known.
+    pub fn unpacked_size(&self) -> Option<usize> {
+        if self.has_unpacked() {
+            Some(self.meta.num_bytes)
+        } else {
+            None
+        }
+    }
+
+    /// bytes currently used by the unpacked and compressed data.
+    pub fn bytes_of_ram_used(&self) -> usize {
+        self.unpacked_size().unwrap_or(0) + self.compressed_size().unwrap_or(0)
+    }
+
+    /// Do we have a compressed version stored internally?
+    pub fn has_compressed(&self) -> bool {
+        self.zstd_streams.read().is_some()
+    }
+
+    /// Do we have a unpacked version stored internally?
+    pub fn has_unpacked(&self) -> bool {
+        self.unpacked_frame.read().is_some()
     }
 
     /// Lazily unpacks.
@@ -486,6 +510,13 @@ impl FrameData {
             Ok(frame) => Ok(frame.clone()),
             Err(err) => Err(anyhow::format_err!("{}", err)), // can't clone `anyhow::Error`
         }
+    }
+
+    /// Make the `FrameData` use up less memory.
+    /// Idempotent.
+    pub fn compress(&self) {
+        self.compress_if_needed();
+        *self.unpacked_frame.write() = None;
     }
 
     fn compress_if_needed(&self) {
