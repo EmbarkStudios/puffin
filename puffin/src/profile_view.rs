@@ -62,7 +62,7 @@ impl FrameView {
         if let Some(last) = self.recent_frames.back() {
             // Assume there is a viewer viewing the newest frame,
             // and compress the previously newest frame to save RAM:
-            last.compress();
+            last.pack();
         }
 
         self.recent_frames.push_back(new_frame);

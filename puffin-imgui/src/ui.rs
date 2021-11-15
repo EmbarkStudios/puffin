@@ -473,12 +473,11 @@ impl ProfilerUi {
         );
 
         ui.text(format!(
-            "Showing frame #{}, {:.1} ms, {} threads, {} scopes, {:.1} kB",
+            "Showing frame #{}, {:.1} ms, {} threads, {} scopes.",
             frame.frame_index(),
             (max_ns - min_ns) as f64 * 1e-6,
             frame.thread_streams.len(),
             frame.meta.num_scopes,
-            frame.meta.num_bytes as f64 * 1e-3
         ));
 
         // The number of threads can change between frames, so always show this even if there currently is only one thread:

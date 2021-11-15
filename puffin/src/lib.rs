@@ -400,6 +400,14 @@ impl UnpackedFrameData {
 }
 
 /// One frame worth of profile data, collected from many sources.
+///
+/// This has interior mutability with double storage:
+/// * Unpacked data ([`UnpackedFrameData`])
+/// * Packed (compressed) data
+///
+/// One or both are always stored.
+/// This allows RAM-efficient storage and viewing of many frames of profiling data.
+/// Packing and unpacking is done lazily, on-demand.
 pub struct FrameData {
     pub meta: FrameMeta,
     /// * `None` if still compressed.
@@ -408,7 +416,7 @@ pub struct FrameData {
     unpacked_frame: RwLock<Option<anyhow::Result<Arc<UnpackedFrameData>>>>,
     /// [`FrameMeta::thread_streams`], compressed with zstd.
     /// `None` if not yet compressed.
-    zstd_streams: RwLock<Option<Vec<u8>>>,
+    packed_zstd_streams: RwLock<Option<Vec<u8>>>,
 }
 
 impl FrameData {
@@ -422,12 +430,11 @@ impl FrameData {
         )?)))
     }
 
-    /// Will lazily compress.
     pub fn from_unpacked(frame: Arc<UnpackedFrameData>) -> Self {
         Self {
             meta: frame.meta.clone(),
             unpacked_frame: RwLock::new(Some(Ok(frame))),
-            zstd_streams: RwLock::new(None),
+            packed_zstd_streams: RwLock::new(None),
         }
     }
 
@@ -445,11 +452,11 @@ impl FrameData {
     }
 
     /// Number of bytes used by the compressed data, if compressed.
-    pub fn compressed_size(&self) -> Option<usize> {
-        self.zstd_streams.read().as_ref().map(|c| c.len())
+    pub fn packed_size(&self) -> Option<usize> {
+        self.packed_zstd_streams.read().as_ref().map(|c| c.len())
     }
 
-    /// Number of bytes used when compressed, if known.
+    /// Number of bytes used when unpacked, if known.
     pub fn unpacked_size(&self) -> Option<usize> {
         if self.has_unpacked() {
             Some(self.meta.num_bytes)
@@ -460,12 +467,12 @@ impl FrameData {
 
     /// bytes currently used by the unpacked and compressed data.
     pub fn bytes_of_ram_used(&self) -> usize {
-        self.unpacked_size().unwrap_or(0) + self.compressed_size().unwrap_or(0)
+        self.unpacked_size().unwrap_or(0) + self.packed_size().unwrap_or(0)
     }
 
-    /// Do we have a compressed version stored internally?
-    pub fn has_compressed(&self) -> bool {
-        self.zstd_streams.read().is_some()
+    /// Do we have a packed (compressed) version stored internally?
+    pub fn has_packed(&self) -> bool {
+        self.packed_zstd_streams.read().is_some()
     }
 
     /// Do we have a unpacked version stored internally?
@@ -496,7 +503,7 @@ impl FrameData {
 
         let needs_unpack = self.unpacked_frame.read().is_none();
         if needs_unpack {
-            let compressed_lock = self.zstd_streams.read();
+            let compressed_lock = self.packed_zstd_streams.read();
             let compressed = compressed_lock
                 .as_ref()
                 .expect("FrameData is neither compressed or uncompressed");
@@ -512,16 +519,17 @@ impl FrameData {
         }
     }
 
-    /// Make the `FrameData` use up less memory.
+    /// Make the [`FrameData`] use up less memory.
     /// Idempotent.
-    pub fn compress(&self) {
-        self.compress_if_needed();
+    pub fn pack(&self) {
+        self.created_packed();
         *self.unpacked_frame.write() = None;
     }
 
-    fn compress_if_needed(&self) {
+    /// Create a packed storage without freeing the unpacked storage.
+    fn created_packed(&self) {
         use bincode::Options as _;
-        let needs_compress = self.zstd_streams.read().is_none();
+        let needs_compress = self.packed_zstd_streams.read().is_none();
         if needs_compress {
             let unpacked_frame = self
                 .unpacked_frame
@@ -542,7 +550,7 @@ impl FrameData {
                 zstd::encode_all(std::io::Cursor::new(&streams_serialized), level)
                     .expect("zstd failed to compress");
 
-            *self.zstd_streams.write() = Some(streams_compressed);
+            *self.packed_zstd_streams.write() = Some(streams_compressed);
         }
     }
 
@@ -556,8 +564,8 @@ impl FrameData {
         write.write_all(&(meta_serialized.len() as u32).to_le_bytes())?;
         write.write_all(&meta_serialized)?;
 
-        self.compress_if_needed();
-        let zstd_streams_lock = self.zstd_streams.read();
+        self.pack();
+        let zstd_streams_lock = self.packed_zstd_streams.read();
         let zstd_streams = zstd_streams_lock.as_ref().unwrap();
 
         write.write_all(&(zstd_streams.len() as u32).to_le_bytes())?;
@@ -595,7 +603,7 @@ impl FrameData {
         }
 
         impl LegacyFrameData {
-            fn into_frame_data(self) -> UnpackedFrameData {
+            fn into_unpacked_frame_data(self) -> UnpackedFrameData {
                 let Self {
                     frame_index,
                     thread_streams,
@@ -614,8 +622,8 @@ impl FrameData {
                 }
             }
 
-            fn into_compressed_frame_data(self) -> FrameData {
-                FrameData::from_unpacked(Arc::new(self.into_frame_data()))
+            fn into_frame_data(self) -> FrameData {
+                FrameData::from_unpacked(Arc::new(self.into_unpacked_frame_data()))
             }
         }
 
@@ -635,8 +643,9 @@ impl FrameData {
                 let legacy: LegacyFrameData = bincode::options()
                     .deserialize(&serialized)
                     .context("bincode deserialize")?;
-                Ok(Some(legacy.into_compressed_frame_data()))
+                Ok(Some(legacy.into_frame_data()))
             } else if &header == b"PFD1" {
+                // Added 2021-09
                 let mut compressed_length = [0_u8; 4];
                 read.read_exact(&mut compressed_length)?;
                 let compressed_length = u32::from_le_bytes(compressed_length) as usize;
@@ -648,8 +657,9 @@ impl FrameData {
                 let legacy: LegacyFrameData = bincode::options()
                     .deserialize(&serialized)
                     .context("bincode deserialize")?;
-                Ok(Some(legacy.into_compressed_frame_data()))
+                Ok(Some(legacy.into_frame_data()))
             } else if &header == b"PFD2" {
+                // Added 2021-11-15
                 let mut meta_length = [0_u8; 4];
                 read.read_exact(&mut meta_length)?;
                 let meta_length = u32::from_le_bytes(meta_length) as usize;
@@ -667,16 +677,18 @@ impl FrameData {
                 let mut streams_compressed = vec![0_u8; streams_compressed_length];
                 read.read_exact(&mut streams_compressed)?;
 
+                // Don't unpack now - do it if/when needed!
+
                 Ok(Some(Self {
                     meta,
                     unpacked_frame: RwLock::new(None),
-                    zstd_streams: RwLock::new(Some(streams_compressed)),
+                    packed_zstd_streams: RwLock::new(Some(streams_compressed)),
                 }))
             } else {
                 anyhow::bail!("Failed to decode: this data is newer than this reader. Please update your puffin version!");
             }
         } else {
-            // Old packet without magic header
+            // Very old packet without magic header
             let mut bytes = vec![0_u8; u32::from_le_bytes(header) as usize];
             read.read_exact(&mut bytes)?;
 
@@ -684,7 +696,7 @@ impl FrameData {
             let legacy: LegacyFrameData = bincode::options()
                 .deserialize(&bytes)
                 .context("bincode deserialize")?;
-            Ok(Some(legacy.into_compressed_frame_data()))
+            Ok(Some(legacy.into_frame_data()))
         }
     }
 }
