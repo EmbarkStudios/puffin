@@ -34,7 +34,7 @@ impl FrameView {
 
     pub fn add_frame(&mut self, new_frame: Arc<FrameData>) {
         if let Some(last) = self.recent_frames.back() {
-            if new_frame.frame_index <= last.frame_index {
+            if new_frame.frame_index() <= last.frame_index() {
                 // A frame from the past!?
                 // Likely we are `puffin_viewer`, and the server restarted.
                 // The safe choice is to clear everything:
@@ -59,6 +59,12 @@ impl FrameView {
             }
         }
 
+        if let Some(last) = self.recent_frames.back() {
+            // Assume there is a viewer viewing the newest frame,
+            // and compress the previously newest frame to save RAM:
+            last.pack();
+        }
+
         self.recent_frames.push_back(new_frame);
         while self.recent_frames.len() > self.max_recent {
             self.recent_frames.pop_front();
@@ -79,7 +85,7 @@ impl FrameView {
     /// in chronological order.
     pub fn slowest_frames_chronological(&self) -> Vec<Arc<FrameData>> {
         let mut frames: Vec<_> = self.slowest_frames.iter().map(|f| f.0.clone()).collect();
-        frames.sort_by_key(|frame| frame.frame_index);
+        frames.sort_by_key(|frame| frame.frame_index());
         frames
     }
 
@@ -122,8 +128,8 @@ impl FrameView {
 
         let slowest_frames = self.slowest_frames.iter().map(|f| &f.0);
         let mut frames: Vec<_> = slowest_frames.chain(self.recent_frames.iter()).collect();
-        frames.sort_by_key(|frame| frame.frame_index);
-        frames.dedup_by_key(|frame| frame.frame_index);
+        frames.sort_by_key(|frame| frame.frame_index());
+        frames.dedup_by_key(|frame| frame.frame_index());
 
         for frame in frames {
             frame.write_into(write)?;
@@ -171,7 +177,7 @@ pub fn select_slowest(frames: &[Arc<FrameData>], max: usize) -> Vec<Arc<FrameDat
         }
     }
     let mut slowest: Vec<_> = slowest.drain().map(|x| x.0).collect();
-    slowest.sort_by_key(|frame| frame.frame_index);
+    slowest.sort_by_key(|frame| frame.frame_index());
     slowest
 }
 

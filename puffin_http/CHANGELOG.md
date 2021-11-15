@@ -4,6 +4,7 @@ All notable changes to `puffin_http` will be documented in this file.
 
 
 ## Unreleased
+* In-memory compression of frames to use up less RAM.
 
 
 ## 0.8.0 - 2021-11-12

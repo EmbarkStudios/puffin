@@ -5,6 +5,7 @@ All notable changes to the egui crate will be documented in this file.
 
 ## Unreleased
 * Show total frames recorded and their total size.
+* In-memory compression of frames to use up less RAM.
 
 
 ## 0.10.3 - 2021-11-08

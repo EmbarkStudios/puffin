@@ -1,6 +1,6 @@
 use puffin::*;
 
-pub fn ui(ui: &mut egui::Ui, frames: &[std::sync::Arc<FrameData>]) {
+pub fn ui(ui: &mut egui::Ui, frames: &[std::sync::Arc<UnpackedFrameData>]) {
     let mut threads = std::collections::HashSet::<&ThreadInfo>::new();
     let mut stats = Stats::default();
 

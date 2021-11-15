@@ -176,16 +176,17 @@ impl Frames {
     fn all_uniq(&self) -> Vec<Arc<FrameData>> {
         let mut all = self.slowest.clone();
         all.extend(self.recent.iter().cloned());
-        all.sort_by_key(|frame| frame.frame_index);
-        all.dedup_by_key(|frame| frame.frame_index);
+        all.sort_by_key(|frame| frame.frame_index());
+        all.dedup_by_key(|frame| frame.frame_index());
         all
     }
 }
 
 #[derive(Clone)]
 pub struct Paused {
-    /// What we are viewing
-    selected: Arc<FrameData>,
+    /// The frame we are viewing.
+    selected_frame: Arc<FrameData>,
+    /// All the frames we had when paused.
     frames: Frames,
 }
 
@@ -362,12 +363,12 @@ impl ProfilerUi {
     }
 
     /// Pause on the specific frame
-    fn pause_and_select(&mut self, selected: Arc<FrameData>) {
+    fn pause_and_select(&mut self, selected_frame: Arc<FrameData>) {
         if let Some(paused) = &mut self.paused {
-            paused.selected = selected;
+            paused.selected_frame = selected_frame;
         } else {
             self.paused = Some(Paused {
-                selected,
+                selected_frame,
                 frames: self.frames(),
             });
         }
@@ -376,12 +377,12 @@ impl ProfilerUi {
     fn selected_frame(&self) -> Option<Arc<FrameData>> {
         self.paused
             .as_ref()
-            .map(|paused| paused.selected.clone())
+            .map(|paused| paused.selected_frame.clone())
             .or_else(|| self.frame_view.lock().latest_frame())
     }
 
     fn selected_frame_index(&self) -> Option<FrameIndex> {
-        self.selected_frame().map(|frame| frame.frame_index)
+        self.selected_frame().map(|frame| frame.frame_index())
     }
 
     /// Show the profiler.
@@ -419,9 +420,17 @@ impl ProfilerUi {
             }
         };
 
+        let frame = match frame.unpack() {
+            Ok(frame) => frame,
+            Err(err) => {
+                ui.text_colored(ERROR_COLOR, format!("Bad frame: {}", err));
+                return;
+            }
+        };
+
         // TODO: show age of data
 
-        let (min_ns, max_ns) = frame.range_ns;
+        let (min_ns, max_ns) = frame.range_ns();
 
         ui.button("Help!");
         if ui.is_item_hovered() {
@@ -464,12 +473,11 @@ impl ProfilerUi {
         );
 
         ui.text(format!(
-            "Showing frame #{}, {:.1} ms, {} threads, {} scopes, {:.1} kB",
-            frame.frame_index,
+            "Showing frame #{}, {:.1} ms, {} threads, {} scopes.",
+            frame.frame_index(),
             (max_ns - min_ns) as f64 * 1e-6,
             frame.thread_streams.len(),
-            frame.num_scopes,
-            frame.num_bytes as f64 * 1e-3
+            frame.meta.num_scopes,
         ));
 
         // The number of threads can change between frames, so always show this even if there currently is only one thread:
@@ -514,7 +522,7 @@ impl ProfilerUi {
     fn ui_canvas(
         &mut self,
         info: &Info<'_>,
-        frame: &Arc<FrameData>,
+        frame: &Arc<UnpackedFrameData>,
         (min_ns, max_ns): (NanoSecond, NanoSecond),
     ) -> f32 {
         puffin::profile_function!();
@@ -599,10 +607,17 @@ impl ProfilerUi {
 
         {
             let uniq = frames.all_uniq();
-            let bytes: usize = uniq.iter().map(|frame| frame.num_bytes).sum();
+
+            let mut bytes = 0;
+            let mut unpacked = 0;
+            for frame in &uniq {
+                bytes += frame.bytes_of_ram_used();
+                unpacked += frame.has_unpacked() as usize;
+            }
             ui.text(format!(
-                "{} frames recorded ({:.1} MB)",
+                "{} frames ({} unpacked) using approximately {:.1} MB.",
                 uniq.len(),
+                unpacked,
                 bytes as f64 * 1e-6
             ));
 
@@ -701,7 +716,7 @@ impl ProfilerUi {
                     let duration = frame.duration_ns();
                     slowest_visible_frame = duration.max(slowest_visible_frame);
 
-                    let is_selected = Some(frame.frame_index) == selected_frame_index;
+                    let is_selected = Some(frame.frame_index()) == selected_frame_index;
 
                     let is_hovered = rect_min.x - 0.5 * frame_spacing <= mouse_pos.x
                         && mouse_pos.x < rect_max.x + 0.5 * frame_spacing

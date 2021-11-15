@@ -1805,6 +1805,7 @@ dependencies = [
  "criterion",
  "lz4_flex",
  "once_cell",
+ "parking_lot",
  "serde",
  "zstd",
 ]

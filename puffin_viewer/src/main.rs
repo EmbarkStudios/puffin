@@ -114,7 +114,7 @@ fn main() {
                 error: None,
             },
             Err(err) => {
-                log::error!("Failed to load {}: {}", path.display(), err);
+                log::error!("Failed to load {:?}: {}", path.display(), err);
                 std::process::exit(1);
             }
         }
@@ -203,7 +203,7 @@ impl PuffinViewer {
                 self.error = None;
             }
             Err(err) => {
-                self.error = Some(format!("Failed to load {}: {}", path.display(), err));
+                self.error = Some(format!("Failed to load {:?}: {}", path.display(), err));
             }
         }
     }
