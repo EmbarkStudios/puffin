@@ -1,4 +1,4 @@
-use crate::{DecompressedFrameData, NanoSecond, Reader, Result, Scope, Stream, ThreadInfo};
+use crate::{NanoSecond, Reader, Result, Scope, Stream, ThreadInfo, UnpackedFrameData};
 use std::collections::BTreeMap;
 
 /// Temporary structure while building a `MergeScope`.
@@ -137,7 +137,7 @@ fn build<'s>(nodes: BTreeMap<&'s str, MergeNode<'s>>, num_frames: i64) -> Vec<Me
 
 /// For the given thread, merge all scopes with the same id path.
 pub fn merge_scopes_for_thread<'s>(
-    frames: &'s [std::sync::Arc<DecompressedFrameData>],
+    frames: &'s [std::sync::Arc<UnpackedFrameData>],
     thread_info: &ThreadInfo,
 ) -> Result<Vec<MergeScope<'s>>> {
     let mut top_nodes: BTreeMap<&'s str, MergeNode<'s>> = Default::default();
@@ -198,7 +198,7 @@ fn test_merge() {
         name: "main".to_owned(),
     };
     thread_streams.insert(thread_info.clone(), stream_info);
-    let frame = DecompressedFrameData::new(0, thread_streams).unwrap();
+    let frame = UnpackedFrameData::new(0, thread_streams).unwrap();
     let frames = [Arc::new(frame)];
     let merged = merge_scopes_for_thread(&frames, &thread_info).unwrap();
 

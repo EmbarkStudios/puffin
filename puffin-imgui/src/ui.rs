@@ -184,8 +184,9 @@ impl Frames {
 
 #[derive(Clone)]
 pub struct Paused {
-    /// What we are viewing
-    selected: Arc<FrameData>,
+    /// The frame we are viewing.
+    selected_frame: Arc<FrameData>,
+    /// All the frames we had when paused.
     frames: Frames,
 }
 
@@ -364,10 +365,10 @@ impl ProfilerUi {
     /// Pause on the specific frame
     fn pause_and_select(&mut self, selected: Arc<FrameData>) {
         if let Some(paused) = &mut self.paused {
-            paused.selected = selected;
+            paused.selected_frame = selected;
         } else {
             self.paused = Some(Paused {
-                selected,
+                selected_frame: selected,
                 frames: self.frames(),
             });
         }
@@ -376,7 +377,7 @@ impl ProfilerUi {
     fn selected_frame(&self) -> Option<Arc<FrameData>> {
         self.paused
             .as_ref()
-            .map(|paused| paused.selected.clone())
+            .map(|paused| paused.selected_frame.clone())
             .or_else(|| self.frame_view.lock().latest_frame())
     }
 
@@ -415,6 +416,14 @@ impl ProfilerUi {
             Some(frame) => frame,
             None => {
                 ui.text("No profiling data");
+                return;
+            }
+        };
+
+        let frame = match frame.unpack() {
+            Ok(frame) => frame,
+            Err(err) => {
+                ui.text_colored(ERROR_COLOR, format!("Bad frame: {}", err));
                 return;
             }
         };
@@ -514,7 +523,7 @@ impl ProfilerUi {
     fn ui_canvas(
         &mut self,
         info: &Info<'_>,
-        frame: &Arc<FrameData>,
+        frame: &Arc<UnpackedFrameData>,
         (min_ns, max_ns): (NanoSecond, NanoSecond),
     ) -> f32 {
         puffin::profile_function!();

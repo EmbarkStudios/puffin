@@ -194,7 +194,7 @@ pub struct Streams {
 }
 
 impl Streams {
-    fn new(frames: &[Arc<FrameData>], thread_info: &ThreadInfo) -> Self {
+    fn new(frames: &[Arc<UnpackedFrameData>], thread_info: &ThreadInfo) -> Self {
         crate::profile_function!();
 
         let mut streams = vec![];
@@ -225,19 +225,19 @@ impl Streams {
 #[derive(Clone)]
 pub struct SelectedFrames {
     /// ordered, but not necessarily in sequence
-    pub frames: vec1::Vec1<Arc<FrameData>>,
+    pub frames: vec1::Vec1<Arc<UnpackedFrameData>>,
     pub raw_range_ns: (NanoSecond, NanoSecond),
     pub merged_range_ns: (NanoSecond, NanoSecond),
     pub threads: BTreeMap<ThreadInfo, Streams>,
 }
 
 impl SelectedFrames {
-    fn try_from_vec(frames: Vec<Arc<FrameData>>) -> Option<Self> {
+    fn try_from_vec(frames: Vec<Arc<UnpackedFrameData>>) -> Option<Self> {
         let frames = vec1::Vec1::try_from_vec(frames).ok()?;
         Some(Self::from_vec1(frames))
     }
 
-    fn from_vec1(mut frames: vec1::Vec1<Arc<FrameData>>) -> Self {
+    fn from_vec1(mut frames: vec1::Vec1<Arc<UnpackedFrameData>>) -> Self {
         puffin::profile_function!();
         frames.sort_by_key(|f| f.frame_index());
         frames.dedup_by_key(|f| f.frame_index());
@@ -406,12 +406,27 @@ impl ProfilerUi {
                 hovered_frame = self.show_frames(ui, frame_view);
             });
 
-        let frames = if let Some(hovered_frame) = hovered_frame {
-            SelectedFrames::try_from_vec(vec![hovered_frame])
+        let frames = if let Some(frame) = hovered_frame {
+            match frame.unpack() {
+                Ok(frame) => SelectedFrames::try_from_vec(vec![frame]),
+                Err(err) => {
+                    ui.colored_label(
+                        ERROR_COLOR,
+                        format!("Failed to load hovered frame: {}", err),
+                    );
+                    return;
+                }
+            }
         } else if let Some(paused) = &self.paused {
             Some(paused.selected.clone())
-        } else if let Some(latest_frame) = frame_view.latest_frame() {
-            SelectedFrames::try_from_vec(vec![latest_frame])
+        } else if let Some(frame) = frame_view.latest_frame() {
+            match frame.unpack() {
+                Ok(frame) => SelectedFrames::try_from_vec(vec![frame]),
+                Err(err) => {
+                    ui.colored_label(ERROR_COLOR, format!("Failed to load latest frame: {}", err));
+                    return;
+                }
+            }
         } else {
             None
         };
@@ -422,8 +437,6 @@ impl ProfilerUi {
             ui.label("No profiling data");
             return;
         };
-
-        // TODO: show age of data
 
         ui.horizontal(|ui| {
             let play_pause_button_size = Vec2::splat(24.0);
@@ -446,10 +459,12 @@ impl ProfilerUi {
                     {
                         let latest = frame_view.latest_frame();
                         if let Some(latest) = latest {
-                            self.pause_and_select(
-                                frame_view,
-                                SelectedFrames::from_vec1(vec1::vec1![latest]),
-                            );
+                            if let Ok(latest) = latest.unpack() {
+                                self.pause_and_select(
+                                    frame_view,
+                                    SelectedFrames::from_vec1(vec1::vec1![latest]),
+                                );
+                            }
                         }
                     }
                 });
@@ -648,7 +663,9 @@ impl ProfilerUi {
                         let max_x = start.x.max(curr.x);
                         let intersects = min_x <= frame_rect.right() && frame_rect.left() <= max_x;
                         if intersects {
-                            new_selection.push(frame.clone());
+                            if let Ok(frame) = frame.unpack() {
+                                new_selection.push(frame);
+                            }
                         }
                     }
                 }
@@ -686,23 +703,12 @@ impl ProfilerUi {
 fn frames_info_ui(ui: &mut egui::Ui, selection: &SelectedFrames) {
     let mut sum_ns = 0;
     let mut sum_scopes = 0;
-    let mut sum_bytes = 0;
-
-    let mut knows_compressed_size = true;
-    let mut sum_bytes_compressed = 0;
 
     for frame in &selection.frames {
         let (min_ns, max_ns) = frame.range_ns();
         sum_ns += max_ns - min_ns;
 
         sum_scopes += frame.meta.num_scopes;
-        sum_bytes += frame.meta.num_bytes;
-
-        if let Some(compressed_size) = frame.compressed_size {
-            sum_bytes_compressed += compressed_size;
-        } else {
-            knows_compressed_size = false;
-        }
     }
 
     let frame_indices = if selection.frames.len() == 1 {
@@ -721,20 +727,14 @@ fn frames_info_ui(ui: &mut egui::Ui, selection: &SelectedFrames) {
     };
 
     let mut info = format!(
-        "Showing {}, {:.1} ms, {} threads, {} scopes, {:.1} kB",
+        "Showing {}, {:.1} ms, {} threads, {} scopes.",
         frame_indices,
         sum_ns as f64 * 1e-6,
         selection.threads.len(),
         sum_scopes,
-        sum_bytes as f64 * 1e-3
     );
-
-    if knows_compressed_size {
-        info += &format!(" ({:.1} kB compressed)", sum_bytes_compressed as f64 * 1e-3);
-    }
-
     if let Some(time) = format_time(selection.raw_range_ns.0) {
-        info += &format!(". Recorded {}", time);
+        info += &format!(" Recorded {}.", time);
     }
 
     ui.label(info);

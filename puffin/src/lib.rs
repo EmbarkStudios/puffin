@@ -342,13 +342,13 @@ pub struct FrameMeta {
 /// One frame worth of profile data, collected from many sources.
 ///
 /// More often encoded as a [`CompressedFrameData`].
-pub struct DecompressedFrameData {
+pub struct UnpackedFrameData {
     pub meta: FrameMeta,
     /// `None` if still compressed.
     pub thread_streams: ThreadStreams,
 }
 
-impl DecompressedFrameData {
+impl UnpackedFrameData {
     pub fn new(
         frame_index: FrameIndex,
         thread_streams: BTreeMap<ThreadInfo, StreamInfo>,
@@ -402,8 +402,10 @@ impl DecompressedFrameData {
 /// One frame worth of profile data, collected from many sources.
 pub struct FrameData {
     pub meta: FrameMeta,
-    /// `None` if still compressed.
-    decompressed_frame: RwLock<Option<Arc<DecompressedFrameData>>>,
+    /// * `None` if still compressed.
+    /// * `Some(Err(…))` if there was a problem during unpacking.
+    /// * `Some(Ok(…))` if unpacked.
+    unpacked_frame: RwLock<Option<anyhow::Result<Arc<UnpackedFrameData>>>>,
     /// [`FrameMeta::thread_streams`], compressed with zstd.
     /// `None` if not yet compressed.
     zstd_streams: RwLock<Option<Vec<u8>>>,
@@ -414,16 +416,17 @@ impl FrameData {
         frame_index: FrameIndex,
         thread_streams: BTreeMap<ThreadInfo, StreamInfo>,
     ) -> Result<Self> {
-        Ok(Self::from_decompressed(Arc::new(
-            DecompressedFrameData::new(frame_index, thread_streams)?,
-        )))
+        Ok(Self::from_unpacked(Arc::new(UnpackedFrameData::new(
+            frame_index,
+            thread_streams,
+        )?)))
     }
 
     /// Will lazily compress.
-    pub fn from_decompressed(frame: Arc<DecompressedFrameData>) -> Self {
+    pub fn from_unpacked(frame: Arc<UnpackedFrameData>) -> Self {
         Self {
             meta: frame.meta.clone(),
-            decompressed_frame: RwLock::new(Some(frame)),
+            unpacked_frame: RwLock::new(Some(Ok(frame))),
             zstd_streams: RwLock::new(None),
         }
     }
@@ -446,45 +449,60 @@ impl FrameData {
         self.zstd_streams.read().as_ref().map(|c| c.len())
     }
 
-    /// Lazily decompress
-    pub fn decompressed(&self) -> Arc<DecompressedFrameData> {
-        use bincode::Options as _;
+    /// Lazily unpacks.
+    pub fn unpack(&self) -> anyhow::Result<Arc<UnpackedFrameData>> {
+        fn unpack_frame_data(
+            meta: FrameMeta,
+            compressed: &[u8],
+        ) -> anyhow::Result<UnpackedFrameData> {
+            use anyhow::Context as _;
+            use bincode::Options as _;
 
-        let needs_decompress = self.decompressed_frame.read().is_none();
-        if needs_decompress {
-            let compressed_lock = self.zstd_streams.read();
-            let compressed = compressed_lock.as_ref().unwrap();
-
-            let streams_serialized = zstd::decode_all(&compressed[..]).expect("zstd decompress"); // TODO: handle errror
+            let streams_serialized = zstd::decode_all(compressed).context("zstd decompress")?;
 
             let thread_streams: ThreadStreams = bincode::options()
                 .deserialize(&streams_serialized)
-                .expect("bincode deserialize"); // TODO: handle errror
+                .context("bincode deserialize")?;
 
-            let frame_data = DecompressedFrameData {
-                meta: self.meta.clone(),
+            Ok(UnpackedFrameData {
+                meta,
                 thread_streams,
-            };
-
-            *self.decompressed_frame.write() = Some(Arc::new(frame_data));
+            })
         }
 
-        self.decompressed_frame.read().clone().unwrap()
+        let needs_unpack = self.unpacked_frame.read().is_none();
+        if needs_unpack {
+            let compressed_lock = self.zstd_streams.read();
+            let compressed = compressed_lock
+                .as_ref()
+                .expect("FrameData is neither compressed or uncompressed");
+
+            let frame_data_result = unpack_frame_data(self.meta.clone(), compressed);
+            let frame_data_result = frame_data_result.map(Arc::new);
+            *self.unpacked_frame.write() = Some(frame_data_result);
+        }
+
+        match self.unpacked_frame.read().as_ref().unwrap() {
+            Ok(frame) => Ok(frame.clone()),
+            Err(err) => Err(anyhow::format_err!("{}", err)), // can't clone `anyhow::Error`
+        }
     }
 
     fn compress_if_needed(&self) {
         use bincode::Options as _;
         let needs_compress = self.zstd_streams.read().is_none();
         if needs_compress {
+            let unpacked_frame = self
+                .unpacked_frame
+                .read()
+                .as_ref()
+                .expect("We should have an unpacked frame if we don't have a compressed one")
+                .as_ref()
+                .expect("The unpacked frame should be error free, since it doesn't come from compressed source")
+                .clone();
+
             let streams_serialized = bincode::options()
-                .serialize(
-                    &self
-                        .decompressed_frame
-                        .read()
-                        .as_ref()
-                        .unwrap()
-                        .thread_streams,
-                )
+                .serialize(&unpacked_frame.thread_streams)
                 .expect("bincode failed to encode");
 
             // zstd cuts sizes in half compared to lz4_flex
@@ -512,7 +530,7 @@ impl FrameData {
         let zstd_streams = zstd_streams_lock.as_ref().unwrap();
 
         write.write_all(&(zstd_streams.len() as u32).to_le_bytes())?;
-        write.write_all(&zstd_streams)?;
+        write.write_all(zstd_streams)?;
 
         Ok(())
     }
@@ -546,7 +564,7 @@ impl FrameData {
         }
 
         impl LegacyFrameData {
-            fn into_frame_data(self) -> DecompressedFrameData {
+            fn into_frame_data(self) -> UnpackedFrameData {
                 let Self {
                     frame_index,
                     thread_streams,
@@ -554,7 +572,7 @@ impl FrameData {
                     num_bytes,
                     num_scopes,
                 } = self;
-                DecompressedFrameData {
+                UnpackedFrameData {
                     meta: FrameMeta {
                         frame_index,
                         range_ns,
@@ -566,7 +584,7 @@ impl FrameData {
             }
 
             fn into_compressed_frame_data(self) -> FrameData {
-                FrameData::from_decompressed(Arc::new(self.into_frame_data()))
+                FrameData::from_unpacked(Arc::new(self.into_frame_data()))
             }
         }
 
@@ -620,7 +638,7 @@ impl FrameData {
 
                 Ok(Some(Self {
                     meta,
-                    decompressed_frame: RwLock::new(None),
+                    unpacked_frame: RwLock::new(None),
                     zstd_streams: RwLock::new(Some(streams_compressed)),
                 }))
             } else {
