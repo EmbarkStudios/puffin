@@ -80,9 +80,10 @@
 #![allow(clippy::float_cmp, clippy::manual_range_contains)]
 
 mod flamegraph;
+mod maybe_mut_ref;
 mod stats;
 
-pub use {egui, puffin};
+pub use {egui, maybe_mut_ref::MaybeMutRef, puffin};
 
 use egui::*;
 use puffin::*;
@@ -142,7 +143,8 @@ impl GlobalProfilerUi {
     /// Returns `false` if the user closed the profile window.
     pub fn window(&mut self, ctx: &egui::CtxRef) -> bool {
         let mut frame_view = self.global_frame_view.lock();
-        self.profiler_ui.window(ctx, &mut frame_view)
+        self.profiler_ui
+            .window(ctx, &mut MaybeMutRef::MutRef(&mut frame_view))
     }
 
     /// Show the profiler.
@@ -150,7 +152,8 @@ impl GlobalProfilerUi {
     /// Call this from within an [`egui::Window`], or use [`Self::window`] instead.
     pub fn ui(&mut self, ui: &mut egui::Ui) {
         let mut frame_view = self.global_frame_view.lock();
-        self.profiler_ui.ui(ui, &mut frame_view);
+        self.profiler_ui
+            .ui(ui, &mut MaybeMutRef::MutRef(&mut frame_view));
     }
 
     /// The frames we are looking at.
@@ -341,7 +344,11 @@ impl ProfilerUi {
     /// If you want to control the window yourself, use [`Self::ui`] instead.
     ///
     /// Returns `false` if the user closed the profile window.
-    pub fn window(&mut self, ctx: &egui::CtxRef, frame_view: &mut FrameView) -> bool {
+    pub fn window(
+        &mut self,
+        ctx: &egui::CtxRef,
+        frame_view: &mut MaybeMutRef<'_, FrameView>,
+    ) -> bool {
         puffin::profile_function!();
         let mut open = true;
         egui::Window::new("Profiler")
@@ -384,7 +391,7 @@ impl ProfilerUi {
     /// Show the profiler.
     ///
     /// Call this from within an [`egui::Window`], or use [`Self::window`] instead.
-    pub fn ui(&mut self, ui: &mut egui::Ui, frame_view: &mut FrameView) {
+    pub fn ui(&mut self, ui: &mut egui::Ui, frame_view: &mut MaybeMutRef<'_, FrameView>) {
         #![allow(clippy::collapsible_else_if)]
         puffin::profile_function!();
 
@@ -496,7 +503,7 @@ impl ProfilerUi {
     fn show_frames(
         &mut self,
         ui: &mut egui::Ui,
-        frame_view: &mut FrameView,
+        frame_view: &mut MaybeMutRef<'_, FrameView>,
     ) -> Option<Arc<FrameData>> {
         puffin::profile_function!();
 
@@ -534,8 +541,10 @@ impl ProfilerUi {
                 ui.style_mut().wrap = Some(false);
                 ui.add_space(16.0); // make it a bit more centered
                 ui.label("Slowest:");
-                if ui.button("Clear").clicked() {
-                    frame_view.clear_slowest();
+                if let Some(frame_view) = frame_view.as_mut() {
+                    if ui.button("Clear").clicked() {
+                        frame_view.clear_slowest();
+                    }
                 }
             });
 
@@ -576,6 +585,10 @@ impl ProfilerUi {
                 unpacked,
                 bytes as f64 * 1e-6
             ));
+
+            if let Some(frame_view) = frame_view.as_mut() {
+                max_frames_ui(ui, frame_view);
+            }
         }
 
         hovered_frame
@@ -755,4 +768,36 @@ fn format_time(nanos: NanoSecond) -> Option<String> {
     } else {
         None // `nanos` is likely not counting from epoch.
     }
+}
+
+fn max_frames_ui(ui: &mut egui::Ui, frame_view: &mut FrameView) {
+    let uniq = frame_view.all_uniq();
+
+    let mut bytes = 0;
+    for frame in &uniq {
+        bytes += frame.bytes_of_ram_used();
+    }
+
+    let frames_per_second = if let (Some(first), Some(last)) = (uniq.first(), uniq.last()) {
+        let nanos = last.meta.range_ns.1 - first.meta.range_ns.0;
+        let seconds = nanos as f64 * 1e-9;
+        let frames = last.frame_index() - first.frame_index() + 1;
+        frames as f64 / seconds
+    } else {
+        60.0
+    };
+
+    ui.horizontal(|ui| {
+        ui.label("Max recent frames to store:");
+
+        let mut memory_length = frame_view.max_recent();
+        ui.add(egui::Slider::new(&mut memory_length, 10..=100_000).logarithmic(true));
+        frame_view.set_max_recent(memory_length);
+
+        ui.label(format!(
+            "(≈ {:.1} minutes, ≈ {:.0} MB)",
+            memory_length as f64 / 60.0 / frames_per_second,
+            memory_length as f64 * bytes as f64 / uniq.len() as f64 * 1e-6,
+        ));
+    });
 }

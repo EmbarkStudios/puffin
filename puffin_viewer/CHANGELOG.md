@@ -5,6 +5,7 @@ All notable changes to `puffin_viewer` will be documented in this file.
 
 ## Unreleased
 * In-memory compression of frames to use up less RAM.
+* Add slider to control how many recent frames to store.
 
 
 ## 0.9.2 - 2021-11-08

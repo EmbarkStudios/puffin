@@ -74,6 +74,7 @@
 
 use eframe::{egui, epi};
 use puffin::FrameView;
+use puffin_egui::MaybeMutRef;
 use std::path::PathBuf;
 
 /// puffin profile viewer.
@@ -303,11 +304,11 @@ impl epi::App for PuffinViewer {
 
         egui::CentralPanel::default().show(ctx, |ui| match &mut self.source {
             Source::Http(http_client) => {
-                self.profiler_ui.ui(ui, &mut http_client.frame_view());
+                self.profiler_ui
+                    .ui(ui, &mut MaybeMutRef::MutRef(&mut http_client.frame_view()));
             }
             Source::FilePath(_, frame_view) | Source::FileName(_, frame_view) => {
-                let mut frame_view = frame_view.clone(); // Don't mutate the original when clearing slow frames.
-                self.profiler_ui.ui(ui, &mut frame_view);
+                self.profiler_ui.ui(ui, &mut MaybeMutRef::Ref(frame_view));
             }
         });
 
