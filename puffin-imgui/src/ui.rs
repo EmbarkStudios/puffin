@@ -363,12 +363,12 @@ impl ProfilerUi {
     }
 
     /// Pause on the specific frame
-    fn pause_and_select(&mut self, selected: Arc<FrameData>) {
+    fn pause_and_select(&mut self, selected_frame: Arc<FrameData>) {
         if let Some(paused) = &mut self.paused {
-            paused.selected_frame = selected;
+            paused.selected_frame = selected_frame;
         } else {
             self.paused = Some(Paused {
-                selected_frame: selected,
+                selected_frame,
                 frames: self.frames(),
             });
         }

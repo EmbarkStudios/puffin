@@ -333,7 +333,7 @@ pub struct FrameMeta {
     pub frame_index: FrameIndex,
     /// The span we cover.
     pub range_ns: (NanoSecond, NanoSecond),
-    /// The uncompressed size.
+    /// The unpacked size of all streams.
     pub num_bytes: usize,
     /// Total number of scopes.
     pub num_scopes: usize,
@@ -341,7 +341,7 @@ pub struct FrameMeta {
 
 /// One frame worth of profile data, collected from many sources.
 ///
-/// More often encoded as a [`CompressedFrameData`].
+/// More often encoded as a [`FrameData`].
 pub struct UnpackedFrameData {
     pub meta: FrameMeta,
     /// `None` if still compressed.
@@ -414,7 +414,7 @@ pub struct FrameData {
     /// * `Some(Err(…))` if there was a problem during unpacking.
     /// * `Some(Ok(…))` if unpacked.
     unpacked_frame: RwLock<Option<anyhow::Result<Arc<UnpackedFrameData>>>>,
-    /// [`FrameMeta::thread_streams`], compressed with zstd.
+    /// [`UnpackedFrameData::thread_streams`], compressed with zstd.
     /// `None` if not yet compressed.
     packed_zstd_streams: RwLock<Option<Vec<u8>>>,
 }
@@ -503,12 +503,12 @@ impl FrameData {
 
         let needs_unpack = self.unpacked_frame.read().is_none();
         if needs_unpack {
-            let compressed_lock = self.packed_zstd_streams.read();
-            let compressed = compressed_lock
+            let packed_lock = self.packed_zstd_streams.read();
+            let packed = packed_lock
                 .as_ref()
-                .expect("FrameData is neither compressed or uncompressed");
+                .expect("FrameData is neither packed or unpacked");
 
-            let frame_data_result = unpack_frame_data(self.meta.clone(), compressed);
+            let frame_data_result = unpack_frame_data(self.meta.clone(), packed);
             let frame_data_result = frame_data_result.map(Arc::new);
             *self.unpacked_frame.write() = Some(frame_data_result);
         }
@@ -535,9 +535,9 @@ impl FrameData {
                 .unpacked_frame
                 .read()
                 .as_ref()
-                .expect("We should have an unpacked frame if we don't have a compressed one")
+                .expect("We should have an unpacked frame if we don't have a packed one")
                 .as_ref()
-                .expect("The unpacked frame should be error free, since it doesn't come from compressed source")
+                .expect("The unpacked frame should be error free, since it doesn't come from packed source")
                 .clone();
 
             let streams_serialized = bincode::options()
