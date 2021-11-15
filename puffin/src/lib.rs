@@ -98,10 +98,11 @@ pub use data::*;
 pub use merge::*;
 pub use profile_view::{select_slowest, FrameView, GlobalFrameView};
 
+use parking_lot::{Mutex, RwLock};
 use std::collections::BTreeMap;
 use std::sync::{
     atomic::{AtomicBool, Ordering},
-    Arc, Mutex, RwLock,
+    Arc,
 };
 
 static MACROS_ON: AtomicBool = AtomicBool::new(false);
@@ -442,16 +443,16 @@ impl FrameData {
 
     /// Number of bytes used when compressed, if known.
     pub fn compressed_size(&self) -> Option<usize> {
-        self.zstd_streams.read().unwrap().as_ref().map(|c| c.len())
+        self.zstd_streams.read().as_ref().map(|c| c.len())
     }
 
     /// Lazily decompress
     pub fn decompressed(&self) -> Arc<DecompressedFrameData> {
         use bincode::Options as _;
 
-        let needs_decompress = self.decompressed_frame.read().unwrap().is_none();
+        let needs_decompress = self.decompressed_frame.read().is_none();
         if needs_decompress {
-            let compressed_lock = self.zstd_streams.read().unwrap();
+            let compressed_lock = self.zstd_streams.read();
             let compressed = compressed_lock.as_ref().unwrap();
 
             let streams_serialized = zstd::decode_all(&compressed[..]).expect("zstd decompress"); // TODO: handle errror
@@ -465,22 +466,21 @@ impl FrameData {
                 thread_streams,
             };
 
-            *self.decompressed_frame.write().unwrap() = Some(Arc::new(frame_data));
+            *self.decompressed_frame.write() = Some(Arc::new(frame_data));
         }
 
-        self.decompressed_frame.read().unwrap().clone().unwrap()
+        self.decompressed_frame.read().clone().unwrap()
     }
 
     fn compress_if_needed(&self) {
         use bincode::Options as _;
-        let needs_compress = self.zstd_streams.read().unwrap().is_none();
+        let needs_compress = self.zstd_streams.read().is_none();
         if needs_compress {
             let streams_serialized = bincode::options()
                 .serialize(
                     &self
                         .decompressed_frame
                         .read()
-                        .unwrap()
                         .as_ref()
                         .unwrap()
                         .thread_streams,
@@ -493,7 +493,7 @@ impl FrameData {
                 zstd::encode_all(std::io::Cursor::new(&streams_serialized), level)
                     .expect("zstd failed to compress");
 
-            *self.zstd_streams.write().unwrap() = Some(streams_compressed);
+            *self.zstd_streams.write() = Some(streams_compressed);
         }
     }
 
@@ -508,7 +508,7 @@ impl FrameData {
         write.write_all(&meta_serialized)?;
 
         self.compress_if_needed();
-        let zstd_streams_lock = self.zstd_streams.read().unwrap();
+        let zstd_streams_lock = self.zstd_streams.read();
         let zstd_streams = zstd_streams_lock.as_ref().unwrap();
 
         write.write_all(&(zstd_streams.len() as u32).to_le_bytes())?;
@@ -769,10 +769,10 @@ impl Default for GlobalProfiler {
 
 impl GlobalProfiler {
     /// Access to the global profiler singleton.
-    pub fn lock() -> std::sync::MutexGuard<'static, Self> {
+    pub fn lock() -> parking_lot::MutexGuard<'static, Self> {
         use once_cell::sync::Lazy;
         static GLOBAL_PROFILER: Lazy<Mutex<GlobalProfiler>> = Lazy::new(Default::default);
-        GLOBAL_PROFILER.lock().unwrap() // panic on mutex poisoning
+        GLOBAL_PROFILER.lock()
     }
 
     /// You need to call this once at the start of every frame.
