@@ -377,19 +377,9 @@ impl FrameData {
             Ok(None) // end-of-stream sentinel.
         } else if header.starts_with(b"PFD") {
             if &header == b"PFD0" {
-                let mut compressed_length = [0_u8; 4];
-                read.read_exact(&mut compressed_length)?;
-                let compressed_length = u32::from_le_bytes(compressed_length) as usize;
-                let mut compressed = vec![0_u8; compressed_length];
-                read.read_exact(&mut compressed)?;
-
-                let serialized =
-                    lz4_flex::decompress_size_prepended(&compressed).context("lz4 decompress")?;
-
-                let legacy: LegacyFrameData = bincode::options()
-                    .deserialize(&serialized)
-                    .context("bincode deserialize")?;
-                Ok(Some(legacy.into_frame_data()))
+                // Like PDF1, but compressed with `lz4_flex`.
+                // We stopped supporting this in 2021-11-16 in order to remove `lz4_flex` dependency.
+                anyhow::bail!("Found legacy puffin data, which we can no longer decode")
             } else if &header == b"PFD1" {
                 // Added 2021-09
                 let mut compressed_length = [0_u8; 4];
