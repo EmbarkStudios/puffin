@@ -532,7 +532,7 @@ impl FrameData {
         use bincode::Options as _;
         let has_packed = self.packed_zstd_streams.read().is_some();
         if !has_packed {
-            crate::profile_scope!("pack_puffin_frame");
+            // crate::profile_scope!("pack_puffin_frame"); // we get called from `GlobalProfiler::new_frame`, so avoid recursiveness!
             let unpacked_frame = self
                 .unpacked_frame
                 .read()

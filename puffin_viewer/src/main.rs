@@ -73,7 +73,7 @@
 #![allow(clippy::exit)]
 
 use eframe::{egui, epi};
-use puffin::FrameView;
+use puffin::{FrameView, GlobalProfiler};
 use puffin_egui::MaybeMutRef;
 use std::path::PathBuf;
 
@@ -104,27 +104,19 @@ fn main() {
         .init()
         .ok();
 
-    puffin::set_scopes_on(true); // quiet warning in `puffin_egui`.
+    puffin::set_scopes_on(true); // so we can profile ourselves
 
     let app = if let Some(file) = opt.file {
         let path = PathBuf::from(file);
         match FrameView::load_path(&path) {
-            Ok(frame_view) => PuffinViewer {
-                profiler_ui: Default::default(),
-                source: Source::FilePath(path, frame_view),
-                error: None,
-            },
+            Ok(frame_view) => PuffinViewer::new(Source::FilePath(path, frame_view)),
             Err(err) => {
                 log::error!("Failed to load {:?}: {}", path.display(), err);
                 std::process::exit(1);
             }
         }
     } else {
-        PuffinViewer {
-            profiler_ui: Default::default(),
-            source: Source::Http(puffin_http::Client::new(opt.url)),
-            error: None,
-        }
+        PuffinViewer::new(Source::Http(puffin_http::Client::new(opt.url)))
     };
 
     let options = epi::NativeOptions {
@@ -171,9 +163,22 @@ pub struct PuffinViewer {
     profiler_ui: puffin_egui::ProfilerUi,
     source: Source,
     error: Option<String>,
+    profile_self: bool,
+    /// if [`Self::profile_self`] is checked, use this to introspect.
+    global_profiler_ui: puffin_egui::GlobalProfilerUi,
 }
 
 impl PuffinViewer {
+    pub fn new(source: Source) -> Self {
+        Self {
+            profiler_ui: Default::default(),
+            source,
+            error: None,
+            profile_self: false,
+            global_profiler_ui: Default::default(),
+        }
+    }
+
     fn save_dialog(&mut self) {
         if let Some(path) = rfd::FileDialog::new()
             .add_filter("puffin", &["puffin"])
@@ -197,6 +202,7 @@ impl PuffinViewer {
     }
 
     fn open_puffin_path(&mut self, path: std::path::PathBuf) {
+        puffin::profile_function!();
         match FrameView::load_path(&path) {
             Ok(frame_view) => {
                 self.profiler_ui.reset();
@@ -210,6 +216,7 @@ impl PuffinViewer {
     }
 
     fn open_puffin_bytes(&mut self, name: String, bytes: &[u8]) {
+        puffin::profile_function!();
         let mut reader = std::io::Cursor::new(bytes);
         match FrameView::load_reader(&mut reader) {
             Ok(frame_view) => {
@@ -246,6 +253,10 @@ impl PuffinViewer {
                     if ui.button("Quit").clicked() {
                         frame.quit();
                     }
+                });
+                egui::menu::menu(ui, "View", |ui| {
+                    ui.checkbox(&mut self.profile_self, "Profile self")
+                        .on_hover_text("Show the flamegraph for puffin_viewer");
                 });
             });
         });
@@ -291,6 +302,8 @@ impl epi::App for PuffinViewer {
     }
 
     fn update(&mut self, ctx: &egui::CtxRef, frame: &mut epi::Frame<'_>) {
+        GlobalProfiler::lock().new_frame();
+
         self.ui_menu_bar(ctx, frame);
 
         egui::TopBottomPanel::bottom("info_bar").show(ctx, |ui| {
@@ -299,16 +312,26 @@ impl epi::App for PuffinViewer {
                 ui.separator();
             }
 
-            self.source.ui(ui);
+            if self.profile_self {
+                ui.label("Profiling puffin_viewer");
+            } else {
+                self.source.ui(ui);
+            }
         });
 
-        egui::CentralPanel::default().show(ctx, |ui| match &mut self.source {
-            Source::Http(http_client) => {
-                self.profiler_ui
-                    .ui(ui, &mut MaybeMutRef::MutRef(&mut http_client.frame_view()));
-            }
-            Source::FilePath(_, frame_view) | Source::FileName(_, frame_view) => {
-                self.profiler_ui.ui(ui, &mut MaybeMutRef::Ref(frame_view));
+        egui::CentralPanel::default().show(ctx, |ui| {
+            if self.profile_self {
+                self.global_profiler_ui.ui(ui);
+            } else {
+                match &mut self.source {
+                    Source::Http(http_client) => {
+                        self.profiler_ui
+                            .ui(ui, &mut MaybeMutRef::MutRef(&mut http_client.frame_view()));
+                    }
+                    Source::FilePath(_, frame_view) | Source::FileName(_, frame_view) => {
+                        self.profiler_ui.ui(ui, &mut MaybeMutRef::Ref(frame_view));
+                    }
+                }
             }
         });
 

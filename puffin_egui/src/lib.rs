@@ -208,7 +208,10 @@ impl Streams {
             }
         }
 
-        let merges = puffin::merge_scopes_for_thread(frames, thread_info).unwrap();
+        let merges = {
+            puffin::profile_scope!("merge_scopes_for_thread");
+            puffin::merge_scopes_for_thread(frames, thread_info).unwrap()
+        };
         let merges = merges.into_iter().map(|ms| ms.into_owned()).collect();
 
         let mut max_depth = 0;
