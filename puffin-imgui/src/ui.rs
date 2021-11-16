@@ -445,12 +445,12 @@ impl ProfilerUi {
             ui.unindent();
         }
 
-        let frame = match hovered_frame.or_else(|| self.selected_frame()) {
-            Some(frame) => frame,
-            None => {
-                ui.text("No profiling data");
-                return;
-            }
+        let frame = hovered_frame.or_else(|| self.selected_frame());
+        let frame = if let Some(frame) = frame {
+            frame
+        } else {
+            ui.text("No profiling data");
+            return;
         };
 
         let frame = match frame.unpacked() {
