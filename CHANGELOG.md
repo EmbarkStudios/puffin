@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 ## Unreleased
-* In-memory compression of frames to use up less RAM.
+* In-memory compression of frames to use up less RAM. Enabled by the new feature "packing".
 
 
 ## 0.11.0 - 2021-11-12

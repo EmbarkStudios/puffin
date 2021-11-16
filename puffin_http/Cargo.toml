@@ -16,7 +16,7 @@ include = [ "**/*.rs", "Cargo.toml"]
 anyhow = "1"
 crossbeam-channel = "0.5"
 log = "0.4"
-puffin = { version = "0.11.0", path = "../puffin", features = ["serialization"] }
+puffin = { version = "0.11.0", path = "../puffin", features = ["packing", "serialization"] }
 
 [dev-dependencies]
 simple_logger = "1.11"

@@ -98,7 +98,7 @@ pub use data::*;
 pub use merge::*;
 pub use profile_view::{select_slowest, FrameView, GlobalFrameView};
 
-use parking_lot::{Mutex, RwLock};
+use parking_lot::Mutex;
 use std::collections::BTreeMap;
 use std::sync::{
     atomic::{AtomicBool, Ordering},
@@ -399,26 +399,17 @@ impl UnpackedFrameData {
     }
 }
 
+// ----------------------------------------------------------------------------
+
 /// One frame worth of profile data, collected from many sources.
 ///
-/// This has interior mutability with double storage:
-/// * Unpacked data ([`UnpackedFrameData`])
-/// * Packed (compressed) data
-///
-/// One or both are always stored.
-/// This allows RAM-efficient storage and viewing of many frames of profiling data.
-/// Packing and unpacking is done lazily, on-demand.
+/// If you turn on the the "packing" feature, this will compress the data in RAM.
+#[cfg(not(feature = "packing"))]
 pub struct FrameData {
-    pub meta: FrameMeta,
-    /// * `None` if still compressed.
-    /// * `Some(Err(…))` if there was a problem during unpacking.
-    /// * `Some(Ok(…))` if unpacked.
-    unpacked_frame: RwLock<Option<anyhow::Result<Arc<UnpackedFrameData>>>>,
-    /// [`UnpackedFrameData::thread_streams`], compressed with zstd.
-    /// `None` if not yet compressed.
-    packed_zstd_streams: RwLock<Option<Vec<u8>>>,
+    unpacked_frame: Arc<UnpackedFrameData>,
 }
 
+#[cfg(not(feature = "packing"))]
 impl FrameData {
     pub fn new(
         frame_index: FrameIndex,
@@ -430,12 +421,101 @@ impl FrameData {
         )?)))
     }
 
-    pub fn from_unpacked(frame: Arc<UnpackedFrameData>) -> Self {
+    pub fn from_unpacked(unpacked_frame: Arc<UnpackedFrameData>) -> Self {
+        Self { unpacked_frame }
+    }
+
+    pub fn meta(&self) -> &FrameMeta {
+        &self.unpacked_frame.meta
+    }
+
+    pub fn frame_index(&self) -> u64 {
+        self.meta().frame_index
+    }
+
+    pub fn range_ns(&self) -> (NanoSecond, NanoSecond) {
+        self.meta().range_ns
+    }
+
+    pub fn duration_ns(&self) -> NanoSecond {
+        let (min, max) = self.meta().range_ns;
+        max - min
+    }
+
+    pub fn packed_size(&self) -> Option<usize> {
+        None
+    }
+    pub fn unpacked_size(&self) -> Option<usize> {
+        Some(self.unpacked_frame.meta.num_bytes)
+    }
+    pub fn bytes_of_ram_used(&self) -> usize {
+        self.unpacked_frame.meta.num_bytes
+    }
+    pub fn has_packed(&self) -> bool {
+        false
+    }
+    pub fn has_unpacked(&self) -> bool {
+        true
+    }
+    pub fn unpacked(&self) -> std::result::Result<Arc<UnpackedFrameData>, ()> {
+        Ok(self.unpacked_frame.clone())
+    }
+    pub fn pack(&self) {}
+}
+
+#[cfg(all(feature = "serialization", not(feature = "packing")))]
+compile_error!(
+    "If the puffin feature 'serialization' is one, the 'packing' feature must also be enabled!"
+);
+
+// ----------------------------------------------------------------------------
+
+#[cfg(feature = "packing")]
+use parking_lot::RwLock;
+
+/// One frame worth of profile data, collected from many sources.
+///
+/// This has interior mutability with double storage:
+/// * Unpacked data ([`UnpackedFrameData`])
+/// * Packed (compressed) data
+///
+/// One or both are always stored.
+/// This allows RAM-efficient storage and viewing of many frames of profiling data.
+/// Packing and unpacking is done lazily, on-demand.
+#[cfg(feature = "packing")]
+pub struct FrameData {
+    meta: FrameMeta,
+    /// * `None` if still compressed.
+    /// * `Some(Err(…))` if there was a problem during unpacking.
+    /// * `Some(Ok(…))` if unpacked.
+    unpacked_frame: RwLock<Option<anyhow::Result<Arc<UnpackedFrameData>>>>,
+    /// [`UnpackedFrameData::thread_streams`], compressed with zstd.
+    /// `None` if not yet compressed.
+    packed_zstd_streams: RwLock<Option<Vec<u8>>>,
+}
+
+#[cfg(feature = "packing")]
+impl FrameData {
+    pub fn new(
+        frame_index: FrameIndex,
+        thread_streams: BTreeMap<ThreadInfo, StreamInfo>,
+    ) -> Result<Self> {
+        Ok(Self::from_unpacked(Arc::new(UnpackedFrameData::new(
+            frame_index,
+            thread_streams,
+        )?)))
+    }
+
+    pub fn from_unpacked(unpacked_frame: Arc<UnpackedFrameData>) -> Self {
         Self {
-            meta: frame.meta.clone(),
-            unpacked_frame: RwLock::new(Some(Ok(frame))),
+            meta: unpacked_frame.meta.clone(),
+            unpacked_frame: RwLock::new(Some(Ok(unpacked_frame))),
             packed_zstd_streams: RwLock::new(None),
         }
+    }
+
+    pub fn meta(&self) -> &FrameMeta {
+        &self.meta
     }
 
     pub fn frame_index(&self) -> u64 {
@@ -594,8 +674,7 @@ impl FrameData {
             }
         }
 
-        #[derive(Clone)]
-        #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+        #[derive(Clone, serde::Deserialize, serde::Serialize)]
         pub struct LegacyFrameData {
             pub frame_index: FrameIndex,
             pub thread_streams: ThreadStreams,

@@ -29,8 +29,9 @@ criterion = "0.3"
 
 [features]
 default = []
+packing = ["anyhow", "bincode", "lz4_flex", "serde", "zstd"]
 # Feature for enabling loading/saving data to a binary stream and/or file.
-serialization = ["anyhow", "bincode", "lz4_flex", "serde", "zstd"]
+serialization = []
 
 [[bench]]
 name = "benchmark"

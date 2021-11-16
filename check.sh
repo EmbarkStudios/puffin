@@ -12,3 +12,6 @@ cargo test --workspace --all-targets --all-features
 cargo fmt --all -- --check
 
 cargo doc -p puffin -p puffin_egui -p puffin-imgui -p puffin_http -p puffin_viewer --lib --no-deps --all-features
+
+(cd puffin && cargo check --no-default-features)
+(cd puffin && cargo check --no-default-features --features "packing")

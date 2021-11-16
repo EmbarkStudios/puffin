@@ -272,10 +272,7 @@ impl SelectedFrames {
             }
         }
 
-        let raw_range_ns = (
-            frames.first().meta.range_ns.0,
-            frames.last().meta.range_ns.1,
-        );
+        let raw_range_ns = (frames.first().range_ns().0, frames.last().range_ns().1);
 
         Self {
             frames,
@@ -816,7 +813,7 @@ fn max_frames_ui(ui: &mut egui::Ui, frame_view: &mut FrameView) {
     }
 
     let frames_per_second = if let (Some(first), Some(last)) = (uniq.first(), uniq.last()) {
-        let nanos = last.meta.range_ns.1 - first.meta.range_ns.0;
+        let nanos = last.range_ns().1 - first.range_ns().0;
         let seconds = nanos as f64 * 1e-9;
         let frames = last.frame_index() - first.frame_index() + 1;
         frames as f64 / seconds
