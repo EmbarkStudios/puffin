@@ -7,6 +7,7 @@ use std::{collections::BTreeMap, sync::Arc};
 
 // ----------------------------------------------------------------------------
 
+/// The streams of profiling data for each thread.
 pub type ThreadStreams = BTreeMap<ThreadInfo, Arc<StreamInfo>>;
 
 /// Meta-information about a frame.
@@ -28,7 +29,6 @@ pub struct FrameMeta {
 /// More often encoded as a [`FrameData`].
 pub struct UnpackedFrameData {
     pub meta: FrameMeta,
-    /// `None` if still compressed.
     pub thread_streams: ThreadStreams,
 }
 
@@ -87,11 +87,15 @@ impl UnpackedFrameData {
 
 /// One frame worth of profile data, collected from many sources.
 ///
-/// If you turn on the the "packing" feature, this will compress the data in RAM.
+/// If you turn on the the "packing" feature, this will compress the
+/// profiling data in order to save RAM.
 #[cfg(not(feature = "packing"))]
 pub struct FrameData {
     unpacked_frame: Arc<UnpackedFrameData>,
 }
+
+#[cfg(not(feature = "packing"))]
+pub enum Never {}
 
 #[cfg(not(feature = "packing"))]
 impl FrameData {
@@ -105,25 +109,13 @@ impl FrameData {
         )?)))
     }
 
-    pub fn from_unpacked(unpacked_frame: Arc<UnpackedFrameData>) -> Self {
+    fn from_unpacked(unpacked_frame: Arc<UnpackedFrameData>) -> Self {
         Self { unpacked_frame }
     }
 
+    #[inline]
     pub fn meta(&self) -> &FrameMeta {
         &self.unpacked_frame.meta
-    }
-
-    pub fn frame_index(&self) -> u64 {
-        self.meta().frame_index
-    }
-
-    pub fn range_ns(&self) -> (NanoSecond, NanoSecond) {
-        self.meta().range_ns
-    }
-
-    pub fn duration_ns(&self) -> NanoSecond {
-        let (min, max) = self.meta().range_ns;
-        max - min
     }
 
     pub fn packed_size(&self) -> Option<usize> {
@@ -141,7 +133,7 @@ impl FrameData {
     pub fn has_unpacked(&self) -> bool {
         true
     }
-    pub fn unpacked(&self) -> std::result::Result<Arc<UnpackedFrameData>, ()> {
+    pub fn unpacked(&self) -> std::result::Result<Arc<UnpackedFrameData>, Never> {
         Ok(self.unpacked_frame.clone())
     }
     pub fn pack(&self) {}
@@ -156,7 +148,7 @@ compile_error!(
 
 /// One frame worth of profile data, collected from many sources.
 ///
-/// This has interior mutability with double storage:
+/// If you turn on the "packing" feature, then [`FrameData`] has interior mutability with double storage:
 /// * Unpacked data ([`UnpackedFrameData`])
 /// * Packed (compressed) data
 ///
@@ -187,7 +179,7 @@ impl FrameData {
         )?)))
     }
 
-    pub fn from_unpacked(unpacked_frame: Arc<UnpackedFrameData>) -> Self {
+    fn from_unpacked(unpacked_frame: Arc<UnpackedFrameData>) -> Self {
         Self {
             meta: unpacked_frame.meta.clone(),
             unpacked_frame: RwLock::new(Some(Ok(unpacked_frame))),
@@ -195,24 +187,12 @@ impl FrameData {
         }
     }
 
+    #[inline]
     pub fn meta(&self) -> &FrameMeta {
         &self.meta
     }
 
-    pub fn frame_index(&self) -> u64 {
-        self.meta.frame_index
-    }
-
-    pub fn range_ns(&self) -> (NanoSecond, NanoSecond) {
-        self.meta.range_ns
-    }
-
-    pub fn duration_ns(&self) -> NanoSecond {
-        let (min, max) = self.meta.range_ns;
-        max - min
-    }
-
-    /// Number of bytes used by the compressed data, if compressed.
+    /// Number of bytes used by the packed data, if packed.
     pub fn packed_size(&self) -> Option<usize> {
         self.packed_zstd_streams.read().as_ref().map(|c| c.len())
     }
@@ -226,12 +206,12 @@ impl FrameData {
         }
     }
 
-    /// bytes currently used by the unpacked and compressed data.
+    /// bytes currently used by the unpacked and packed data.
     pub fn bytes_of_ram_used(&self) -> usize {
         self.unpacked_size().unwrap_or(0) + self.packed_size().unwrap_or(0)
     }
 
-    /// Do we have a packed (compressed) version stored internally?
+    /// Do we have a packed version stored internally?
     pub fn has_packed(&self) -> bool {
         self.packed_zstd_streams.read().is_some()
     }
@@ -241,7 +221,11 @@ impl FrameData {
         self.unpacked_frame.read().is_some()
     }
 
-    /// Lazily unpacks.
+    /// Return the unpacked data.
+    ///
+    /// This will lazily unpack if needed (and only once).
+    ///
+    /// Returns `Err` if failing to decode the packed data.
     pub fn unpacked(&self) -> anyhow::Result<Arc<UnpackedFrameData>> {
         fn unpack_frame_data(
             meta: FrameMeta,
@@ -327,7 +311,7 @@ impl FrameData {
         write.write_all(&(meta_serialized.len() as u32).to_le_bytes())?;
         write.write_all(&meta_serialized)?;
 
-        self.pack();
+        self.created_packed();
         let zstd_streams_lock = self.packed_zstd_streams.read();
         let zstd_streams = zstd_streams_lock.as_ref().unwrap();
 
@@ -460,5 +444,22 @@ impl FrameData {
                 .context("bincode deserialize")?;
             Ok(Some(legacy.into_frame_data()))
         }
+    }
+}
+
+// ----------------------------------------------------------------------------
+
+impl FrameData {
+    pub fn frame_index(&self) -> u64 {
+        self.meta().frame_index
+    }
+
+    pub fn range_ns(&self) -> (NanoSecond, NanoSecond) {
+        self.meta().range_ns
+    }
+
+    pub fn duration_ns(&self) -> NanoSecond {
+        let (min, max) = self.meta().range_ns;
+        max - min
     }
 }
