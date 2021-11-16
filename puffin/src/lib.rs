@@ -481,7 +481,7 @@ impl FrameData {
     }
 
     /// Lazily unpacks.
-    pub fn unpack(&self) -> anyhow::Result<Arc<UnpackedFrameData>> {
+    pub fn unpacked(&self) -> anyhow::Result<Arc<UnpackedFrameData>> {
         fn unpack_frame_data(
             meta: FrameMeta,
             compressed: &[u8],
@@ -501,8 +501,9 @@ impl FrameData {
             })
         }
 
-        let needs_unpack = self.unpacked_frame.read().is_none();
-        if needs_unpack {
+        let has_unpacked = self.unpacked_frame.read().is_some();
+        if !has_unpacked {
+            crate::profile_scope!("unpack_puffin_frame");
             let packed_lock = self.packed_zstd_streams.read();
             let packed = packed_lock
                 .as_ref()
@@ -529,8 +530,9 @@ impl FrameData {
     /// Create a packed storage without freeing the unpacked storage.
     fn created_packed(&self) {
         use bincode::Options as _;
-        let needs_compress = self.packed_zstd_streams.read().is_none();
-        if needs_compress {
+        let has_packed = self.packed_zstd_streams.read().is_some();
+        if !has_packed {
+            crate::profile_scope!("pack_puffin_frame");
             let unpacked_frame = self
                 .unpacked_frame
                 .read()

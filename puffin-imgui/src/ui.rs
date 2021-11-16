@@ -210,6 +210,10 @@ pub struct ProfilerUi {
 
     /// How we normalize the frame view:
     slowest_frame: f32,
+
+    /// When did we last run a pass to pack all the frames?
+    #[serde(skip)]
+    last_pack_pass: Option<std::time::Instant>,
 }
 
 impl Default for ProfilerUi {
@@ -224,6 +228,7 @@ impl Default for ProfilerUi {
             is_zooming: false,
             paused: None,
             slowest_frame: 0.17,
+            last_pack_pass: None,
         }
     }
 }
@@ -385,6 +390,32 @@ impl ProfilerUi {
         self.selected_frame().map(|frame| frame.frame_index())
     }
 
+    fn all_known_frames(&self) -> Vec<Arc<FrameData>> {
+        let mut all = self.frame_view.lock().all_uniq();
+        if let Some(paused) = &self.paused {
+            all.append(&mut paused.frames.all_uniq());
+        }
+        all.sort_by_key(|frame| frame.frame_index());
+        all.dedup_by_key(|frame| frame.frame_index());
+        all
+    }
+
+    fn run_pack_pass_if_needed(&mut self) {
+        let last_pack_pass = self
+            .last_pack_pass
+            .get_or_insert_with(std::time::Instant::now);
+        let time_since_last_pack = last_pack_pass.elapsed();
+        if time_since_last_pack > std::time::Duration::from_secs(1) {
+            puffin::profile_scope!("pack_pass");
+            for frame in self.all_known_frames() {
+                if Some(frame.frame_index()) != self.selected_frame_index() {
+                    frame.pack();
+                }
+            }
+            self.last_pack_pass = Some(std::time::Instant::now());
+        }
+    }
+
     /// Show the profiler.
     ///
     /// Call this from within an [`imgui::Window`], or use [`Self::window`] instead.
@@ -392,6 +423,8 @@ impl ProfilerUi {
         #![allow(clippy::collapsible_else_if)]
 
         puffin::profile_function!();
+
+        self.run_pack_pass_if_needed();
 
         let mut scopes_on = puffin::are_scopes_on();
         ui.checkbox("Profiling enabled", &mut scopes_on);
@@ -420,7 +453,7 @@ impl ProfilerUi {
             }
         };
 
-        let frame = match frame.unpack() {
+        let frame = match frame.unpacked() {
             Ok(frame) => frame,
             Err(err) => {
                 ui.text_colored(ERROR_COLOR, format!("Bad frame: {}", err));

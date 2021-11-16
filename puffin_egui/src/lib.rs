@@ -132,6 +132,7 @@ pub fn profiler_ui(ui: &mut egui::Ui) {
 pub struct GlobalProfilerUi {
     #[cfg_attr(feature = "serde", serde(skip))]
     global_frame_view: GlobalFrameView,
+
     pub profiler_ui: ProfilerUi,
 }
 
@@ -321,6 +322,10 @@ pub struct ProfilerUi {
 
     /// Used to normalize frame height in frame view
     slowest_frame: f32,
+
+    /// When did we last run a pass to pack all the frames?
+    #[cfg_attr(feature = "serde", serde(skip))]
+    last_pack_pass: Option<std::time::Instant>,
 }
 
 impl Default for ProfilerUi {
@@ -330,6 +335,7 @@ impl Default for ProfilerUi {
             view: Default::default(),
             paused: None,
             slowest_frame: 0.16,
+            last_pack_pass: None,
         }
     }
 }
@@ -388,12 +394,40 @@ impl ProfilerUi {
         }
     }
 
+    fn all_known_frames(&self, frame_view: &FrameView) -> Vec<Arc<FrameData>> {
+        let mut all = frame_view.all_uniq();
+        if let Some(paused) = &self.paused {
+            all.append(&mut paused.frames.all_uniq());
+        }
+        all.sort_by_key(|frame| frame.frame_index());
+        all.dedup_by_key(|frame| frame.frame_index());
+        all
+    }
+
+    fn run_pack_pass_if_needed(&mut self, frame_view: &FrameView) {
+        let last_pack_pass = self
+            .last_pack_pass
+            .get_or_insert_with(std::time::Instant::now);
+        let time_since_last_pack = last_pack_pass.elapsed();
+        if time_since_last_pack > std::time::Duration::from_secs(1) {
+            puffin::profile_scope!("pack_pass");
+            for frame in self.all_known_frames(frame_view) {
+                if !self.is_selected(frame_view, frame.frame_index()) {
+                    frame.pack();
+                }
+            }
+            self.last_pack_pass = Some(std::time::Instant::now());
+        }
+    }
+
     /// Show the profiler.
     ///
     /// Call this from within an [`egui::Window`], or use [`Self::window`] instead.
     pub fn ui(&mut self, ui: &mut egui::Ui, frame_view: &mut MaybeMutRef<'_, FrameView>) {
         #![allow(clippy::collapsible_else_if)]
         puffin::profile_function!();
+
+        self.run_pack_pass_if_needed(frame_view);
 
         if !puffin::are_scopes_on() {
             ui.colored_label(ERROR_COLOR, "The puffin profiler is OFF!")
@@ -414,7 +448,7 @@ impl ProfilerUi {
             });
 
         let frames = if let Some(frame) = hovered_frame {
-            match frame.unpack() {
+            match frame.unpacked() {
                 Ok(frame) => SelectedFrames::try_from_vec(vec![frame]),
                 Err(err) => {
                     ui.colored_label(
@@ -427,7 +461,7 @@ impl ProfilerUi {
         } else if let Some(paused) = &self.paused {
             Some(paused.selected.clone())
         } else if let Some(frame) = frame_view.latest_frame() {
-            match frame.unpack() {
+            match frame.unpacked() {
                 Ok(frame) => SelectedFrames::try_from_vec(vec![frame]),
                 Err(err) => {
                     ui.colored_label(ERROR_COLOR, format!("Failed to load latest frame: {}", err));
@@ -466,7 +500,7 @@ impl ProfilerUi {
                     {
                         let latest = frame_view.latest_frame();
                         if let Some(latest) = latest {
-                            if let Ok(latest) = latest.unpack() {
+                            if let Ok(latest) = latest.unpacked() {
                                 self.pause_and_select(
                                     frame_view,
                                     SelectedFrames::from_vec1(vec1::vec1![latest]),
@@ -682,7 +716,7 @@ impl ProfilerUi {
                         let max_x = start.x.max(curr.x);
                         let intersects = min_x <= frame_rect.right() && frame_rect.left() <= max_x;
                         if intersects {
-                            if let Ok(frame) = frame.unpack() {
+                            if let Ok(frame) = frame.unpacked() {
                                 new_selection.push(frame);
                             }
                         }
