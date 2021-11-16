@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 ## Unreleased
+
+
+## 0.12.0 - 2021-11-16
 * In-memory compression of frames to use up less RAM. Enabled by the new feature "packing".
 * Remove support for legacy `.puffin` files in order to remove `lz4_flex` dependency.
 
