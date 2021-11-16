@@ -100,7 +100,6 @@ pub use frame_data::{FrameData, FrameMeta, UnpackedFrameData};
 pub use merge::*;
 pub use profile_view::{select_slowest, FrameView, GlobalFrameView};
 
-use parking_lot::Mutex;
 use std::collections::BTreeMap;
 use std::sync::{
     atomic::{AtomicBool, Ordering},
@@ -452,10 +451,21 @@ impl Default for GlobalProfiler {
 
 impl GlobalProfiler {
     /// Access to the global profiler singleton.
+    #[cfg(feature = "parking_lot")]
     pub fn lock() -> parking_lot::MutexGuard<'static, Self> {
         use once_cell::sync::Lazy;
-        static GLOBAL_PROFILER: Lazy<Mutex<GlobalProfiler>> = Lazy::new(Default::default);
+        static GLOBAL_PROFILER: Lazy<parking_lot::Mutex<GlobalProfiler>> =
+            Lazy::new(Default::default);
         GLOBAL_PROFILER.lock()
+    }
+
+    /// Access to the global profiler singleton.
+    #[cfg(not(feature = "parking_lot"))]
+    pub fn lock() -> std::sync::MutexGuard<'static, Self> {
+        use once_cell::sync::Lazy;
+        static GLOBAL_PROFILER: Lazy<std::sync::Mutex<GlobalProfiler>> =
+            Lazy::new(Default::default);
+        GLOBAL_PROFILER.lock().expect("poisoned mutex")
     }
 
     /// You need to call this once at the start of every frame.
