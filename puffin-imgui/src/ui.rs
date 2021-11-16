@@ -605,32 +605,7 @@ impl ProfilerUi {
 
         let mut hovered_frame = None;
 
-        {
-            let uniq = frames.all_uniq();
-
-            let mut bytes = 0;
-            let mut unpacked = 0;
-            for frame in &uniq {
-                bytes += frame.bytes_of_ram_used();
-                unpacked += frame.has_unpacked() as usize;
-            }
-            ui.text(format!(
-                "{} frames ({} unpacked) using approximately {:.1} MB.",
-                uniq.len(),
-                unpacked,
-                bytes as f64 * 1e-6
-            ));
-
-            let mut memory_length = self.frame_view.lock().max_recent() as u64;
-            imgui::Slider::new("Max frames to store", 10, 100_000)
-                .display_format(format!(
-                    "%d (~ {:.1} min at 60 Hz, ~ {:.0} MB)",
-                    memory_length as f32 / 60.0 / 60.0,
-                    memory_length as f32 * bytes as f32 / uniq.len() as f32 * 1e-6,
-                ))
-                .build(ui, &mut memory_length);
-            self.frame_view.lock().set_max_recent(memory_length as _);
-        }
+        max_memory_controls(ui, &frames, &self.frame_view);
 
         ui.columns(2, "columns", false);
         ui.set_column_width(0, 64.0);
@@ -1218,4 +1193,40 @@ fn paint_thread_info(info: &Info<'_>, thread_info: &ThreadInfo, pos: [f32; 2]) {
         .build();
 
     info.draw_list.add_text(pos, [0.9, 0.9, 0.9, 1.0], text);
+}
+
+fn max_memory_controls(ui: &Ui<'_>, frames: &Frames, frame_view: &GlobalFrameView) {
+    let uniq = frames.all_uniq();
+
+    let mut bytes = 0;
+    let mut unpacked = 0;
+    for frame in &uniq {
+        bytes += frame.bytes_of_ram_used();
+        unpacked += frame.has_unpacked() as usize;
+    }
+    ui.text(format!(
+        "{} frames ({} unpacked) using approximately {:.1} MB.",
+        uniq.len(),
+        unpacked,
+        bytes as f64 * 1e-6
+    ));
+
+    let frames_per_second = if let (Some(first), Some(last)) = (uniq.first(), uniq.last()) {
+        let nanos = last.meta.range_ns.1 - first.meta.range_ns.0;
+        let seconds = nanos as f64 * 1e-9;
+        let frames = last.frame_index() - first.frame_index() + 1;
+        frames as f64 / seconds
+    } else {
+        60.0
+    };
+
+    let mut memory_length = frame_view.lock().max_recent() as u64;
+    imgui::Slider::new("Max recent frames to store", 10, 100_000)
+        .display_format(format!(
+            "%d (~ {:.1} minutes, ~ {:.0} MB)",
+            memory_length as f64 / 60.0 / frames_per_second,
+            memory_length as f64 * bytes as f64 / uniq.len() as f64 * 1e-6,
+        ))
+        .build(ui, &mut memory_length);
+    frame_view.lock().set_max_recent(memory_length as _);
 }

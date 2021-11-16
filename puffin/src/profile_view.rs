@@ -6,10 +6,10 @@ use crate::{FrameData, FrameSinkId};
 #[derive(Clone)]
 pub struct FrameView {
     /// newest first
-    recent_frames: std::collections::VecDeque<Arc<FrameData>>,
+    recent: std::collections::VecDeque<Arc<FrameData>>,
     max_recent: usize,
 
-    slowest_frames: std::collections::BinaryHeap<OrderedByDuration>,
+    slowest: std::collections::BinaryHeap<OrderedByDuration>,
     max_slow: usize,
 }
 
@@ -19,9 +19,9 @@ impl Default for FrameView {
         let max_slow = 256;
 
         Self {
-            recent_frames: std::collections::VecDeque::with_capacity(max_recent),
+            recent: std::collections::VecDeque::with_capacity(max_recent),
             max_recent,
-            slowest_frames: std::collections::BinaryHeap::with_capacity(max_slow),
+            slowest: std::collections::BinaryHeap::with_capacity(max_slow),
             max_slow,
         }
     }
@@ -29,69 +29,77 @@ impl Default for FrameView {
 
 impl FrameView {
     pub fn is_empty(&self) -> bool {
-        self.recent_frames.is_empty() && self.slowest_frames.is_empty()
+        self.recent.is_empty() && self.slowest.is_empty()
     }
 
     pub fn add_frame(&mut self, new_frame: Arc<FrameData>) {
-        if let Some(last) = self.recent_frames.back() {
+        if let Some(last) = self.recent.back() {
             if new_frame.frame_index() <= last.frame_index() {
                 // A frame from the past!?
                 // Likely we are `puffin_viewer`, and the server restarted.
                 // The safe choice is to clear everything:
-                self.recent_frames.clear();
-                self.slowest_frames.clear();
+                self.recent.clear();
+                self.slowest.clear();
             }
         }
 
-        let add_to_slowest = if self.slowest_frames.len() < self.max_slow {
+        let add_to_slowest = if self.slowest.len() < self.max_slow {
             true
-        } else if let Some(fastest_of_the_slow) = self.slowest_frames.peek() {
+        } else if let Some(fastest_of_the_slow) = self.slowest.peek() {
             new_frame.duration_ns() > fastest_of_the_slow.0.duration_ns()
         } else {
             false
         };
 
         if add_to_slowest {
-            self.slowest_frames
-                .push(OrderedByDuration(new_frame.clone()));
-            while self.slowest_frames.len() > self.max_slow {
-                self.slowest_frames.pop();
+            self.slowest.push(OrderedByDuration(new_frame.clone()));
+            while self.slowest.len() > self.max_slow {
+                self.slowest.pop();
             }
         }
 
-        if let Some(last) = self.recent_frames.back() {
+        if let Some(last) = self.recent.back() {
             // Assume there is a viewer viewing the newest frame,
             // and compress the previously newest frame to save RAM:
             last.pack();
         }
 
-        self.recent_frames.push_back(new_frame);
-        while self.recent_frames.len() > self.max_recent {
-            self.recent_frames.pop_front();
+        self.recent.push_back(new_frame);
+        while self.recent.len() > self.max_recent {
+            self.recent.pop_front();
         }
     }
 
     /// The latest fully captured frame of data.
     pub fn latest_frame(&self) -> Option<Arc<FrameData>> {
-        self.recent_frames.back().cloned()
+        self.recent.back().cloned()
     }
 
     /// Oldest first
     pub fn recent_frames(&self) -> impl Iterator<Item = &Arc<FrameData>> {
-        self.recent_frames.iter()
+        self.recent.iter()
     }
 
     /// The slowest frames so far (or since last call to [`Self::clear_slowest`])
     /// in chronological order.
     pub fn slowest_frames_chronological(&self) -> Vec<Arc<FrameData>> {
-        let mut frames: Vec<_> = self.slowest_frames.iter().map(|f| f.0.clone()).collect();
+        let mut frames: Vec<_> = self.slowest.iter().map(|f| f.0.clone()).collect();
         frames.sort_by_key(|frame| frame.frame_index());
         frames
     }
 
+    /// All frames sorted chronologically.
+    pub fn all_uniq(&self) -> Vec<Arc<FrameData>> {
+        let mut all: Vec<_> = self.slowest.iter().map(|f| f.0.clone()).collect();
+        all.extend(self.recent.iter().cloned());
+        all.sort_by_key(|frame| frame.frame_index());
+        all.dedup_by_key(|frame| frame.frame_index());
+        all
+    }
+
     /// Clean history of the slowest frames.
     pub fn clear_slowest(&mut self) {
-        self.slowest_frames.clear();
+        self.slowest.clear();
     }
 
     /// How many frames of recent history to store.
@@ -126,8 +134,8 @@ impl FrameView {
     pub fn save_to_writer(&self, write: &mut impl std::io::Write) -> anyhow::Result<()> {
         write.write_all(b"PUF0")?;
 
-        let slowest_frames = self.slowest_frames.iter().map(|f| &f.0);
-        let mut frames: Vec<_> = slowest_frames.chain(self.recent_frames.iter()).collect();
+        let slowest_frames = self.slowest.iter().map(|f| &f.0);
+        let mut frames: Vec<_> = slowest_frames.chain(self.recent.iter()).collect();
         frames.sort_by_key(|frame| frame.frame_index());
         frames.dedup_by_key(|frame| frame.frame_index());
 
