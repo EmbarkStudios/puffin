@@ -4,6 +4,7 @@ All notable changes to the egui crate will be documented in this file.
 
 
 ## Unreleased
+* Fix compilation for `wasm32-unknown-unknown`.
 
 
 ## 0.11.0 - 2021-11-16
