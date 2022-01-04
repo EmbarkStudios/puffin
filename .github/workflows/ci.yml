@@ -35,6 +35,7 @@ jobs:
           args: -- --check --color always
 
       - run: rustup component add clippy
+      - run: rustup target add wasm32-unknown-unknown
       - name: cargo fetch
         uses: actions-rs/cargo@v1
         with:
