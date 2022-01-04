@@ -108,7 +108,7 @@ pub fn profiler_window(ctx: &egui::CtxRef) -> bool {
     egui::Window::new("Profiler")
         .default_size([1024.0, 600.0])
         .open(&mut open)
-        .show(ctx, |ui| profiler_ui(ui));
+        .show(ctx, profiler_ui);
     open
 }
 
