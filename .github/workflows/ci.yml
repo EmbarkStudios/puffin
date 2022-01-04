@@ -54,7 +54,7 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: check
-          args: -p puffin_egui --lib --target wasm32-unknown-unknown --all-features
+          args: -p puffin_viewer --lib --target wasm32-unknown-unknown --all-features
 
   test:
     name: Test
