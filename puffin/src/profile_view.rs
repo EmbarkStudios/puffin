@@ -124,6 +124,7 @@ impl FrameView {
 
     /// Export profile data as a `.puffin` file.
     #[cfg(feature = "serialization")]
+    #[cfg(not(target_arch = "wasm32"))] // compression not supported on wasm
     pub fn save_to_path(&self, path: &std::path::Path) -> anyhow::Result<()> {
         let mut file = std::fs::File::create(path)?;
         self.save_to_writer(&mut file)
@@ -131,6 +132,7 @@ impl FrameView {
 
     /// Export profile data as a `.puffin` file.
     #[cfg(feature = "serialization")]
+    #[cfg(not(target_arch = "wasm32"))] // compression not supported on wasm
     pub fn save_to_writer(&self, write: &mut impl std::io::Write) -> anyhow::Result<()> {
         write.write_all(b"PUF0")?;
 

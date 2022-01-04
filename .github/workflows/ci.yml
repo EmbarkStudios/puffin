@@ -49,6 +49,11 @@ jobs:
         with:
           command: check
           args: --all-targets
+      - name: cargo check wasm32
+        uses: actions-rs/cargo@v1
+        with:
+          command: check
+          args: -p puffin_egui --lib --target wasm32-unknown-unknown --all-features
 
   test:
     name: Test

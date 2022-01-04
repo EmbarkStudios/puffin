@@ -79,7 +79,11 @@ pub const PROTOCOL_VERSION: u16 = 1;
 pub const DEFAULT_PORT: u16 = 8585;
 
 mod client;
+
+#[cfg(not(target_arch = "wasm32"))]
 mod server;
 
 pub use client::Client;
+
+#[cfg(not(target_arch = "wasm32"))]
 pub use server::Server;

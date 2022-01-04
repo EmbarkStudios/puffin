@@ -234,7 +234,7 @@ impl FrameData {
             use anyhow::Context as _;
             use bincode::Options as _;
 
-            let streams_serialized = zstd::decode_all(compressed).context("zstd decompress")?;
+            let streams_serialized = decode_zstd(compressed)?;
 
             let thread_streams: ThreadStreams = bincode::options()
                 .deserialize(&streams_serialized)
@@ -267,13 +267,20 @@ impl FrameData {
 
     /// Make the [`FrameData`] use up less memory.
     /// Idempotent.
+    #[cfg(not(target_arch = "wasm32"))] // compression not supported on wasm
     pub fn pack(&self) {
-        self.created_packed();
+        self.create_packed();
         *self.unpacked_frame.write() = None;
     }
 
+    #[cfg(target_arch = "wasm32")]
+    pub fn pack(&self) {
+        // compression not supported on wasm, so this is a no-op
+    }
+
     /// Create a packed storage without freeing the unpacked storage.
-    fn created_packed(&self) {
+    #[cfg(not(target_arch = "wasm32"))] // compression not supported on wasm
+    fn create_packed(&self) {
         use bincode::Options as _;
         let has_packed = self.packed_zstd_streams.read().is_some();
         if !has_packed {
@@ -302,6 +309,7 @@ impl FrameData {
     }
 
     /// Writes one [`FrameData`] into a stream, prefixed by it's length (u32 le).
+    #[cfg(not(target_arch = "wasm32"))] // compression not supported on wasm
     #[cfg(feature = "serialization")]
     pub fn write_into(&self, write: &mut impl std::io::Write) -> anyhow::Result<()> {
         use bincode::Options as _;
@@ -311,7 +319,7 @@ impl FrameData {
         write.write_all(&(meta_serialized.len() as u32).to_le_bytes())?;
         write.write_all(&meta_serialized)?;
 
-        self.created_packed();
+        self.create_packed();
         let zstd_streams_lock = self.packed_zstd_streams.read();
         let zstd_streams = zstd_streams_lock.as_ref().unwrap();
 
@@ -388,7 +396,7 @@ impl FrameData {
                 let mut compressed = vec![0_u8; compressed_length];
                 read.read_exact(&mut compressed)?;
 
-                let serialized = zstd::decode_all(&compressed[..]).context("zstd decompress")?;
+                let serialized = decode_zstd(&compressed[..])?;
 
                 let legacy: LegacyFrameData = bincode::options()
                     .deserialize(&serialized)
@@ -453,3 +461,31 @@ impl FrameData {
         max - min
     }
 }
+
+// ----------------------------------------------------------------------------
+
+#[cfg(feature = "packing")]
+#[cfg(not(target_arch = "wasm32"))]
+#[cfg(feature = "zstd")]
+fn decode_zstd(bytes: &[u8]) -> anyhow::Result<Vec<u8>> {
+    use anyhow::Context as _;
+    zstd::decode_all(bytes).context("zstd decompress")
+}
+
+#[cfg(feature = "packing")]
+#[cfg(target_arch = "wasm32")]
+#[cfg(feature = "ruzstd")]
+fn decode_zstd(mut bytes: &[u8]) -> anyhow::Result<Vec<u8>> {
+    use anyhow::Context as _;
+    use std::io::Read as _;
+    let mut decoded = Vec::new();
+    let mut decoder = ruzstd::StreamingDecoder::new(&mut bytes)
+        .map_err(|err| anyhow::format_err!("zstd decompress: {}", err))?;
+    decoder
+        .read_to_end(&mut decoded)
+        .context("zstd decompress")?;
+    Ok(decoded)
+}
+
+#[cfg(all(not(feature = "zstd"), not(feature = "ruzstd")))]
+compiled_error!("Either feature zstd or ruzstd must be enabled");

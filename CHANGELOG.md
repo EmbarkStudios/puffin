@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 ## Unreleased
+* Fix compilation for `wasm32-unknown-unknown`.
 
 
 ## 0.12.1 - 2021-11-16
