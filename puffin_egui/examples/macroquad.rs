@@ -1,3 +1,6 @@
+fn main() {}
+/* Example disabled until egui-macroquad has been updated to egui 0.16: https://github.com/optozorax/egui-macroquad/pull/13
+
 use macroquad::prelude::*;
 
 fn window_conf() -> Conf {
@@ -73,3 +76,6 @@ fn sleep_ms(ms: usize) {
         }
     }
 }
+
+
+*/
