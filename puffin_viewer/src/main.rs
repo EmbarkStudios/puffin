@@ -27,6 +27,7 @@ fn main() {
 
     simple_logger::SimpleLogger::new()
         .with_level(log::LevelFilter::Info)
+        .without_timestamps()
         .init()
         .ok();
 

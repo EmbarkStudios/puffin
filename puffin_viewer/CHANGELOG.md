@@ -6,6 +6,11 @@ All notable changes to `puffin_viewer` will be documented in this file.
 ## Unreleased
 
 
+## 0.10.1 - 2022-01-11
+* Update to latest `eframe` and `winit`
+* Swich renderer from `egui_glium` to `egui_glow`.
+
+
 ## 0.10.0 - 2021-11-16
 * In-memory compression of frames to use up less RAM.
 * Add slider to control how many recent frames to store.
