@@ -212,11 +212,16 @@ pub fn ui(ui: &mut egui::Ui, options: &mut Options, frames: &SelectedFrames) {
     {
         // reset view if number of selected frames changes (and we are viewing all of them):
         let num_frames_id = ui.id().with("num_frames");
-        let num_frames_last_frame: usize = *ui.memory().id_data_temp.get_or_default(num_frames_id);
+        let num_frames_last_frame = ui
+            .memory()
+            .data
+            .get_temp::<usize>(num_frames_id)
+            .unwrap_or_default();
+
         if num_frames_last_frame != num_frames && !options.merge_scopes {
             reset_view = true;
         }
-        ui.memory().id_data_temp.insert(num_frames_id, num_frames);
+        ui.memory().data.insert_temp(num_frames_id, num_frames);
     }
 
     ui.horizontal(|ui| {
@@ -233,7 +238,7 @@ pub fn ui(ui: &mut egui::Ui, options: &mut Options, frames: &SelectedFrames) {
             }
         });
         ui.separator();
-        ui.add(Label::new("Help!").text_color(ui.visuals().widgets.inactive.text_color()))
+        ui.colored_label(ui.visuals().widgets.inactive.text_color(), "Help!")
             .on_hover_text(
                 "Drag to pan.\n\
             Zoom: Ctrl/cmd + scroll, or drag with secondary mouse button.\n\

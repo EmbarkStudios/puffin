@@ -8,5 +8,3 @@ members = [
 ]
 
 [patch.crates-io]
-# For https://github.com/rust-windowing/winit/pull/2027
-winit = { git = "https://github.com/rust-windowing/winit", rev = "387567a917e1944a3848ee7d21c14013a1a4f55d" }

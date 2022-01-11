@@ -189,7 +189,7 @@ impl PuffinViewer {
     }
 
     #[cfg(not(target_arch = "wasm32"))]
-    fn ui_menu_bar(&mut self, ctx: &egui::CtxRef, frame: &mut epi::Frame<'_>) {
+    fn ui_menu_bar(&mut self, ctx: &egui::CtxRef, frame: &epi::Frame) {
         if ctx.input().modifiers.command && ctx.input().key_pressed(egui::Key::O) {
             self.open_dialog();
         }
@@ -200,7 +200,7 @@ impl PuffinViewer {
 
         egui::TopBottomPanel::top("menu_bar").show(ctx, |ui| {
             egui::menu::bar(ui, |ui| {
-                egui::menu::menu(ui, "File", |ui| {
+                ui.menu_button("File", |ui| {
                     if ui.button("Open…").clicked() {
                         self.open_dialog();
                     }
@@ -213,7 +213,7 @@ impl PuffinViewer {
                         frame.quit();
                     }
                 });
-                egui::menu::menu(ui, "View", |ui| {
+                ui.menu_button("View", |ui| {
                     ui.checkbox(&mut self.profile_self, "Profile self")
                         .on_hover_text("Show the flamegraph for puffin_viewer");
                 });
@@ -264,7 +264,7 @@ impl epi::App for PuffinViewer {
         egui::Vec2::new(2048.0, 4096.0)
     }
 
-    fn update(&mut self, ctx: &egui::CtxRef, _frame: &mut epi::Frame<'_>) {
+    fn update(&mut self, ctx: &egui::CtxRef, _frame: &epi::Frame) {
         puffin::GlobalProfiler::lock().new_frame();
 
         #[cfg(not(target_arch = "wasm32"))]
