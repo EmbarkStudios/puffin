@@ -1,4 +1,4 @@
-//! Remote puffin viewer, connecting to a [`puffin_http::PuffinServer`].
+//! Remote puffin viewer, connecting to a [`puffin_http::Server`].
 
 // BEGIN - Embark standard lints v0.4
 // do not change or add/remove here, but one can add exceptions after this section
