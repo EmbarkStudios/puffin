@@ -158,12 +158,12 @@ compile_error!(
 #[cfg(feature = "packing")]
 pub struct FrameData {
     meta: FrameMeta,
-    /// * `None` if still compressed.
+    /// * [`None`] if still compressed.
     /// * `Some(Err(…))` if there was a problem during unpacking.
     /// * `Some(Ok(…))` if unpacked.
     unpacked_frame: RwLock<Option<anyhow::Result<Arc<UnpackedFrameData>>>>,
     /// [`UnpackedFrameData::thread_streams`], compressed with zstd.
-    /// `None` if not yet compressed.
+    /// [`None`] if not yet compressed.
     packed_zstd_streams: RwLock<Option<Vec<u8>>>,
 }
 
@@ -308,7 +308,7 @@ impl FrameData {
         }
     }
 
-    /// Writes one [`FrameData`] into a stream, prefixed by it's length (u32 le).
+    /// Writes one [`FrameData`] into a stream, prefixed by its length ([`u32`] le).
     #[cfg(not(target_arch = "wasm32"))] // compression not supported on wasm
     #[cfg(feature = "serialization")]
     pub fn write_into(&self, write: &mut impl std::io::Write) -> anyhow::Result<()> {
@@ -331,8 +331,8 @@ impl FrameData {
 
     /// Read the next [`FrameData`] from a stream.
     ///
-    /// `None` is returned if the end of the stream is reached (EOF),
-    /// or an end-of-stream sentinel of 0u32 is read.
+    /// [`None`] is returned if the end of the stream is reached (EOF),
+    /// or an end-of-stream sentinel of `0u32` is read.
     #[cfg(feature = "serialization")]
     pub fn read_next(read: &mut impl std::io::Read) -> anyhow::Result<Option<Self>> {
         use anyhow::Context as _;

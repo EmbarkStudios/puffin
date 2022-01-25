@@ -119,15 +119,15 @@ use std::sync::{
 
 static MACROS_ON: AtomicBool = AtomicBool::new(false);
 
-/// Turn on/off the profiler macros (`profile_function`, `profile_scope` etc).
+/// Turn on/off the profiler macros ([`profile_function`], [`profile_scope`] etc).
 /// When off, these calls take only 1-2 ns to call (100x faster).
-/// This is `false` by default.
+/// This is [`false`] by default.
 pub fn set_scopes_on(on: bool) {
     MACROS_ON.store(on, Ordering::Relaxed);
 }
 
 /// Are the profiler scope macros turned on?
-/// This is `false` by default.
+/// This is [`false`] by default.
 pub fn are_scopes_on() -> bool {
     MACROS_ON.load(Ordering::Relaxed)
 }
@@ -241,7 +241,7 @@ pub struct StreamInfo {
 
     /// The smallest and largest nanosecond value in the stream.
     ///
-    /// The default value is `(NanoSecond::MAX, NanoSecond::MIN)` which indicates an empty stream.
+    /// The default value is ([`NanoSecond::MAX`], [`NanoSecond::MIN`]) which indicates an empty stream.
     pub range_ns: (NanoSecond, NanoSecond),
 }
 
@@ -259,7 +259,7 @@ impl Default for StreamInfo {
 impl StreamInfo {
     /// Parse a stream to count the depth, number of scopes in it etc.
     ///
-    /// Try to avoid calling this, and instead keep score while collecting a `StreamInfo`.
+    /// Try to avoid calling this, and instead keep score while collecting a [`StreamInfo`].
     pub fn parse(stream: Stream) -> Result<StreamInfo> {
         let top_scopes = Reader::from_start(&stream).read_top_scopes()?;
         if top_scopes.is_empty() {
@@ -329,7 +329,7 @@ pub struct StreamInfoRef<'a> {
 
     /// The smallest and largest nanosecond value in the stream.
     ///
-    /// The default value is `(NanoSecond::MAX, NanoSecond::MIN)` which indicates an empty stream.
+    /// The default value is ([`NanoSecond::MAX`], [`NanoSecond::MIN`]) which indicates an empty stream.
     pub range_ns: (NanoSecond, NanoSecond),
 }
 
@@ -368,10 +368,10 @@ impl Default for ThreadProfiler {
 impl ThreadProfiler {
     /// Explicit initialize with custom callbacks.
     ///
-    /// If not called, each thread will use the default nanosecond source (`[now_ns]`)
-    /// and report scopes to the global profiler ([`global_reporter`]).
+    /// If not called, each thread will use the default nanosecond source ([`now_ns()`])
+    /// and report scopes to the global profiler ([`global_reporter()`]).
     ///
-    /// For instance, when compiling for WASM the default timing function (`[now_ns]`) won't work,
+    /// For instance, when compiling for WASM the default timing function ([`now_ns()`]) won't work,
     /// so you'll want to call `puffin::ThreadProfiler::initialize(my_timing_function, puffin::global_reporter);`.
     pub fn initialize(now_ns: NsSource, reporter: ThreadReporter) {
         ThreadProfiler::call(|tp| {
@@ -432,7 +432,7 @@ impl ThreadProfiler {
 
 // ----------------------------------------------------------------------------
 
-/// Add these to [`GlobalProfiler`] with [`GlobalProfiler::add_sink`].
+/// Add these to [`GlobalProfiler`] with [`GlobalProfiler::add_sink()`].
 pub type FrameSink = Box<dyn Fn(Arc<FrameData>) + Send>;
 
 /// Identifies a specific [`FrameSink`] when added to [`GlobalProfiler`].
@@ -440,7 +440,7 @@ pub type FrameSink = Box<dyn Fn(Arc<FrameData>) + Send>;
 pub struct FrameSinkId(u64);
 
 /// Singleton. Collects profiling data from multiple threads
-/// and passes them on to different [`FrameSink`]:s.
+/// and passes them on to different [`FrameSink`]s.
 pub struct GlobalProfiler {
     current_frame_index: FrameIndex,
     current_frame: BTreeMap<ThreadInfo, StreamInfo>,
@@ -518,7 +518,7 @@ impl GlobalProfiler {
 
     /// Tells [`GlobalProfiler`] to call this function with each new finished frame.
     ///
-    /// The returned [`FrameSinkId`] can be used to remove the sink with [`Self::remove_sink`].
+    /// The returned [`FrameSinkId`] can be used to remove the sink with [`Self::remove_sink()`].
     pub fn add_sink(&mut self, sink: FrameSink) -> FrameSinkId {
         let id = self.next_sink_id;
         self.next_sink_id.0 += 1;

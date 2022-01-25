@@ -1,7 +1,7 @@
 use crate::{NanoSecond, Reader, Result, Scope, Stream, ThreadInfo, UnpackedFrameData};
 use std::collections::BTreeMap;
 
-/// Temporary structure while building a `MergeScope`.
+/// Temporary structure while building a [`MergeScope`].
 #[derive(Default)]
 struct MergeNode<'s> {
     /// These are the raw scopes that got merged into us.
