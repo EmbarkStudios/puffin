@@ -37,7 +37,7 @@ criterion = "0.3"
 default = []
 packing = ["anyhow", "bincode", "parking_lot", "serde", "zstd", "ruzstd"]
 # Feature for enabling loading/saving data to a binary stream and/or file.
-serialization = []
+serialization = ["packing"]
 
 [[bench]]
 name = "benchmark"
