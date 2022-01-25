@@ -2,7 +2,7 @@ use std::sync::{Arc, Mutex};
 
 use crate::{FrameData, FrameSinkId};
 
-/// A view of recent and slowest frames, used by GUI:s.
+/// A view of recent and slowest frames, used by GUIs.
 #[derive(Clone)]
 pub struct FrameView {
     /// newest first
@@ -80,7 +80,7 @@ impl FrameView {
         self.recent.iter()
     }
 
-    /// The slowest frames so far (or since last call to [`Self::clear_slowest`])
+    /// The slowest frames so far (or since last call to [`Self::clear_slowest()`])
     /// in chronological order.
     pub fn slowest_frames_chronological(&self) -> Vec<Arc<FrameData>> {
         let mut frames: Vec<_> = self.slowest.iter().map(|f| f.0.clone()).collect();

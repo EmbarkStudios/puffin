@@ -187,7 +187,7 @@ impl<'s> Reader<'s> {
         Ok(scopes)
     }
 
-    /// `None` if at end of stream
+    /// [`None`] if at end of stream
     fn peek_u8(&mut self) -> Option<u8> {
         let position = self.0.position();
         let value = self.0.read_u8().ok();
