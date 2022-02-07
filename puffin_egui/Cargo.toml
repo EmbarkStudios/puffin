@@ -4,21 +4,18 @@ version = "0.12.0"
 authors = ["Emil Ernerfeldt <emil.ernerfeldt@gmail.com>"]
 description = "Show puffin profiler flamegraph in-game using egui"
 edition = "2018"
-homepage = "https://github.com/emilk/puffin_egui"
+homepage = "https://github.com/EmbarkStudios/puffin"
+repository = "https://github.com/EmbarkStudios/puffin"
 license = "MIT OR Apache-2.0"
 readme = "README.md"
-repository = "https://github.com/emilk/puffin_egui"
-categories = [
-    "development-tools::profiling",
-    "game-development",
-    "gui",
-]
+categories = ["development-tools::profiling", "game-development", "gui"]
 keywords = ["profiler", "gamedev", "gui"]
 include = [
   "../LICENSE-APACHE",
   "../LICENSE-MIT",
   "**/*.rs",
   "Cargo.toml",
+  "README.md",
 ]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -29,10 +26,12 @@ egui = "0.16.0"
 natord = "1.0.9"
 once_cell = "1.7"
 puffin = { version = "0.12.0", path = "../puffin", features = ["packing"] }
-serde = { version = "1", features = ["derive"], optional = true }
+serde = { version = "1.0", features = ["derive"], optional = true }
 vec1 = "1.8"
 
 [dev-dependencies]
-eframe = { version = "0.16.0", default-features = false, features = ["egui_glow"] }
+eframe = { version = "0.16.0", default-features = false, features = [
+  "egui_glow",
+] }
 # egui-macroquad = "0.7.0" # disabled until it is updated to egui 0.16
 # macroquad = "0.3" # disabled until it is updated to egui 0.16
