@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <!-- next-header -->
 ## [Unreleased] - ReleaseDate
+## [0.16.0] - 2022-02-07
 ### Changed
 - [PR#64](https://github.com/EmbarkStudios/puffin/pull/64) updated dependencies and cleaned up crate metadata.
 
@@ -78,7 +79,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Simpler interaction (drag to pan, scroll to zoom, click to focus, double-click to reset).
 
 <!-- next-url -->
-[Unreleased]: https://github.com/EmbarkStudios/puffin/compare/0.15.0...HEAD
+[Unreleased]: https://github.com/EmbarkStudios/puffin/compare/puffin-imgui-0.16.0...HEAD
+[0.16.0]: https://github.com/EmbarkStudios/puffin/compare/0.15.0...puffin-imgui-0.16.0
 [0.15.0]: https://github.com/EmbarkStudios/puffin/compare/puffin-imgui-0.14.0...puffin-imgui-0.15.0
 [0.14.0]: https://github.com/EmbarkStudios/puffin/compare/puffin-imgui-0.13.4...puffin-imgui-0.14.0
 [0.13.4]: https://github.com/EmbarkStudios/puffin/compare/puffin-imgui-0.13.3...puffin-imgui-0.13.4
