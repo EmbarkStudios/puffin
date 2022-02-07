@@ -6,6 +6,7 @@ All notable changes to the egui crate will be documented in this file.
 
 <!-- next-header -->
 ## [Unreleased] - ReleaseDate
+## [0.13.0] - 2022-02-07
 ### Changed
 - [PR#64](https://github.com/EmbarkStudios/puffin/pull/64) updated dependencies and cleaned up crate metadata.
 
@@ -104,7 +105,8 @@ All notable changes to the egui crate will be documented in this file.
 - The view supports viewing merged sibling scopes.
 
 <!-- next-url -->
-[Unreleased]: https://github.com/EmbarkStudios/puffin/compare/0.12.0...HEAD
+[Unreleased]: https://github.com/EmbarkStudios/puffin/compare/puffin_egui-0.13.0...HEAD
+[0.13.0]: https://github.com/EmbarkStudios/puffin/compare/0.12.0...puffin_egui-0.13.0
 [0.12.0]: https://github.com/EmbarkStudios/puffin/compare/puffin_egui-0.11.0...puffin_egui-0.12.0
 [0.11.0]: https://github.com/EmbarkStudios/puffin/compare/puffin_egui-0.10.3...puffin_egui-0.11.0
 [0.10.3]: https://github.com/EmbarkStudios/puffin/compare/puffin_egui-0.10.2...puffin_egui-0.10.3
