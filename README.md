@@ -1,15 +1,12 @@
 <div align="center">
-  <h1><code>🐦 puffin</code></h1>
 
-   <p>
-    <strong>The friendly little instrumentation profiler for Rust</strong>
-  </p>
+# `🐦 puffin`
 
-  ![Puffin photo by Richard Bartz](puffin.jpg)
+**The friendly little instrumentation profiler for Rust**
 
-  [(puffin photo by Richard Bartz)](https://en.wikipedia.org/wiki/File:Papageitaucher_Fratercula_arctica.jpg)
+![Puffin photo by Richard Bartz](puffin.jpg)
 
-  <p>
+[(puffin photo by Richard Bartz)](https://en.wikipedia.org/wiki/File:Papageitaucher_Fratercula_arctica.jpg)
 
 [![Embark](https://img.shields.io/badge/embark-open%20source-blueviolet.svg)](https://embark.dev)
 [![Embark](https://img.shields.io/badge/discord-ark-%237289da.svg?logo=discord)](https://discord.gg/dAuKfZS)
@@ -18,7 +15,6 @@
 [![dependency status](https://deps.rs/repo/github/EmbarkStudios/puffin/status.svg)](https://deps.rs/repo/github/EmbarkStudios/puffin)
 [![Build Status](https://github.com/EmbarkStudios/puffin/workflows/CI/badge.svg)](https://github.com/EmbarkStudios/puffin/actions?workflow=CI)
 
-  </p>
 </div>
 
 ## How to use
@@ -58,7 +54,7 @@ Also check out the crate [`profiling`](https://crates.io/crates/profiling) which
 
 ## Contributing
 
-[![Contributor Covenant](https://img.shields.io/badge/contributor%20covenant-v1.4-ff69b4.svg)](../CODE_OF_CONDUCT.md)
+[![Contributor Covenant](https://img.shields.io/badge/contributor%20covenant-v1.4-ff69b4.svg)](CODE_OF_CONDUCT.md)
 
 We welcome community contributions to this project.
 
@@ -68,8 +64,8 @@ Please read our [Contributor Guide](CONTRIBUTING.md) for more information on how
 
 Licensed under either of
 
-* Apache License, Version 2.0, ([LICENSE-APACHE](LICENSE-APACHE) or http://www.apache.org/licenses/LICENSE-2.0)
-* MIT license ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
+* Apache License, Version 2.0, ([LICENSE-APACHE](LICENSE-APACHE) or <http://www.apache.org/licenses/LICENSE-2.0>)
+* MIT license ([LICENSE-MIT](LICENSE-MIT) or <http://opensource.org/licenses/MIT>)
 
 at your option.
 
