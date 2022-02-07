@@ -19,7 +19,8 @@ puffin = { version = "0.12.0", path = "../puffin", features = ["packing"] }
 serde = { version = "1.0", features = ["derive"] }
 
 [dev-dependencies]
-glium = { version = "0.31", default-features = true }
+# Stuck on this version until imgui-glium updates
+glium = { version = "0.30", default-features = true }
 imgui-glium-renderer = "0.8"
 imgui-winit-support = { version = "0.8", default-features = false, features = [
     "winit-25",
