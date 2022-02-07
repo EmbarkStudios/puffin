@@ -6,6 +6,7 @@ All notable changes to `puffin_http` will be documented in this file.
 
 <!-- next-header -->
 ## [Unreleased] - ReleaseDate
+## [0.10.0] - 2022-02-07
 ### Changed
 - [PR#64](https://github.com/EmbarkStudios/puffin/pull/64) updated dependencies and cleaned up crate metadata.
 
@@ -55,7 +56,8 @@ All notable changes to `puffin_http` will be documented in this file.
 - Initial release
 
 <!-- next-url -->
-[Unreleased]: https://github.com/EmbarkStudios/puffin/compare/0.9.0...HEAD
+[Unreleased]: https://github.com/EmbarkStudios/puffin/compare/puffin_http-0.10.0...HEAD
+[0.10.0]: https://github.com/EmbarkStudios/puffin/compare/0.9.0...puffin_http-0.10.0
 [0.9.0]: https://github.com/EmbarkStudios/puffin/compare/puffin_http-0.8.0...puffin_http-0.9.0
 [0.8.0]: https://github.com/EmbarkStudios/puffin/compare/puffin_http-0.7.3...puffin_http-0.8.0
 [0.7.3]: https://github.com/EmbarkStudios/puffin/compare/puffin_http-0.7.2...puffin_http-0.7.3
