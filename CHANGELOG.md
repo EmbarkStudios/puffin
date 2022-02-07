@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 * Upgrade `ztd` v0.9 -> v0.10
+* [PR#64](https://github.com/EmbarkStudios/puffin/pull/64) updated dependencies and cleaned up crate metadata.
 
 ## [0.12.1] - 2021-11-16
 ### Fixed
