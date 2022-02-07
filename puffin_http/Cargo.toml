@@ -10,10 +10,10 @@ repository = "https://github.com/EmbarkStudios/puffin"
 readme = "README.md"
 categories = ["development-tools::profiling", "gui"]
 keywords = ["profiler", "instrumentation", "gamedev"]
-include = ["**/*.rs", "Cargo.toml"]
+include = ["**/*.rs", "Cargo.toml", "README.md"]
 
 [dependencies]
-anyhow = "1"
+anyhow = "1.0"
 crossbeam-channel = "0.5"
 log = "0.4"
 puffin = { version = "0.12.0", path = "../puffin", features = [
