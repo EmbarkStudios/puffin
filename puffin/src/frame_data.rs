@@ -274,6 +274,7 @@ impl FrameData {
     }
 
     #[cfg(target_arch = "wasm32")]
+    #[allow(clippy::unused_self)]
     pub fn pack(&self) {
         // compression not supported on wasm, so this is a no-op
     }

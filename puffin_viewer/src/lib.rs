@@ -82,6 +82,7 @@
 // END - Embark standard lints v0.5 for Rust 1.55+
 // crate-specific exceptions:
 #![allow(clippy::exit)]
+#![cfg_attr(target_arch = "wasm32", allow(clippy::unused_unit))]
 
 use eframe::{egui, epi};
 use puffin::FrameView;
@@ -342,6 +343,7 @@ use eframe::wasm_bindgen::{self, prelude::*};
 /// It loads the app, installs some callbacks, then returns.
 /// You can add more callbacks like this if you want to call in to your code.
 #[cfg(target_arch = "wasm32")]
+#[allow(clippy::unused_unit)]
 #[wasm_bindgen]
 pub fn start(canvas_id: &str) -> Result<(), eframe::wasm_bindgen::JsValue> {
     puffin::set_scopes_on(true); // quiet warning in `puffin_egui`.
