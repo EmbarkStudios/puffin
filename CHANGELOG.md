@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <!-- next-header -->
 ## [Unreleased] - ReleaseDate
+## [0.13.0] - 2022-02-07
 ### Fixed
 * Fix compilation for `wasm32-unknown-unknown`.
 
@@ -78,7 +79,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * `GlobalProfiler` now store recent history and the slowest frames.
 
 <!-- next-url -->
-[Unreleased]: https://github.com/EmbarkStudios/puffin/compare/0.12.1...HEAD
+[Unreleased]: https://github.com/EmbarkStudios/puffin/compare/0.13.0...HEAD
+[0.13.0]: https://github.com/EmbarkStudios/puffin/compare/0.12.1...0.13.0
 [0.12.1]: https://github.com/EmbarkStudios/puffin/compare/0.12.0...0.12.1
 [0.12.0]: https://github.com/EmbarkStudios/puffin/compare/0.11.0...0.12.0
 [0.11.0]: https://github.com/EmbarkStudios/puffin/compare/0.10.1...0.11.0
