@@ -488,5 +488,6 @@ fn decode_zstd(mut bytes: &[u8]) -> anyhow::Result<Vec<u8>> {
     Ok(decoded)
 }
 
+#[cfg(feature = "packing")]
 #[cfg(all(not(feature = "zstd"), not(feature = "ruzstd")))]
 compile_error!("Either feature zstd or ruzstd must be enabled");
