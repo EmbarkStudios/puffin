@@ -1,6 +1,6 @@
 //! Remote puffin viewer, connecting to a [`puffin_http::Server`].
 
-// BEGIN - Embark standard lints v5 for Rust 1.55+
+// BEGIN - Embark standard lints v6 for Rust 1.55+
 // do not change or add/remove here, but one can add exceptions after this section
 // for more info see: <https://github.com/EmbarkStudios/rust-ecosystem/issues/59>
 #![deny(unsafe_code)]
@@ -11,8 +11,6 @@
     clippy::checked_conversions,
     clippy::dbg_macro,
     clippy::debug_assert_with_mut_call,
-    clippy::disallowed_method,
-    clippy::disallowed_type,
     clippy::doc_markdown,
     clippy::empty_enum,
     clippy::enum_glob_use,
@@ -79,7 +77,7 @@
     nonstandard_style,
     rust_2018_idioms
 )]
-// END - Embark standard lints v0.5 for Rust 1.55+
+// END - Embark standard lints v6 for Rust 1.55+
 // crate-specific exceptions:
 #![allow(clippy::exit)]
 #![cfg_attr(target_arch = "wasm32", allow(clippy::unused_unit))]
@@ -201,7 +199,7 @@ impl PuffinViewer {
     }
 
     #[cfg(not(target_arch = "wasm32"))]
-    fn ui_menu_bar(&mut self, ctx: &egui::CtxRef, frame: &epi::Frame) {
+    fn ui_menu_bar(&mut self, ctx: &egui::Context, frame: &epi::Frame) {
         if ctx.input().modifiers.command && ctx.input().key_pressed(egui::Key::O) {
             self.open_dialog();
         }
@@ -233,7 +231,7 @@ impl PuffinViewer {
         });
     }
 
-    fn ui_file_drag_and_drop(&mut self, ctx: &egui::CtxRef) {
+    fn ui_file_drag_and_drop(&mut self, ctx: &egui::Context) {
         use egui::*;
 
         // Preview hovering files:
@@ -247,7 +245,7 @@ impl PuffinViewer {
                 screen_rect.center(),
                 Align2::CENTER_CENTER,
                 "Drop to open .puffin file",
-                TextStyle::Heading,
+                egui::FontId::proportional(20.0),
                 Color32::WHITE,
             );
         }
@@ -276,7 +274,7 @@ impl epi::App for PuffinViewer {
         egui::Vec2::new(2048.0, 4096.0)
     }
 
-    fn update(&mut self, ctx: &egui::CtxRef, _frame: &epi::Frame) {
+    fn update(&mut self, ctx: &egui::Context, _frame: &epi::Frame) {
         puffin::GlobalProfiler::lock().new_frame();
 
         #[cfg(not(target_arch = "wasm32"))]

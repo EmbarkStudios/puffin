@@ -2,7 +2,10 @@ use super::{SelectedFrames, ERROR_COLOR, HOVER_COLOR};
 use egui::*;
 use puffin::*;
 
-const TEXT_STYLE: TextStyle = TextStyle::Body;
+const TEXT_FONT_ID: egui::FontId = FontId {
+    size: 14.0,
+    family: egui::FontFamily::Proportional,
+};
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
@@ -172,7 +175,7 @@ impl Default for Options {
 
 /// Context for painting a frame.
 struct Info {
-    ctx: egui::CtxRef,
+    ctx: egui::Context,
     /// Bounding box of canvas in points:
     canvas: Rect,
     /// Interaction with the profiler canvas
@@ -365,7 +368,7 @@ fn ui_canvas(
                 pos2(info.canvas.min.x, cursor_y),
                 Align2::LEFT_TOP,
                 text,
-                TEXT_STYLE,
+                TEXT_FONT_ID,
                 ERROR_COLOR,
             );
         }
@@ -511,21 +514,21 @@ fn paint_timeline(
 
                 // Text at top:
                 shapes.push(egui::Shape::text(
-                    info.painter.fonts(),
+                    &info.painter.fonts(),
                     pos2(text_x, canvas.min.y),
                     Align2::LEFT_TOP,
                     &text,
-                    TEXT_STYLE,
+                    TEXT_FONT_ID,
                     text_color,
                 ));
 
                 // Text at bottom:
                 shapes.push(egui::Shape::text(
-                    info.painter.fonts(),
+                    &info.painter.fonts(),
                     pos2(text_x, canvas.max.y - info.text_height),
                     Align2::LEFT_TOP,
                     &text,
-                    TEXT_STYLE,
+                    TEXT_FONT_ID,
                     text_color,
                 ));
             }
@@ -633,7 +636,7 @@ fn paint_record(
         );
         let pos = painter.round_pos_to_pixels(pos);
         const TEXT_COLOR: Color32 = Color32::BLACK;
-        painter.text(pos, Align2::LEFT_TOP, text, TEXT_STYLE, TEXT_COLOR);
+        painter.text(pos, Align2::LEFT_TOP, text, TEXT_FONT_ID, TEXT_COLOR);
     }
 
     if is_hovered {
@@ -820,7 +823,7 @@ fn merge_scope_tooltip(ui: &mut egui::Ui, merge: &MergeScope<'_>, num_frames: us
 fn paint_thread_info(info: &Info, thread: &ThreadInfo, pos: Pos2) {
     let galley = info.ctx.fonts().layout_no_wrap(
         thread.name.clone(),
-        TEXT_STYLE,
+        TEXT_FONT_ID,
         Rgba::from_white_alpha(0.9).into(),
     );
     let rect = Rect::from_min_size(pos, galley.size());

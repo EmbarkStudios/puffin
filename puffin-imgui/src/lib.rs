@@ -23,7 +23,7 @@
 //! # fn slow_code(){}
 //! ```
 
-// BEGIN - Embark standard lints v5 for Rust 1.55+
+// BEGIN - Embark standard lints v6 for Rust 1.55+
 // do not change or add/remove here, but one can add exceptions after this section
 // for more info see: <https://github.com/EmbarkStudios/rust-ecosystem/issues/59>
 #![deny(unsafe_code)]
@@ -34,8 +34,6 @@
     clippy::checked_conversions,
     clippy::dbg_macro,
     clippy::debug_assert_with_mut_call,
-    clippy::disallowed_method,
-    clippy::disallowed_type,
     clippy::doc_markdown,
     clippy::empty_enum,
     clippy::enum_glob_use,
@@ -102,7 +100,7 @@
     nonstandard_style,
     rust_2018_idioms
 )]
-// END - Embark standard lints v0.5 for Rust 1.55+
+// END - Embark standard lints v6 for Rust 1.55+
 // crate-specific exceptions:
 
 mod ui;

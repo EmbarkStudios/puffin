@@ -7,7 +7,7 @@
 //! puffin_egui::profiler_window(&egui_ctx);
 //! ```
 
-// BEGIN - Embark standard lints v5 for Rust 1.55+
+// BEGIN - Embark standard lints v6 for Rust 1.55+
 // do not change or add/remove here, but one can add exceptions after this section
 // for more info see: <https://github.com/EmbarkStudios/rust-ecosystem/issues/59>
 #![deny(unsafe_code)]
@@ -18,8 +18,6 @@
     clippy::checked_conversions,
     clippy::dbg_macro,
     clippy::debug_assert_with_mut_call,
-    clippy::disallowed_method,
-    clippy::disallowed_type,
     clippy::doc_markdown,
     clippy::empty_enum,
     clippy::enum_glob_use,
@@ -86,7 +84,7 @@
     nonstandard_style,
     rust_2018_idioms
 )]
-// END - Embark standard lints v0.5 for Rust 1.55+
+// END - Embark standard lints v6 for Rust 1.55+
 // crate-specific exceptions:
 #![allow(clippy::float_cmp, clippy::manual_range_contains)]
 
@@ -113,7 +111,7 @@ const HOVER_COLOR: Rgba = Rgba::from_rgb(0.8, 0.8, 0.8);
 /// If you want to control the window yourself, use [`profiler_ui`] instead.
 ///
 /// Returns `false` if the user closed the profile window.
-pub fn profiler_window(ctx: &egui::CtxRef) -> bool {
+pub fn profiler_window(ctx: &egui::Context) -> bool {
     puffin::profile_function!();
     let mut open = true;
     egui::Window::new("Profiler")
@@ -153,7 +151,7 @@ impl GlobalProfilerUi {
     /// If you want to control the window yourself, use [`Self::ui`] instead.
     ///
     /// Returns `false` if the user closed the profile window.
-    pub fn window(&mut self, ctx: &egui::CtxRef) -> bool {
+    pub fn window(&mut self, ctx: &egui::Context) -> bool {
         let mut frame_view = self.global_frame_view.lock();
         self.profiler_ui
             .window(ctx, &mut MaybeMutRef::MutRef(&mut frame_view))
@@ -363,7 +361,7 @@ impl ProfilerUi {
     /// Returns `false` if the user closed the profile window.
     pub fn window(
         &mut self,
-        ctx: &egui::CtxRef,
+        ctx: &egui::Context,
         frame_view: &mut MaybeMutRef<'_, FrameView>,
     ) -> bool {
         puffin::profile_function!();
