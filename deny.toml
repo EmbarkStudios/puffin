@@ -1,0 +1,34 @@
+targets = [
+    { triple = "x86_64-unknown-linux-gnu" },
+    { triple = "x86_64-unknown-linux-musl" },
+    { triple = "x86_64-pc-windows-msvc" },
+    { triple = "x86_64-apple-darwin" },
+    { triple = "aarch64-apple-darwin" },
+]
+
+[advisories]
+vulnerability = "deny"
+unmaintained = "deny"
+yanked = "deny"
+ignore = [
+    # xcb, which is several layers down
+    "RUSTSEC-2020-0097",
+    "RUSTSEC-2021-0019",
+    # nix, again, several layers down
+    "RUSTSEC-2021-0119",
+    # serde_cbor is unmaintained, but only used by criterion
+    "RUSTSEC-2021-0127",
+]
+
+[licenses]
+unlicensed = "deny"
+allow = ["MIT", "Apache-2.0", "BSD-3-Clause", "ISC"]
+copyleft = "deny"
+allow-osi-fsf-free = "neither"
+default = "deny"
+exceptions = []
+
+[bans]
+multiple-versions = "deny"
+deny = []
+skip = []
