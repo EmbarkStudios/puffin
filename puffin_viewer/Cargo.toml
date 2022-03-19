@@ -24,10 +24,10 @@ puffin = { version = "0.13.1", path = "../puffin", features = [
 puffin_http = { version = "0.10.0", path = "../puffin_http" }
 
 argh = "0.1"
-eframe = { version = "0.16.0", default-features = false, features = [
+eframe = { version = "0.17.0", default-features = false, features = [
     "egui_glow",
     "persistence",
 ] }
 log = "0.4"
-rfd = "0.7.0"
+rfd = "0.8.1"
 simple_logger = "2.1"

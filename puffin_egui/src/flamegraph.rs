@@ -2,8 +2,6 @@ use super::{SelectedFrames, ERROR_COLOR, HOVER_COLOR};
 use egui::*;
 use puffin::*;
 
-const TEXT_STYLE: TextStyle = TextStyle::Body;
-
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 pub enum SortBy {
@@ -172,7 +170,7 @@ impl Default for Options {
 
 /// Context for painting a frame.
 struct Info {
-    ctx: egui::CtxRef,
+    ctx: egui::Context,
     /// Bounding box of canvas in points:
     canvas: Rect,
     /// Interaction with the profiler canvas
@@ -185,6 +183,8 @@ struct Info {
     stop_ns: NanoSecond,
     /// How many frames we are viewing
     num_frames: usize,
+
+    font_id: FontId,
 }
 
 #[derive(Clone, Copy, Eq, PartialEq)]
@@ -276,6 +276,7 @@ pub fn ui(ui: &mut egui::Ui, options: &mut Options, frames: &SelectedFrames) {
                 start_ns: min_ns,
                 stop_ns: max_ns,
                 num_frames: frames.frames.len(),
+                font_id: TextStyle::Body.resolve(ui.style()),
             };
 
             if reset_view {
@@ -287,7 +288,7 @@ pub fn ui(ui: &mut egui::Ui, options: &mut Options, frames: &SelectedFrames) {
 
             let where_to_put_timeline = info.painter.add(Shape::Noop);
 
-            let max_y = ui_canvas(options, &info, frames, (min_ns, max_ns));
+            let max_y = ui_canvas( options, &info, frames, (min_ns, max_ns));
 
             let mut used_rect = canvas;
             used_rect.max.y = max_y;
@@ -295,7 +296,7 @@ pub fn ui(ui: &mut egui::Ui, options: &mut Options, frames: &SelectedFrames) {
             // Fill out space that we don't use so that the `ScrollArea` doesn't collapse in height:
             used_rect.max.y = used_rect.max.y.max(used_rect.min.y + available_height);
 
-            let timeline = paint_timeline(&info, used_rect, options, min_ns);
+            let timeline = paint_timeline( &info, used_rect, options, min_ns);
             info.painter
                 .set(where_to_put_timeline, Shape::Vec(timeline));
 
@@ -365,7 +366,7 @@ fn ui_canvas(
                 pos2(info.canvas.min.x, cursor_y),
                 Align2::LEFT_TOP,
                 text,
-                TEXT_STYLE,
+                info.font_id.clone(),
                 ERROR_COLOR,
             );
         }
@@ -511,21 +512,21 @@ fn paint_timeline(
 
                 // Text at top:
                 shapes.push(egui::Shape::text(
-                    info.painter.fonts(),
+                    &info.painter.fonts(),
                     pos2(text_x, canvas.min.y),
                     Align2::LEFT_TOP,
                     &text,
-                    TEXT_STYLE,
+                    info.font_id.clone(),
                     text_color,
                 ));
 
                 // Text at bottom:
                 shapes.push(egui::Shape::text(
-                    info.painter.fonts(),
+                    &info.painter.fonts(),
                     pos2(text_x, canvas.max.y - info.text_height),
                     Align2::LEFT_TOP,
                     &text,
-                    TEXT_STYLE,
+                    info.font_id.clone(),
                     text_color,
                 ));
             }
@@ -633,7 +634,7 @@ fn paint_record(
         );
         let pos = painter.round_pos_to_pixels(pos);
         const TEXT_COLOR: Color32 = Color32::BLACK;
-        painter.text(pos, Align2::LEFT_TOP, text, TEXT_STYLE, TEXT_COLOR);
+        painter.text(pos, Align2::LEFT_TOP, text, info.font_id.clone(), TEXT_COLOR);
     }
 
     if is_hovered {
@@ -820,7 +821,7 @@ fn merge_scope_tooltip(ui: &mut egui::Ui, merge: &MergeScope<'_>, num_frames: us
 fn paint_thread_info(info: &Info, thread: &ThreadInfo, pos: Pos2) {
     let galley = info.ctx.fonts().layout_no_wrap(
         thread.name.clone(),
-        TEXT_STYLE,
+        info.font_id.clone(),
         Rgba::from_white_alpha(0.9).into(),
     );
     let rect = Rect::from_min_size(pos, galley.size());

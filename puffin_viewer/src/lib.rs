@@ -11,8 +11,8 @@
     clippy::checked_conversions,
     clippy::dbg_macro,
     clippy::debug_assert_with_mut_call,
-    clippy::disallowed_method,
-    clippy::disallowed_type,
+    clippy::disallowed_methods,
+    clippy::disallowed_types,
     clippy::doc_markdown,
     clippy::empty_enum,
     clippy::enum_glob_use,
@@ -201,7 +201,7 @@ impl PuffinViewer {
     }
 
     #[cfg(not(target_arch = "wasm32"))]
-    fn ui_menu_bar(&mut self, ctx: &egui::CtxRef, frame: &epi::Frame) {
+    fn ui_menu_bar(&mut self, ctx: &egui::Context, frame: &epi::Frame) {
         if ctx.input().modifiers.command && ctx.input().key_pressed(egui::Key::O) {
             self.open_dialog();
         }
@@ -233,7 +233,7 @@ impl PuffinViewer {
         });
     }
 
-    fn ui_file_drag_and_drop(&mut self, ctx: &egui::CtxRef) {
+    fn ui_file_drag_and_drop(&mut self, ctx: &egui::Context) {
         use egui::*;
 
         // Preview hovering files:
@@ -247,7 +247,7 @@ impl PuffinViewer {
                 screen_rect.center(),
                 Align2::CENTER_CENTER,
                 "Drop to open .puffin file",
-                TextStyle::Heading,
+                TextStyle::Heading.resolve(&ctx.style()),
                 Color32::WHITE,
             );
         }
@@ -276,7 +276,7 @@ impl epi::App for PuffinViewer {
         egui::Vec2::new(2048.0, 4096.0)
     }
 
-    fn update(&mut self, ctx: &egui::CtxRef, _frame: &epi::Frame) {
+    fn update(&mut self, ctx: &egui::Context, _frame: &epi::Frame) {
         puffin::GlobalProfiler::lock().new_frame();
 
         #[cfg(not(target_arch = "wasm32"))]

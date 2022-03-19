@@ -2,7 +2,7 @@
 //!
 //! Usage:
 //! ```
-//! # let mut egui_ctx = egui::CtxRef::default();
+//! # let mut egui_ctx = egui::Context::default();
 //! # egui_ctx.begin_frame(Default::default());
 //! puffin_egui::profiler_window(&egui_ctx);
 //! ```
@@ -18,8 +18,8 @@
     clippy::checked_conversions,
     clippy::dbg_macro,
     clippy::debug_assert_with_mut_call,
-    clippy::disallowed_method,
-    clippy::disallowed_type,
+    clippy::disallowed_methods,
+    clippy::disallowed_types,
     clippy::doc_markdown,
     clippy::empty_enum,
     clippy::enum_glob_use,
@@ -113,7 +113,7 @@ const HOVER_COLOR: Rgba = Rgba::from_rgb(0.8, 0.8, 0.8);
 /// If you want to control the window yourself, use [`profiler_ui`] instead.
 ///
 /// Returns `false` if the user closed the profile window.
-pub fn profiler_window(ctx: &egui::CtxRef) -> bool {
+pub fn profiler_window(ctx: &egui::Context) -> bool {
     puffin::profile_function!();
     let mut open = true;
     egui::Window::new("Profiler")
@@ -153,7 +153,7 @@ impl GlobalProfilerUi {
     /// If you want to control the window yourself, use [`Self::ui`] instead.
     ///
     /// Returns `false` if the user closed the profile window.
-    pub fn window(&mut self, ctx: &egui::CtxRef) -> bool {
+    pub fn window(&mut self, ctx: &egui::Context) -> bool {
         let mut frame_view = self.global_frame_view.lock();
         self.profiler_ui
             .window(ctx, &mut MaybeMutRef::MutRef(&mut frame_view))
@@ -363,7 +363,7 @@ impl ProfilerUi {
     /// Returns `false` if the user closed the profile window.
     pub fn window(
         &mut self,
-        ctx: &egui::CtxRef,
+        ctx: &egui::Context,
         frame_view: &mut MaybeMutRef<'_, FrameView>,
     ) -> bool {
         puffin::profile_function!();
