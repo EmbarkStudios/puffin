@@ -288,7 +288,7 @@ pub fn ui(ui: &mut egui::Ui, options: &mut Options, frames: &SelectedFrames) {
 
             let where_to_put_timeline = info.painter.add(Shape::Noop);
 
-            let max_y = ui_canvas( options, &info, frames, (min_ns, max_ns));
+            let max_y = ui_canvas(options, &info, frames, (min_ns, max_ns));
 
             let mut used_rect = canvas;
             used_rect.max.y = max_y;
@@ -296,7 +296,7 @@ pub fn ui(ui: &mut egui::Ui, options: &mut Options, frames: &SelectedFrames) {
             // Fill out space that we don't use so that the `ScrollArea` doesn't collapse in height:
             used_rect.max.y = used_rect.max.y.max(used_rect.min.y + available_height);
 
-            let timeline = paint_timeline( &info, used_rect, options, min_ns);
+            let timeline = paint_timeline(&info, used_rect, options, min_ns);
             info.painter
                 .set(where_to_put_timeline, Shape::Vec(timeline));
 
@@ -634,7 +634,13 @@ fn paint_record(
         );
         let pos = painter.round_pos_to_pixels(pos);
         const TEXT_COLOR: Color32 = Color32::BLACK;
-        painter.text(pos, Align2::LEFT_TOP, text, info.font_id.clone(), TEXT_COLOR);
+        painter.text(
+            pos,
+            Align2::LEFT_TOP,
+            text,
+            info.font_id.clone(),
+            TEXT_COLOR,
+        );
     }
 
     if is_hovered {
