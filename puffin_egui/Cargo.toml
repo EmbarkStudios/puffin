@@ -30,8 +30,6 @@ serde = { version = "1.0", features = ["derive"], optional = true }
 vec1 = "1.8"
 
 [dev-dependencies]
-eframe = { version = "0.17.0", default-features = false, features = [
-  "egui_glow",
-] }
+eframe = "0.17.0"
 # egui-macroquad = "0.7.0" # disabled until it is updated to egui 0.16
 # macroquad = "0.3" # disabled until it is updated to egui 0.16
