@@ -18,7 +18,7 @@ impl epi::App for ExampleApp {
         "puffin egui eframe"
     }
 
-    fn update(&mut self, ctx: &egui::CtxRef, _frame: &epi::Frame) {
+    fn update(&mut self, ctx: &egui::Context, _frame: &epi::Frame) {
         puffin::profile_function!();
         puffin::GlobalProfiler::lock().new_frame(); // call once per frame!
 
