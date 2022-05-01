@@ -84,7 +84,7 @@
 #![allow(clippy::exit)]
 #![cfg_attr(target_arch = "wasm32", allow(clippy::unused_unit))]
 
-use eframe::{egui, epi};
+use eframe::egui;
 use puffin::FrameView;
 use puffin_egui::MaybeMutRef;
 
@@ -201,7 +201,7 @@ impl PuffinViewer {
     }
 
     #[cfg(not(target_arch = "wasm32"))]
-    fn ui_menu_bar(&mut self, ctx: &egui::Context, frame: &epi::Frame) {
+    fn ui_menu_bar(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
         if ctx.input().modifiers.command && ctx.input().key_pressed(egui::Key::O) {
             self.open_dialog();
         }
@@ -267,16 +267,8 @@ impl PuffinViewer {
     }
 }
 
-impl epi::App for PuffinViewer {
-    fn name(&self) -> &str {
-        "puffin viewer"
-    }
-
-    fn max_size_points(&self) -> egui::Vec2 {
-        egui::Vec2::new(2048.0, 4096.0)
-    }
-
-    fn update(&mut self, ctx: &egui::Context, _frame: &epi::Frame) {
+impl eframe::App for PuffinViewer {
+    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         puffin::GlobalProfiler::lock().new_frame();
 
         #[cfg(not(target_arch = "wasm32"))]
@@ -347,6 +339,8 @@ use eframe::wasm_bindgen::{self, prelude::*};
 #[wasm_bindgen]
 pub fn start(canvas_id: &str) -> Result<(), eframe::wasm_bindgen::JsValue> {
     puffin::set_scopes_on(true); // quiet warning in `puffin_egui`.
-    let app = PuffinViewer::new(Source::None);
-    eframe::start_web(canvas_id, Box::new(app))
+    eframe::start_web(
+        canvas_id,
+        Box::new(|_cc| Box::new(PuffinViewer::new(Source::None))),
+    )
 }

@@ -34,24 +34,28 @@ fn main() {
 
     puffin::set_scopes_on(true); // so we can profile ourselves
 
-    let app = if let Some(file) = opt.file {
+    let source = if let Some(file) = opt.file {
         let path = std::path::PathBuf::from(file);
         match FrameView::load_path(&path) {
-            Ok(frame_view) => PuffinViewer::new(Source::FilePath(path, frame_view)),
+            Ok(frame_view) => Source::FilePath(path, frame_view),
             Err(err) => {
                 log::error!("Failed to load {:?}: {}", path.display(), err);
                 std::process::exit(1);
             }
         }
     } else {
-        PuffinViewer::new(Source::Http(puffin_http::Client::new(opt.url)))
+        Source::Http(puffin_http::Client::new(opt.url))
     };
 
-    let options = eframe::NativeOptions {
+    let native_options = eframe::NativeOptions {
         drag_and_drop_support: true,
         ..Default::default()
     };
-    eframe::run_native(Box::new(app), options);
+    eframe::run_native(
+        "puffin viewer",
+        native_options,
+        Box::new(|_cc| Box::new(PuffinViewer::new(source))),
+    );
 }
 
 #[cfg(target_arch = "wasm32")]

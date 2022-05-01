@@ -617,7 +617,7 @@ fn paint_record(
 
     let wide_enough_for_text = stop_x - start_x > 32.0;
     if wide_enough_for_text {
-        let painter = info.painter.sub_region(rect.intersect(info.canvas));
+        let painter = info.painter.with_clip_rect(rect.intersect(info.canvas));
 
         let duration_ms = to_ms(record.duration_ns);
         let text = if record.data.is_empty() {
