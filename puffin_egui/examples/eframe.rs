@@ -1,11 +1,14 @@
-use eframe::{egui, epi};
+use eframe::egui;
 
 fn main() {
     puffin::set_scopes_on(true); // Remember to call this, or puffin will be disabled!
 
-    let app = ExampleApp::default();
-    let options = Default::default();
-    eframe::run_native(Box::new(app), options);
+    let native_options = Default::default();
+    eframe::run_native(
+        "puffin egui eframe",
+        native_options,
+        Box::new(|_cc| Box::new(ExampleApp::default())),
+    );
 }
 
 #[derive(Default)]
@@ -13,12 +16,8 @@ pub struct ExampleApp {
     frame_counter: u64,
 }
 
-impl epi::App for ExampleApp {
-    fn name(&self) -> &str {
-        "puffin egui eframe"
-    }
-
-    fn update(&mut self, ctx: &egui::Context, _frame: &epi::Frame) {
+impl eframe::App for ExampleApp {
+    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         puffin::profile_function!();
         puffin::GlobalProfiler::lock().new_frame(); // call once per frame!
 
