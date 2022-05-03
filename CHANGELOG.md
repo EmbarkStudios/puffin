@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <!-- next-header -->
 ## [Unreleased] - ReleaseDate
+### Changed
+* [PR#76](https://github.com/EmbarkStudios/puffin/pull/76) updated `zstd` to `0.11.1`
+
 ## [0.13.0] - 2022-02-07
 ### Fixed
 * Fix compilation for `wasm32-unknown-unknown`.
