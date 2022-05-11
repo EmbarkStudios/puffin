@@ -5,6 +5,7 @@ members = [
     "puffin_egui",
     "puffin_http",
     "puffin-imgui",
+    "puffin_tracing",
     "puffin_viewer",
 ]
 

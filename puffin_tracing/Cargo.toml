@@ -1,0 +1,23 @@
+[package]
+name = "puffin_tracing"
+version = "0.1.0"
+authors = ["Embark <opensource@embark-studios.com>"]
+description = "A tracing-subscriber layer for puffin integration."
+license = "MIT OR Apache-2.0"
+edition = "2021"
+homepage = "https://github.com/EmbarkStudios/puffin"
+repository = "https://github.com/EmbarkStudios/puffin"
+readme = "README.md"
+categories = ["development-tools::profiling", "gui"]
+keywords = ["profiler", "instrumentation", "gamedev"]
+include = ["**/*.rs", "Cargo.toml", "README.md"]
+
+[dependencies]
+tracing-core = "0.1.26"
+tracing-subscriber = {version = "0.3.1", features = ["registry"]}
+puffin = { version = "0.13.1", path = "../puffin", default-features = false }
+
+[dev-dependencies]
+eframe = "0.18.0"
+puffin_egui = { version = "0.15.0", path = "../puffin_egui" }
+tracing = "0.1.34"
