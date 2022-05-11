@@ -6,6 +6,8 @@ All notable changes to `puffin_viewer` will be documented in this file.
 
 <!-- next-header -->
 ## [Unreleased] - ReleaseDate
+- [PR#74](https://github.com/EmbarkStudios/puffin/pull/74) Update to `egui` 0.18.
+
 ## [0.11.0] - 2022-02-07
 ### Changed
 - [PR#64](https://github.com/EmbarkStudios/puffin/pull/64) updated dependencies and cleaned up crate metadata.

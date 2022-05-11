@@ -6,6 +6,7 @@ All notable changes to the egui crate will be documented in this file.
 
 <!-- next-header -->
 ## [Unreleased] - ReleaseDate
+- [PR#74](https://github.com/EmbarkStudios/puffin/pull/74) Update to `egui` 0.18.
 
 ## [0.14.0] - 2022-04-12
 - [PR#71](https://github.com/EmbarkStudios/puffin/pull/71) Update to `egui` 0.17.
