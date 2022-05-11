@@ -113,7 +113,7 @@ All notable changes to the egui crate will be documented in this file.
 
 <!-- next-url -->
 [Unreleased]: https://github.com/EmbarkStudios/puffin/compare/puffin_egui-0.15.0...HEAD
-[0.14.0]: https://github.com/EmbarkStudios/puffin/compare/0.14.0...puffin_egui-0.15.0
+[0.15.0]: https://github.com/EmbarkStudios/puffin/compare/0.14.0...puffin_egui-0.15.0
 [0.14.0]: https://github.com/EmbarkStudios/puffin/compare/0.13.0...puffin_egui-0.14.0
 [0.13.0]: https://github.com/EmbarkStudios/puffin/compare/0.12.0...puffin_egui-0.13.0
 [0.12.0]: https://github.com/EmbarkStudios/puffin/compare/puffin_egui-0.11.0...puffin_egui-0.12.0
