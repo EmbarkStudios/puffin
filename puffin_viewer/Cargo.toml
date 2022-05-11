@@ -26,5 +26,6 @@ puffin_http = { version = "0.10.0", path = "../puffin_http" }
 argh = "0.1"
 eframe = { version = "0.18.0", features = ["persistence"] }
 log = "0.4"
+mimalloc = "0.1"
 rfd = "0.8.1"
 simple_logger = "2.1"

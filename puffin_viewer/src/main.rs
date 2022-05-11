@@ -1,5 +1,8 @@
 //! Remote puffin viewer, connecting to a [`puffin_http::PuffinServer`].
 
+#[global_allocator]
+static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
+
 #[cfg(not(target_arch = "wasm32"))]
 fn main() {
     /// puffin profile viewer.
