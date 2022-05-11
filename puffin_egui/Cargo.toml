@@ -1,6 +1,6 @@
 [package]
 name = "puffin_egui"
-version = "0.14.0"
+version = "0.15.0"
 authors = ["Emil Ernerfeldt <emil.ernerfeldt@gmail.com>"]
 description = "Show puffin profiler flamegraph in-game using egui"
 edition = "2018"
@@ -31,5 +31,5 @@ vec1 = "1.8"
 
 [dev-dependencies]
 eframe = "0.18.0"
-# egui-macroquad = "0.7.0" # disabled until it is updated to egui 0.18
-# macroquad = "0.3" # disabled until it is updated to egui 0.18
+egui-macroquad = "0.11.0" # disabled until it is updated to egui 0.18
+macroquad = "0.3" # disabled until it is updated to egui 0.18

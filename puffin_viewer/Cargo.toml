@@ -1,6 +1,6 @@
 [package]
 name = "puffin_viewer"
-version = "0.11.0"
+version = "0.12.0"
 authors = ["Embark <opensource@embark-studios.com>"]
 description = "Viewer GUI for puffin profiler data"
 license = "MIT OR Apache-2.0"
@@ -16,7 +16,7 @@ include = ["**/*.rs", "Cargo.toml", "README.md"]
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-puffin_egui = { version = "0.14.0", path = "../puffin_egui" }
+puffin_egui = { version = "0.15.0", path = "../puffin_egui" }
 puffin = { version = "0.13.1", path = "../puffin", features = [
     "packing",
     "serialization",
@@ -28,3 +28,7 @@ eframe = { version = "0.18.0", features = ["persistence"] }
 log = "0.4"
 rfd = "0.8.1"
 simple_logger = "2.1"
+
+# native:
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+mimalloc = "0.1"
