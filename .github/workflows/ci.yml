@@ -41,7 +41,7 @@ jobs:
       - name: cargo clippy
         run: cargo clippy --all-targets -- -D warnings
       - name: cargo clippy wasm32
-        run: cargo clippy -p puffin_viewer --all-targets --target wasm32-unknown-unknown --all-features
+        run: cargo clippy -p puffin_viewer --all-targets --target wasm32-unknown-unknown --all-features --lib
 
   test:
     name: Test
