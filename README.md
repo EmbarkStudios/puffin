@@ -46,7 +46,7 @@ If you are using the [`imgui`](https://crates.io/crates/imgui) crate, there is a
 
 ## Remote profiling
 
-You can use [`puffin_http`](https://github.com/EmbarkStudios/puffin/tree/main/puffin_http) to send profile events over TCP to [`puffin_viewer`](https://github.com/EmbarkStudios/puffin/tree/main/puffin_http).
+You can use [`puffin_http`](https://github.com/EmbarkStudios/puffin/tree/main/puffin_http) to send profile events over TCP to [`puffin_viewer`](https://github.com/EmbarkStudios/puffin/tree/main/puffin_viewer).
 
 ## Other
 
