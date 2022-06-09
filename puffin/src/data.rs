@@ -72,7 +72,7 @@ impl Stream {
         // Put place-holder value for total scope size.
         let offset = self.0.len();
         self.write_scope_size(ScopeSize::unfinished());
-        offset as usize
+        offset
     }
 
     #[inline]

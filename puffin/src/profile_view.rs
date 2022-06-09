@@ -11,6 +11,11 @@ pub struct FrameView {
 
     slowest: std::collections::BinaryHeap<OrderedByDuration>,
     max_slow: usize,
+
+    /// Minimizes memory usage at the expense of CPU time.
+    ///
+    /// Only recommended if you set a large max_recent size.
+    pack_frames: bool,
 }
 
 impl Default for FrameView {
@@ -23,6 +28,7 @@ impl Default for FrameView {
             max_recent,
             slowest: std::collections::BinaryHeap::with_capacity(max_slow),
             max_slow,
+            pack_frames: true,
         }
     }
 }
@@ -61,7 +67,9 @@ impl FrameView {
         if let Some(last) = self.recent.back() {
             // Assume there is a viewer viewing the newest frame,
             // and compress the previously newest frame to save RAM:
-            last.pack();
+            if self.pack_frames {
+                last.pack();
+            }
         }
 
         self.recent.push_back(new_frame);
@@ -120,6 +128,14 @@ impl FrameView {
     /// How many slow "spike" frames to store.
     pub fn set_max_slow(&mut self, max_slow: usize) {
         self.max_slow = max_slow;
+    }
+
+    pub fn pack_frames(&self) -> bool {
+        self.pack_frames
+    }
+
+    pub fn set_pack_frames(&mut self, pack_frames: bool) {
+        self.pack_frames = pack_frames;
     }
 
     /// Export profile data as a `.puffin` file.
