@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <!-- next-header -->
 ## [Unreleased] - ReleaseDate
+## [0.13.3] - 2022-05-04
+### Changed
+* [PR#83](https://github.com/EmbarkStudios/puffin/pull/83) Add a runtime setting on frameview to pack or not
+
 ## [0.13.2] - 2022-05-04
 ### Changed
 * [PR#76](https://github.com/EmbarkStudios/puffin/pull/76) updated `zstd` to `0.11.1`
