@@ -2253,7 +2253,7 @@ dependencies = [
 
 [[package]]
 name = "puffin"
-version = "0.13.2"
+version = "0.13.3"
 dependencies = [
  "anyhow",
  "bincode",

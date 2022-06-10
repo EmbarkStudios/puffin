@@ -16,7 +16,7 @@ include = ["**/*.rs", "Cargo.toml", "README.md"]
 anyhow = "1.0"
 crossbeam-channel = "0.5"
 log = "0.4"
-puffin = { version = "0.13.1", path = "../puffin", features = [
+puffin = { version = "0.13.3", path = "../puffin", features = [
     "packing",
     "serialization",
 ] }
