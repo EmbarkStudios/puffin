@@ -15,7 +15,7 @@ fn main() {
     let mut frame_counter = 0;
 
     loop {
-        puffin::profile_scope!("main_loop");
+        puffin::profile_scope!("main_loop", format!("frame {}", frame_counter));
         puffin::GlobalProfiler::lock().new_frame();
 
         // Give us something to inspect:
