@@ -416,6 +416,9 @@ impl ProfilerUi {
     }
 
     fn run_pack_pass_if_needed(&mut self, frame_view: &FrameView) {
+        if !frame_view.pack_frames() {
+            return;
+        }
         let last_pack_pass = self
             .last_pack_pass
             .get_or_insert_with(std::time::Instant::now);
