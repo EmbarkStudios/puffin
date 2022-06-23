@@ -7,6 +7,10 @@ All notable changes to the egui crate will be documented in this file.
 <!-- next-header -->
 ## [Unreleased] - ReleaseDate
 
+## [0.16.0] - 2022-06-22
+### Changed
+- [PR#87](https://github.com/EmbarkStudios/puffin/pull/87) Only run pack passes if packing is enabled on the view
+
 ## [0.15.0] - 2022-05-11
 - [PR#74](https://github.com/EmbarkStudios/puffin/pull/74) Update to `egui` 0.18.
 

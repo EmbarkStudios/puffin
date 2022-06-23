@@ -1,6 +1,6 @@
 [package]
 name = "puffin_egui"
-version = "0.15.0"
+version = "0.16.0"
 authors = ["Emil Ernerfeldt <emil.ernerfeldt@gmail.com>"]
 description = "Show puffin profiler flamegraph in-game using egui"
 edition = "2018"
@@ -22,7 +22,7 @@ include = [
 
 [dependencies]
 chrono = "0.4"
-egui = "0.18.0"
+egui = "0.18.1"
 natord = "1.0.9"
 once_cell = "1.7"
 puffin = { version = "0.13.3", path = "../puffin", features = ["packing"] }
