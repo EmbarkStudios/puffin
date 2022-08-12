@@ -23,7 +23,7 @@ const MAX_FRAMES_IN_QUEUE: usize = 30;
 #[must_use = "When Server is dropped, the server is closed, so keep it around!"]
 pub struct Server {
     sink_id: FrameSinkId,
-    join_handle: Option<std::thread::JoinHandle<()>>,
+    join_handle: Option<task::JoinHandle<()>>,
     num_clients: Arc<AtomicUsize>,
     sink_remove: fn(FrameSinkId) -> (),
 }
@@ -243,17 +243,28 @@ impl Server {
         let (tx, rx): (flume::Sender<Arc<puffin::FrameData>>, _) = flume::unbounded();
 
         let clients = Arc::new(RwLock::new(Vec::new()));
+        let clients_cloned = clients.clone();
         let num_clients = Arc::new(AtomicUsize::default());
         let num_clients_cloned = num_clients.clone();
 
-        let join_handle = std::thread::Builder::new()
-            .name("puffin-server".to_owned())
-            .spawn(move || {
+        task::Builder::new()
+            .name("ps-connect".to_owned())
+            .spawn(async move {
                 let mut ps_connection = PuffinServerConnection {
                     tcp_listener,
-                    clients: clients.clone(),
-                    num_clients: num_clients_cloned.clone(),
+                    clients: clients_cloned,
+                    num_clients: num_clients_cloned,
                 };
+                if let Err(err) = ps_connection.accept_new_clients().await {
+                    log::warn!("puffin server failure: {}", err);
+                }
+            })
+            .context("Couldn't spawn ps-connect task")?;
+
+        let num_clients_cloned = num_clients.clone();
+        let join_handle = task::Builder::new()
+            .name("ps-send".to_owned())
+            .spawn(async move {
                 let mut ps_send = PuffinServerSend {
                     clients,
                     num_clients: num_clients_cloned,
@@ -261,18 +272,14 @@ impl Server {
                     frame_view: Default::default(),
                 };
 
-                while let Ok(frame) = rx.recv() {
+                while let Ok(frame) = rx.recv_async().await {
                     ps_send.frame_view.add_frame(frame.clone());
-                    if let Err(err) = task::block_on(ps_connection.accept_new_clients()) {
-                        log::warn!("puffin server failure: {}", err);
-                    }
-
-                    if let Err(err) = task::block_on(ps_send.send(&frame)) {
+                    if let Err(err) = ps_send.send(&frame).await {
                         log::warn!("puffin server failure: {}", err);
                     }
                 }
             })
-            .context("Couldn't spawn thread")?;
+            .context("Couldn't spawn ps-send task")?;
 
         // Call the `install` function to add ourselves as a sink
         let sink_id = sink_install(Box::new(move |frame| {
@@ -300,7 +307,7 @@ impl Drop for Server {
 
         // Take care to send everything before we shut down:
         if let Some(join_handle) = self.join_handle.take() {
-            join_handle.join().ok();
+            task::block_on(join_handle); //.ok ?
         }
     }
 }
@@ -384,7 +391,7 @@ impl PuffinServerSend {
         if self.clients.read().unwrap().is_empty() {
             return Ok(());
         }
-        puffin::profile_function!();
+        //puffin::profile_function!(); //TODO: enable again later
 
         let mut packet = vec![];
 
