@@ -250,34 +250,41 @@ impl Server {
 
         let clients = Arc::new(RwLock::new(Vec::new()));
         let num_clients = Arc::new(AtomicUsize::default());
-        let num_clients_cloned = num_clients.clone();
 
+        let clients_send = clients.clone();
+        let num_clients_send = num_clients.clone();
         let join_handle = std::thread::Builder::new()
-            .name("puffin-server".to_owned())
+            .name("pf-server-send".to_owned())
             .spawn(move || {
-                let ps_connection = PuffinServerConnection {
-                    tcp_listener,
-                    clients: clients.clone(),
-                    num_clients: num_clients_cloned.clone(),
-                };
                 let mut server_impl = PuffinServerImpl {
-                    clients,
-                    num_clients: num_clients_cloned,
+                    clients: clients_send,
+                    num_clients: num_clients_send,
                     //send_all_scopes: false,
                     scope_collection: Default::default(),
                 };
 
                 while let Ok(frame) = rx.recv() {
-                    if let Err(err) = ps_connection.accept_new_clients() {
-                        log::warn!("puffin server failure: {err}");
-                    }
-
                     if let Err(err) = server_impl.send(&frame) {
                         log::warn!("puffin server failure: {err}");
                     }
                 }
             })
-            .context("Couldn't spawn thread")?;
+            .context("spawn thread `pf-server-send`")?;
+
+        let num_clients_wait = num_clients.clone();
+        let _handle_accept = std::thread::Builder::new()
+            .name("pf-server-client".to_owned())
+            .spawn(move || {
+                let ps_connection = PuffinServerConnection {
+                    tcp_listener,
+                    clients: clients.clone(),
+                    num_clients: num_clients_wait,
+                };
+                if let Err(err) = ps_connection.accept_new_clients() {
+                    log::warn!("pf-server-client failure: {err}");
+                }
+            })
+            .context("spawn pf-server-client thread")?;
 
         // Call the `install` function to add ourselves as a sink
         let sink_id = sink_install(Box::new(move |frame| {
@@ -352,9 +359,9 @@ impl PuffinServerConnection {
                     let (packet_tx, packet_rx) = crossbeam_channel::bounded(MAX_FRAMES_IN_QUEUE);
 
                     let join_handle = std::thread::Builder::new()
-                        .name("puffin-server-client".to_owned())
+                        .name("pf-server-client".to_owned())
                         .spawn(move || client_loop(packet_rx, client_addr, tcp_stream))
-                        .context("Couldn't spawn thread")?;
+                        .context("Couldn't spawn thread `pf-server-client`")?;
 
                     // Send all scopes when new client connects.
                     // TODO: send all previous scopes at connection, not on regular send
@@ -367,15 +374,14 @@ impl PuffinServerConnection {
                     self.num_clients
                         .store(self.clients.read().len(), Ordering::SeqCst);
                 }
-                Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {
-                    break; // Nothing to do for now.
+                Err(err) if err.kind() == std::io::ErrorKind::WouldBlock => {
+                    // Nothing to do for now. Continue looping
                 }
-                Err(e) => {
-                    anyhow::bail!("puffin server TCP error: {:?}", e);
+                Err(err) => {
+                    log::error!("puffin server TCP error: {err:?}");
                 }
             }
         }
-        Ok(())
     }
 }
 
