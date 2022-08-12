@@ -465,15 +465,23 @@ async fn client_loop(
     client_addr: SocketAddr,
     mut tcp_stream: TcpStream,
 ) {
-    while let Ok(packet) = packet_rx.recv_async().await {
-        if let Err(err) = tcp_stream.write_all(&packet).await {
-            log::info!(
-                "puffin server failed sending to {}: {} (kind: {:?})",
-                client_addr,
-                err,
-                err.kind()
-            );
-            break;
+    loop {
+        match packet_rx.recv_async().await {
+            Ok(packet) => {
+                if let Err(err) = tcp_stream.write_all(&packet).await {
+                    log::info!(
+                        "puffin server failed sending to {}: {} (kind: {:?})",
+                        client_addr,
+                        err,
+                        err.kind()
+                    );
+                    break;
+                }
+            }
+            Err(err) => {
+                log::info!("Error in client_loop: {}", err);
+                break;
+            }
         }
     }
 }
