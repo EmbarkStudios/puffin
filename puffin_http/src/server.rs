@@ -368,6 +368,7 @@ impl<'a> PuffinServerConnection<'a> {
         loop {
             match self.tcp_listener.accept().await {
                 Ok((tcp_stream, client_addr)) => {
+                    puffin::profile_scope!("accept_client");
                     log::info!("{} connected", client_addr);
 
                     let (packet_tx, packet_rx) = flume::bounded(MAX_FRAMES_IN_QUEUE);
@@ -447,6 +448,7 @@ impl PuffinServerSend {
     }
 
     async fn send_to_client(client: &Client, packet: Packet) -> bool {
+        puffin::profile_function!();
         match &client.packet_tx {
             None => false,
             Some(packet_tx) => match packet_tx.send_async(packet).await {
@@ -468,6 +470,7 @@ async fn client_loop(
     loop {
         match packet_rx.recv_async().await {
             Ok(packet) => {
+                puffin::profile_scope!("write frame to client");
                 if let Err(err) = tcp_stream.write_all(&packet).await {
                     log::info!(
                         "puffin server failed sending to {}: {} (kind: {:?})",
