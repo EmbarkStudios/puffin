@@ -1,13 +1,16 @@
 use anyhow::Context as _;
+use async_executor::{LocalExecutor, Task};
 use async_std::{
     io::WriteExt,
     net::{SocketAddr, TcpListener, TcpStream},
     sync::{Arc, RwLock},
-    task,
 };
 use futures_lite::future;
 use puffin::{FrameSinkId, FrameView, GlobalProfiler};
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::{
+    rc::Rc,
+    sync::atomic::{AtomicUsize, Ordering},
+};
 
 /// Maximum size of the backlog of packets to send to a client if they aren't reading fast enough.
 const MAX_FRAMES_IN_QUEUE: usize = 30;
@@ -262,30 +265,33 @@ impl Server {
         rx: flume::Receiver<Arc<puffin::FrameData>>,
         num_clients: Arc<AtomicUsize>,
     ) -> anyhow::Result<()> {
+        let executor = Rc::new(LocalExecutor::new());
+
         let clients = Arc::new(RwLock::new(Vec::new()));
         let clients_cloned = clients.clone();
         let num_clients_cloned = num_clients.clone();
 
-        let psconnect_handle = task::Builder::new()
-            .name("ps-connect".to_owned())
-            .spawn(async move {
+        let executor_cloned = executor.clone();
+        let psconnect_handle = //task::Builder::new()
+            //.name("ps-connect".to_owned())
+            executor.spawn(async move {
+                log::trace!("Start listening on {bind_addr}");
                 let tcp_listener = TcpListener::bind(bind_addr)
                     .await
-                    .context("binding server TCP socket")
-                    .unwrap(); //TODO use ?
+                    .context("binding server TCP socket")?;
 
                 let mut ps_connection = PuffinServerConnection {
+                    executor: executor_cloned,
                     tcp_listener,
                     clients: clients_cloned,
                     num_clients: num_clients_cloned,
                 };
                 ps_connection.accept_new_clients().await
-            })
-            .context("Couldn't spawn ps-connect task")?;
+            });
 
-        let pssend_handle = task::Builder::new()
-            .name("ps-send".to_owned())
-            .spawn(async move {
+        let pssend_handle = //task::Builder::new()
+            //.name("ps-send".to_owned())
+            executor.spawn(async move {
                 let mut ps_send = PuffinServerSend {
                     clients,
                     num_clients,
@@ -293,16 +299,19 @@ impl Server {
                     frame_view: Default::default(),
                 };
 
+                log::trace!("Wait frame to send");
                 while let Ok(frame) = rx.recv_async().await {
                     ps_send.frame_view.add_frame(frame.clone());
                     if let Err(err) = ps_send.send(&frame).await {
                         log::warn!("puffin server failure: {}", err);
                     }
                 }
-            })
-            .context("Couldn't spawn ps-send task")?;
+            });
+        //.context("Couldn't spawn ps-send task")?;
 
-        let (con_res, _) = future::block_on(future::zip(psconnect_handle, pssend_handle));
+        let (con_res, _) = future::block_on(
+            executor.run(async { future::zip(psconnect_handle, pssend_handle).await }),
+        );
         con_res.context("Client connection management task")
     }
 
@@ -329,7 +338,7 @@ type Packet = Arc<[u8]>;
 struct Client {
     client_addr: SocketAddr,
     packet_tx: Option<flume::Sender<Packet>>,
-    join_handle: Option<task::JoinHandle<()>>,
+    join_handle: Option<Task<()>>,
 }
 
 impl Drop for Client {
@@ -341,18 +350,20 @@ impl Drop for Client {
 
         // Wait for the shutdown:
         if let Some(join_handle) = self.join_handle.take() {
-            task::block_on(join_handle); // .ok()
+            future::block_on(join_handle); // .ok()
         }
     }
 }
 
 /// Listens for incoming connections
-struct PuffinServerConnection {
+struct PuffinServerConnection<'a> {
+    executor: Rc<LocalExecutor<'a>>,
     tcp_listener: TcpListener,
     clients: Arc<RwLock<Vec<Client>>>,
     num_clients: Arc<AtomicUsize>,
 }
-impl PuffinServerConnection {
+
+impl<'a> PuffinServerConnection<'a> {
     async fn accept_new_clients(&mut self) -> anyhow::Result<()> {
         loop {
             match self.tcp_listener.accept().await {
@@ -361,12 +372,12 @@ impl PuffinServerConnection {
 
                     let (packet_tx, packet_rx) = flume::bounded(MAX_FRAMES_IN_QUEUE);
 
-                    let join_handle = task::Builder::new()
-                        .name("ps-client".to_owned())
-                        .spawn(async move {
+                    let join_handle = //task::Builder::new()
+                        //.name("ps-client".to_owned())
+                        self.executor.spawn(async move {
                             client_loop(packet_rx, client_addr, tcp_stream).await;
-                        })
-                        .context("Couldn't spawn ps-client task")?;
+                        });
+                    //.context("Couldn't spawn ps-client task")?;
 
                     // Send all scopes when new client connects.
                     // TODO: send all previous scopes at connection, not on regular send
@@ -403,7 +414,7 @@ impl PuffinServerSend {
         if self.clients.read().await.is_empty() {
             return Ok(());
         }
-        //puffin::profile_function!(); //TODO: enable again later
+        puffin::profile_function!();
 
         let mut packet = vec![];
 

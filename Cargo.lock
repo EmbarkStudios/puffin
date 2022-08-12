@@ -2112,6 +2112,7 @@ name = "puffin_http"
 version = "0.16.1"
 dependencies = [
  "anyhow",
+ "async-executor",
  "async-std",
  "flume",
  "futures-lite",
