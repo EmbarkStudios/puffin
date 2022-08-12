@@ -262,12 +262,6 @@ impl Server {
         rx: flume::Receiver<Arc<puffin::FrameData>>,
         num_clients: Arc<AtomicUsize>,
     ) -> anyhow::Result<()> {
-        let tcp_listener = task::block_on(async {
-            TcpListener::bind(bind_addr)
-                .await
-                .context("binding server TCP socket")
-        })?;
-
         let clients = Arc::new(RwLock::new(Vec::new()));
         let clients_cloned = clients.clone();
         let num_clients_cloned = num_clients.clone();
@@ -275,6 +269,11 @@ impl Server {
         let psconnect_handle = task::Builder::new()
             .name("ps-connect".to_owned())
             .spawn(async move {
+                let tcp_listener = TcpListener::bind(bind_addr)
+                    .await
+                    .context("binding server TCP socket")
+                    .unwrap(); //TODO use ?
+
                 let mut ps_connection = PuffinServerConnection {
                     tcp_listener,
                     clients: clients_cloned,
