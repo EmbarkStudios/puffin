@@ -17,6 +17,7 @@ include = ["**/*.rs", "Cargo.toml", "README.md"]
 anyhow = "1.0"
 async-std = "1.13"
 flume = "0.11"
+futures-lite = { version = "2.6", default-features = false }
 log = "0.4"
 parking_lot = "0.12"
 puffin = { version = "0.19.1", path = "../puffin", features = [

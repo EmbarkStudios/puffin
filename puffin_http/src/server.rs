@@ -4,6 +4,7 @@ use async_std::{
     net::{TcpListener, TcpStream},
     task,
 };
+use futures_lite::future;
 use puffin::{FrameSinkId, FrameView, GlobalProfiler};
 use std::{
     net::SocketAddr,
@@ -23,7 +24,7 @@ const MAX_FRAMES_IN_QUEUE: usize = 30;
 #[must_use = "When Server is dropped, the server is closed, so keep it around!"]
 pub struct Server {
     sink_id: FrameSinkId,
-    join_handle: Option<task::JoinHandle<()>>,
+    join_handle: Option<std::thread::JoinHandle<()>>,
     num_clients: Arc<AtomicUsize>,
     sink_remove: fn(FrameSinkId) -> (),
 }
@@ -230,11 +231,7 @@ impl Server {
         sink_install: fn(puffin::FrameSink) -> FrameSinkId,
         sink_remove: fn(FrameSinkId) -> (),
     ) -> anyhow::Result<Self> {
-        let tcp_listener = task::block_on(async {
-            TcpListener::bind(bind_addr)
-                .await
-                .context("binding server TCP socket")
-        })?;
+        let bind_addr = String::from(bind_addr);
 
         // We use flume instead of `mpsc`,
         // because on shutdown we want all frames to be sent.
@@ -242,12 +239,45 @@ impl Server {
         // but `flume` will continue until the channel is empty.
         let (tx, rx): (flume::Sender<Arc<puffin::FrameData>>, _) = flume::unbounded();
 
-        let clients = Arc::new(RwLock::new(Vec::new()));
-        let clients_cloned = clients.clone();
         let num_clients = Arc::new(AtomicUsize::default());
         let num_clients_cloned = num_clients.clone();
+        let join_handle = std::thread::Builder::new()
+            .name("puffin-server".to_owned())
+            .spawn(move || {
+                Server::run(bind_addr, rx, num_clients_cloned).unwrap();
+            })
+            .context("Can't start puffin-server thread.")?;
 
-        task::Builder::new()
+        // Call the `install` function to add ourselves as a sink
+        let sink_id = sink_install(Box::new(move |frame| {
+            tx.send(frame).ok();
+        }));
+
+        Ok(Server {
+            sink_id,
+            join_handle: Some(join_handle),
+            num_clients,
+            sink_remove,
+        })
+    }
+
+    /// start and run puffin server service
+    pub fn run(
+        bind_addr: String,
+        rx: flume::Receiver<Arc<puffin::FrameData>>,
+        num_clients: Arc<AtomicUsize>,
+    ) -> anyhow::Result<()> {
+        let tcp_listener = task::block_on(async {
+            TcpListener::bind(bind_addr)
+                .await
+                .context("binding server TCP socket")
+        })?;
+
+        let clients = Arc::new(RwLock::new(Vec::new()));
+        let clients_cloned = clients.clone();
+        let num_clients_cloned = num_clients.clone();
+
+        let psconnect_handle = task::Builder::new()
             .name("ps-connect".to_owned())
             .spawn(async move {
                 let mut ps_connection = PuffinServerConnection {
@@ -255,19 +285,16 @@ impl Server {
                     clients: clients_cloned,
                     num_clients: num_clients_cloned,
                 };
-                if let Err(err) = ps_connection.accept_new_clients().await {
-                    log::warn!("puffin server failure: {}", err);
-                }
+                ps_connection.accept_new_clients().await
             })
             .context("Couldn't spawn ps-connect task")?;
 
-        let num_clients_cloned = num_clients.clone();
-        let join_handle = task::Builder::new()
+        let pssend_handle = task::Builder::new()
             .name("ps-send".to_owned())
             .spawn(async move {
                 let mut ps_send = PuffinServerSend {
                     clients,
-                    num_clients: num_clients_cloned,
+                    num_clients,
                     //TODO: send_all_scopes: false,
                     frame_view: Default::default(),
                 };
@@ -281,17 +308,8 @@ impl Server {
             })
             .context("Couldn't spawn ps-send task")?;
 
-        // Call the `install` function to add ourselves as a sink
-        let sink_id = sink_install(Box::new(move |frame| {
-            tx.send(frame).ok();
-        }));
-
-        Ok(Server {
-            sink_id,
-            join_handle: Some(join_handle),
-            num_clients,
-            sink_remove,
-        })
+        let (con_res, _) = future::block_on(future::zip(psconnect_handle, pssend_handle));
+        con_res.context("Client connection management task")
     }
 
     /// Number of clients currently connected.
@@ -307,7 +325,7 @@ impl Drop for Server {
 
         // Take care to send everything before we shut down:
         if let Some(join_handle) = self.join_handle.take() {
-            task::block_on(join_handle); //.ok ?
+            join_handle.join().ok();
         }
     }
 }
@@ -408,23 +426,25 @@ impl PuffinServerSend {
         let packet: Packet = packet.into();
 
         let mut clients = self.clients.write().unwrap();
-        clients.retain(|client| match &client.packet_tx {
-            None => false,
-            Some(packet_tx) => match packet_tx.try_send(packet.clone()) {
-                Ok(()) => true,
-                Err(flume::TrySendError::Disconnected(_)) => false,
-                Err(flume::TrySendError::Full(_)) => {
-                    log::info!(
-                        "puffin client {} is not accepting data fast enough; dropping a frame",
-                        client.client_addr
-                    );
-                    true
-                }
-            },
+        clients.retain(|client| {
+            task::block_on(async { Self::send_to_client(client, packet.clone()).await })
         });
         self.num_clients.store(clients.len(), Ordering::SeqCst);
 
         Ok(())
+    }
+
+    async fn send_to_client(client: &Client, packet: Packet) -> bool {
+        match &client.packet_tx {
+            None => false,
+            Some(packet_tx) => match packet_tx.send_async(packet).await {
+                Ok(()) => true,
+                Err(err) => {
+                    log::info!("puffin send error: {} for '{}'", err, client.client_addr);
+                    true
+                }
+            },
+        }
     }
 }
 
