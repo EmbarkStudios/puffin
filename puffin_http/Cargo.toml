@@ -15,6 +15,7 @@ include = ["**/*.rs", "Cargo.toml", "README.md"]
 
 [dependencies]
 anyhow = "1.0"
+async-std = "1.13"
 flume = "0.11"
 log = "0.4"
 parking_lot = "0.12"

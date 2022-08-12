@@ -1,8 +1,12 @@
 use anyhow::Context as _;
+use async_std::{
+    io::WriteExt,
+    net::{TcpListener, TcpStream},
+    task,
+};
 use puffin::{FrameSinkId, FrameView, GlobalProfiler};
 use std::{
-    io::Write,
-    net::{SocketAddr, TcpListener, TcpStream},
+    net::SocketAddr,
     sync::{
         atomic::{AtomicUsize, Ordering},
         Arc, RwLock,
@@ -226,10 +230,11 @@ impl Server {
         sink_install: fn(puffin::FrameSink) -> FrameSinkId,
         sink_remove: fn(FrameSinkId) -> (),
     ) -> anyhow::Result<Self> {
-        let tcp_listener = TcpListener::bind(bind_addr).context("binding server TCP socket")?;
-        tcp_listener
-            .set_nonblocking(true)
-            .context("TCP set_nonblocking")?;
+        let tcp_listener = task::block_on(async {
+            TcpListener::bind(bind_addr)
+                .await
+                .context("binding server TCP socket")
+        })?;
 
         // We use flume instead of `mpsc`,
         // because on shutdown we want all frames to be sent.
@@ -258,11 +263,11 @@ impl Server {
 
                 while let Ok(frame) = rx.recv() {
                     ps_send.frame_view.add_frame(frame.clone());
-                    if let Err(err) = ps_connection.accept_new_clients() {
+                    if let Err(err) = task::block_on(ps_connection.accept_new_clients()) {
                         log::warn!("puffin server failure: {}", err);
                     }
 
-                    if let Err(err) = ps_send.send(&frame) {
+                    if let Err(err) = task::block_on(ps_send.send(&frame)) {
                         log::warn!("puffin server failure: {}", err);
                     }
                 }
@@ -329,21 +334,19 @@ struct PuffinServerConnection {
     num_clients: Arc<AtomicUsize>,
 }
 impl PuffinServerConnection {
-    fn accept_new_clients(&mut self) -> anyhow::Result<()> {
+    async fn accept_new_clients(&mut self) -> anyhow::Result<()> {
         loop {
-            match self.tcp_listener.accept() {
+            match self.tcp_listener.accept().await {
                 Ok((tcp_stream, client_addr)) => {
-                    tcp_stream
-                        .set_nonblocking(false)
-                        .context("stream.set_nonblocking")?;
-
                     log::info!("{} connected", client_addr);
 
                     let (packet_tx, packet_rx) = flume::bounded(MAX_FRAMES_IN_QUEUE);
 
                     let join_handle = std::thread::Builder::new()
                         .name("puffin-server-client".to_owned())
-                        .spawn(move || client_loop(packet_rx, client_addr, tcp_stream))
+                        .spawn(move || {
+                            task::block_on(client_loop(packet_rx, client_addr, tcp_stream));
+                        })
                         .context("Couldn't spawn thread")?;
 
                     // Send all scopes when new client connects.
@@ -377,7 +380,7 @@ struct PuffinServerSend {
 }
 
 impl PuffinServerSend {
-    pub fn send(&mut self, frame: &puffin::FrameData) -> anyhow::Result<()> {
+    pub async fn send(&mut self, frame: &puffin::FrameData) -> anyhow::Result<()> {
         if self.clients.read().unwrap().is_empty() {
             return Ok(());
         }
@@ -387,6 +390,7 @@ impl PuffinServerSend {
 
         packet
             .write_all(&crate::PROTOCOL_VERSION.to_le_bytes())
+            .await
             .unwrap();
 
         frame
@@ -417,13 +421,13 @@ impl PuffinServerSend {
     }
 }
 
-fn client_loop(
+async fn client_loop(
     packet_rx: flume::Receiver<Packet>,
     client_addr: SocketAddr,
     mut tcp_stream: TcpStream,
 ) {
-    while let Ok(packet) = packet_rx.recv() {
-        if let Err(err) = tcp_stream.write_all(&packet) {
+    while let Ok(packet) = packet_rx.recv_async().await {
+        if let Err(err) = tcp_stream.write_all(&packet).await {
             log::info!(
                 "puffin server failed sending to {}: {} (kind: {:?})",
                 client_addr,
