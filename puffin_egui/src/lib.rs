@@ -90,8 +90,6 @@
 // crate-specific exceptions:
 #![allow(clippy::float_cmp, clippy::manual_range_contains)]
 
-use std::fmt::Write;
-
 mod flamegraph;
 mod maybe_mut_ref;
 mod stats;
@@ -102,6 +100,7 @@ use egui::*;
 use puffin::*;
 use std::{
     collections::{BTreeMap, BTreeSet},
+    fmt::Write,
     sync::{Arc, Mutex},
 };
 
