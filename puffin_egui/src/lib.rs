@@ -100,6 +100,7 @@ use egui::*;
 use puffin::*;
 use std::{
     collections::{BTreeMap, BTreeSet},
+    fmt::Write,
     sync::{Arc, Mutex},
 };
 
@@ -801,7 +802,7 @@ fn frames_info_ui(ui: &mut egui::Ui, selection: &SelectedFrames) {
         sum_scopes,
     );
     if let Some(time) = format_time(selection.raw_range_ns.0) {
-        info += &format!(" Recorded {}.", time);
+        let _ = write!(info, " Recorded {}.", time);
     }
 
     ui.label(info);
