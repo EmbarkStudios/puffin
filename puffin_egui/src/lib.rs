@@ -90,6 +90,8 @@
 // crate-specific exceptions:
 #![allow(clippy::float_cmp, clippy::manual_range_contains)]
 
+use std::fmt::Write;
+
 mod flamegraph;
 mod maybe_mut_ref;
 mod stats;
@@ -305,7 +307,7 @@ pub struct Paused {
     frames: AvailableFrames,
 }
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 pub enum View {
     Flamegraph,
@@ -801,7 +803,7 @@ fn frames_info_ui(ui: &mut egui::Ui, selection: &SelectedFrames) {
         sum_scopes,
     );
     if let Some(time) = format_time(selection.raw_range_ns.0) {
-        info += &format!(" Recorded {}.", time);
+        let _ = write!(&mut info, " Recorded {time}.");
     }
 
     ui.label(info);
