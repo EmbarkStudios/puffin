@@ -59,13 +59,13 @@ impl std::ops::Add<Vec2> for Vec2 {
 const ERROR_COLOR: [f32; 4] = [1.0, 0.0, 0.0, 1.0];
 const HOVER_COLOR: [f32; 4] = [0.8, 0.8, 0.8, 1.0];
 
-#[derive(Clone, Copy, Debug, PartialEq, Deserialize, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize, Serialize)]
 pub enum SortBy {
     Time,
     Name,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Deserialize, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize, Serialize)]
 pub struct Sorting {
     pub sort_by: SortBy,
     pub reversed: bool,

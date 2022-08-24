@@ -173,7 +173,7 @@ impl From<Vec<u8>> for Stream {
 // ----------------------------------------------------------------------------
 
 /// Used when parsing a Stream.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Record<'s> {
     pub start_ns: NanoSecond,
     pub duration_ns: NanoSecond,
@@ -200,7 +200,7 @@ impl<'s> Record<'s> {
 }
 
 /// Used when parsing a Stream.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Scope<'s> {
     pub record: Record<'s>,
     /// Stream offset for first child.
