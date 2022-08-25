@@ -100,7 +100,7 @@ use egui::*;
 use puffin::*;
 use std::{
     collections::{BTreeMap, BTreeSet},
-    fmt::Write,
+    fmt::Write as _,
     sync::{Arc, Mutex},
 };
 
