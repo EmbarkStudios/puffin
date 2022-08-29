@@ -570,7 +570,7 @@ impl ProfilerUi {
 
             Frame::dark_canvas(ui.style()).show(ui, |ui| {
                 egui::ScrollArea::horizontal()
-                    .stick_to_right()
+                    .stick_to_right(true)
                     .show(ui, |ui| {
                         let slowest_visible = self.show_frame_list(
                             ui,
