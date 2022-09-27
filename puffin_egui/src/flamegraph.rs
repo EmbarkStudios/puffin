@@ -587,7 +587,7 @@ fn paint_record(
             if rect.contains(mouse_pos) {
                 options.filter.set_filter(record.id.to_string());
             }
-        } 
+        }
     } else {
         if is_hovered && info.response.clicked() {
             options.zoom_to_relative_ns_range = Some((
