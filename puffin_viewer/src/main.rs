@@ -24,6 +24,7 @@ fn main() {
         format!("127.0.0.1:{}", puffin_http::DEFAULT_PORT)
     }
 
+    use eframe::epaint::Vec2;
     use puffin::FrameView;
     use puffin_viewer::{PuffinViewer, Source};
 
@@ -52,6 +53,7 @@ fn main() {
 
     let native_options = eframe::NativeOptions {
         drag_and_drop_support: true,
+        initial_window_size: Some(Vec2::new(800.0, 400.0)),
         ..Default::default()
     };
     eframe::run_native(
