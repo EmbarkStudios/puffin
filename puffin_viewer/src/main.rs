@@ -24,7 +24,6 @@ fn main() {
         format!("127.0.0.1:{}", puffin_http::DEFAULT_PORT)
     }
 
-    use eframe::epaint::Vec2;
     use puffin::FrameView;
     use puffin_viewer::{PuffinViewer, Source};
 
