@@ -1,5 +1,8 @@
+use std::vec;
+
 use super::{SelectedFrames, ERROR_COLOR, HOVER_COLOR};
 use egui::*;
+use indexmap::IndexMap;
 use puffin::*;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -106,6 +109,22 @@ impl Filter {
 
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+pub struct ThreadVisualizationSettings {
+    flamegraph_collapse: bool,
+    flamegraph_show: bool,
+}
+
+impl Default for ThreadVisualizationSettings {
+    fn default() -> Self {
+        Self {
+            flamegraph_collapse: false,
+            flamegraph_show: true,
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "serde", serde(default))]
 pub struct Options {
     // --------------------
@@ -135,6 +154,9 @@ pub struct Options {
     pub merge_scopes: bool,
 
     pub sorting: Sorting,
+
+    /// Visual settings for threads.
+    pub flamegraph_threads: IndexMap<String, ThreadVisualizationSettings>,
 
     #[cfg_attr(feature = "serde", serde(skip))]
     filter: Filter,
@@ -168,6 +190,7 @@ impl Default for Options {
             filter: Default::default(),
 
             zoom_to_relative_ns_range: None,
+            flamegraph_threads: IndexMap::new(),
         }
     }
 }
@@ -228,35 +251,56 @@ pub fn ui(ui: &mut egui::Ui, options: &mut Options, frames: &SelectedFrames) {
         ui.memory().data.insert_temp(num_frames_id, num_frames);
     }
 
-    ui.horizontal(|ui| {
-        ui.horizontal(|ui| {
-            let changed = ui
-                .checkbox(&mut options.merge_scopes, "Merge children with same ID")
-                .changed();
-
-            // If we have multiple frames selected this will toggle
-            // if we view all the frames, or an average of them,
-            // and that difference is pretty massive, so help the user:
-            if changed && num_frames > 1 {
-                reset_view = true;
-            }
-        });
-        ui.separator();
-        ui.colored_label(ui.visuals().widgets.inactive.text_color(), "Help!")
-            .on_hover_text(
-                "Drag to pan.\n\
+    ui.columns(2, |ui| {
+        ui[0].horizontal(|ui| {
+            ui.colored_label(ui.visuals().widgets.inactive.text_color(), "❓")
+                .on_hover_text(
+                    "Drag to pan.\n\
             Zoom: Ctrl/cmd + scroll, or drag with secondary mouse button.\n\
             Click on a scope to zoom to it.\n\
             Double-click to reset view.\n\
             Press spacebar to pause/resume.",
-            );
-        ui.separator();
+                );
 
-        // The number of threads can change between frames, so always show this even if there currently is only one thread:
-        options.sorting.ui(ui);
+            ui.separator();
+
+            ui.horizontal(|ui| {
+                let changed = ui
+                    .checkbox(&mut options.merge_scopes, "Merge children with same ID")
+                    .changed();
+                // If we have multiple frames selected this will toggle
+                // if we view all the frames, or an average of them,
+                // and that difference is pretty massive, so help the user:
+                if changed && num_frames > 1 {
+                    reset_view = true;
+                }
+            });
+
+            ui.separator();
+
+            // The number of threads can change between frames, so always show this even if there currently is only one thread:
+            options.sorting.ui(ui);
+        });
+
+        options.filter.ui(&mut ui[0]);
+
+        ui[1].collapsing("Visible Threads", |ui| {
+            egui::ScrollArea::vertical()
+                .max_height(150.0)
+                .id_source("f")
+                .show(ui, |ui| {
+                    for f in frames.threads.keys() {
+                        let entry = options
+                            .flamegraph_threads
+                            .entry(f.name.clone())
+                            .or_insert_with(ThreadVisualizationSettings::default);
+                        ui.checkbox(&mut entry.flamegraph_show, f.name.clone());
+                    }
+                });
+        });
     });
 
-    options.filter.ui(ui);
+    ui.separator();
 
     Frame::dark_canvas(ui.style()).show(ui, |ui| {
         let available_height = ui.max_rect().bottom() - ui.min_rect().bottom();
@@ -330,14 +374,28 @@ fn ui_canvas(
     let threads = options.sorting.sort(threads);
 
     for thread_info in threads {
+        let thread_visualization = options
+            .flamegraph_threads
+            .entry(thread_info.name.clone())
+            .or_insert_with(ThreadVisualizationSettings::default);
+
+        if !thread_visualization.flamegraph_show {
+            continue;
+        }
+
         // Visual separator between threads:
         cursor_y += 2.0;
         let line_y = cursor_y;
         cursor_y += 2.0;
 
         let text_pos = pos2(info.canvas.min.x, cursor_y);
-        paint_thread_info(info, &thread_info, text_pos);
-        cursor_y += info.text_height;
+
+        paint_thread_info(
+            info,
+            &thread_info,
+            text_pos,
+            &mut thread_visualization.flamegraph_collapse,
+        );
 
         // draw on top of thread info background:
         info.painter.line_segment(
@@ -348,36 +406,40 @@ fn ui_canvas(
             Stroke::new(1.0, Rgba::from_white_alpha(0.5)),
         );
 
-        let mut paint_streams = || -> Result<()> {
-            if options.merge_scopes {
-                for merge in &frames.threads[&thread_info].merged_scopes {
-                    paint_merge_scope(info, options, 0, merge, 0, cursor_y)?;
-                }
-            } else {
-                for stream_info in &frames.threads[&thread_info].streams {
-                    let top_scopes = Reader::from_start(&stream_info.stream).read_top_scopes()?;
-                    for scope in top_scopes {
-                        paint_scope(info, options, &stream_info.stream, &scope, 0, cursor_y)?;
+        cursor_y += info.text_height;
+
+        if !thread_visualization.flamegraph_collapse {
+            let mut paint_streams = || -> Result<()> {
+                if options.merge_scopes {
+                    for merge in &frames.threads[&thread_info].merged_scopes {
+                        paint_merge_scope(info, options, 0, merge, 0, cursor_y)?;
+                    }
+                } else {
+                    for stream_info in &frames.threads[&thread_info].streams {
+                        let top_scopes =
+                            Reader::from_start(&stream_info.stream).read_top_scopes()?;
+                        for scope in top_scopes {
+                            paint_scope(info, options, &stream_info.stream, &scope, 0, cursor_y)?;
+                        }
                     }
                 }
+                Ok(())
+            };
+
+            if let Err(err) = paint_streams() {
+                let text = format!("Profiler stream error: {:?}", err);
+                info.painter.text(
+                    pos2(info.canvas.min.x, cursor_y),
+                    Align2::LEFT_TOP,
+                    text,
+                    info.font_id.clone(),
+                    ERROR_COLOR,
+                );
             }
-            Ok(())
-        };
 
-        if let Err(err) = paint_streams() {
-            let text = format!("Profiler stream error: {:?}", err);
-            info.painter.text(
-                pos2(info.canvas.min.x, cursor_y),
-                Align2::LEFT_TOP,
-                text,
-                info.font_id.clone(),
-                ERROR_COLOR,
-            );
+            let max_depth = frames.threads[&thread_info].max_depth;
+            cursor_y += max_depth as f32 * (options.rect_height + options.spacing);
         }
-
-        let max_depth = frames.threads[&thread_info].max_depth;
-        cursor_y += max_depth as f32 * (options.rect_height + options.spacing);
-
         cursor_y += info.text_height; // Extra spacing between threads
     }
 
@@ -834,15 +896,38 @@ fn merge_scope_tooltip(ui: &mut egui::Ui, merge: &MergeScope<'_>, num_frames: us
     }
 }
 
-fn paint_thread_info(info: &Info, thread: &ThreadInfo, pos: Pos2) {
+fn paint_thread_info(info: &Info, thread: &ThreadInfo, pos: Pos2, collapsed: &mut bool) {
+    let collapsed_symbol = if *collapsed { "⏵" } else { "⏷" };
+
     let galley = info.ctx.fonts().layout_no_wrap(
-        thread.name.clone(),
+        format!("{} {}", collapsed_symbol, thread.name.clone()),
         info.font_id.clone(),
         Rgba::from_white_alpha(0.9).into(),
     );
+
     let rect = Rect::from_min_size(pos, galley.size());
 
-    info.painter
-        .rect_filled(rect.expand(2.0), 0.0, Rgba::from_black_alpha(0.5));
-    info.painter.galley(rect.min, galley);
+    let is_hovered = if let Some(mouse_pos) = info.response.hover_pos() {
+        rect.contains(mouse_pos)
+    } else {
+        false
+    };
+
+    let text_color = if is_hovered {
+        Color32::WHITE
+    } else {
+        Color32::from_white_alpha(229)
+    };
+    let back_color = if is_hovered {
+        Color32::from_black_alpha(100)
+    } else {
+        Color32::BLACK
+    };
+
+    info.painter.rect_filled(rect.expand(2.0), 0.0, back_color);
+    info.painter.galley_with_color(rect.min, galley, text_color);
+
+    if is_hovered && info.response.clicked() {
+        *collapsed = !(*collapsed);
+    }
 }
