@@ -98,6 +98,10 @@ impl Filter {
             id.to_lowercase().contains(&self.filter)
         }
     }
+
+    fn set_filter(&mut self, filter: String) {
+        self.filter = filter;
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -578,7 +582,13 @@ fn paint_record(
         false
     };
 
-    if is_hovered && info.response.clicked() {
+    if info.response.double_clicked() {
+        if let Some(mouse_pos) = info.response.interact_pointer_pos() {
+            if rect.contains(mouse_pos) {
+                options.filter.set_filter(record.id.to_string());
+            }
+        }
+    } else if is_hovered && info.response.clicked() {
         options.zoom_to_relative_ns_range = Some((
             info.ctx.input().time,
             (

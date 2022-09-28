@@ -53,7 +53,7 @@ impl Server {
                     if let Err(err) = server_impl.accept_new_clients() {
                         log::warn!("puffin server failure: {}", err);
                     }
-                    if let Err(err) = server_impl.send(&*frame) {
+                    if let Err(err) = server_impl.send(&frame) {
                         log::warn!("puffin server failure: {}", err);
                     }
                 }
