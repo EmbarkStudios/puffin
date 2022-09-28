@@ -588,16 +588,14 @@ fn paint_record(
                 options.filter.set_filter(record.id.to_string());
             }
         }
-    } else {
-        if is_hovered && info.response.clicked() {
-            options.zoom_to_relative_ns_range = Some((
-                info.ctx.input().time,
-                (
-                    record.start_ns - info.start_ns,
-                    record.stop_ns() - info.start_ns,
-                ),
-            ));
-        }
+    } else if is_hovered && info.response.clicked() {
+        options.zoom_to_relative_ns_range = Some((
+            info.ctx.input().time,
+            (
+                record.start_ns - info.start_ns,
+                record.stop_ns() - info.start_ns,
+            ),
+        ));
     }
 
     let mut rect_color = if is_hovered {
