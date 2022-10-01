@@ -225,7 +225,7 @@ impl PuffinViewer {
                     }
 
                     if ui.button("Quit").clicked() {
-                        frame.quit();
+                        frame.close();
                     }
                 });
                 ui.menu_button("View", |ui| {
