@@ -331,7 +331,10 @@ impl eframe::App for PuffinViewer {
 // When compiling for web:
 
 #[cfg(target_arch = "wasm32")]
-use eframe::wasm_bindgen::{self, prelude::*};
+use eframe::{
+    wasm_bindgen::{self, prelude::*},
+    WebOptions,
+};
 
 /// This is the entry-point for all the web-assembly.
 /// This is called once from the HTML.
@@ -344,6 +347,8 @@ pub fn start(canvas_id: &str) -> Result<(), eframe::wasm_bindgen::JsValue> {
     puffin::set_scopes_on(true); // quiet warning in `puffin_egui`.
     eframe::start_web(
         canvas_id,
+        WebOptions::default(),
         Box::new(|_cc| Box::new(PuffinViewer::new(Source::None))),
-    )
+    )?;
+    Ok(())
 }
