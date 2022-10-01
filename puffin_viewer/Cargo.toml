@@ -24,7 +24,7 @@ puffin = { version = "0.13.3", path = "../puffin", features = [
 puffin_http = { version = "0.10.0", path = "../puffin_http" }
 
 argh = "0.1"
-eframe = { version = "0.18.0", features = ["persistence"] }
+eframe = { version = "0.19.0", features = ["persistence"] }
 log = "0.4"
 rfd = "0.8.4"
 simple_logger = "2.1"
