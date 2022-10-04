@@ -7,6 +7,11 @@ All notable changes to the egui crate will be documented in this file.
 <!-- next-header -->
 ## [Unreleased] - ReleaseDate
 
+- Add ability to hide and show thread lanes.
+- Add ability to collapse thread lanes.
+- Add ability double click on scope in thread lane applies the scope as filter.
+- [PR#93](https://github.com/EmbarkStudios/puffin/pull/93) Update to `egui` 0.19.
+
 ## [0.16.0] - 2022-06-22
 ### Changed
 - [PR#87](https://github.com/EmbarkStudios/puffin/pull/87) Only run pack passes if packing is enabled on the view
