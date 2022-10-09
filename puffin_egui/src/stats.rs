@@ -1,6 +1,16 @@
 use puffin::*;
 
-pub fn ui(ui: &mut egui::Ui, frames: &[std::sync::Arc<UnpackedFrameData>]) {
+use crate::flamegraph::Filter;
+
+#[derive(Clone, Debug, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+#[cfg_attr(feature = "serde", serde(default))]
+pub struct Options {   
+    #[cfg_attr(feature = "serde", serde(skip))]
+    pub filter: Filter,
+}
+
+pub fn ui(ui: &mut egui::Ui, options: &mut Options, frames: &[std::sync::Arc<UnpackedFrameData>]) {
     let mut threads = std::collections::HashSet::<&ThreadInfo>::new();
     let mut stats = Stats::default();
 
@@ -29,7 +39,11 @@ pub fn ui(ui: &mut egui::Ui, frames: &[std::sync::Arc<UnpackedFrameData>]) {
     ));
 
     ui.separator();
-
+    
+    options.filter.ui(ui);
+    
+    ui.separator();
+        
     let mut scopes: Vec<_> = stats
         .scopes
         .iter()
@@ -54,6 +68,10 @@ pub fn ui(ui: &mut egui::Ui, frames: &[std::sync::Arc<UnpackedFrameData>]) {
                 ui.end_row();
 
                 for (key, stats) in &scopes {
+                    if !options.filter.include(key.id) {
+                        continue;
+                    }
+
                     ui.label(&key.thread_name);
                     ui.label(key.location);
                     ui.label(key.id);

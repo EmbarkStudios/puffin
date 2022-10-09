@@ -73,12 +73,12 @@ impl Sorting {
 }
 
 #[derive(Clone, Debug, Default)]
-struct Filter {
+pub struct Filter {
     filter: String,
 }
 
 impl Filter {
-    fn ui(&mut self, ui: &mut egui::Ui) {
+    pub fn ui(&mut self, ui: &mut egui::Ui) {
         ui.horizontal(|ui| {
             ui.label("Scope filter:");
             ui.text_edit_singleline(&mut self.filter);
@@ -94,7 +94,7 @@ impl Filter {
         self.filter.is_empty()
     }
 
-    fn include(&self, id: &str) -> bool {
+    pub fn include(&self, id: &str) -> bool {
         if self.filter.is_empty() {
             true
         } else {
@@ -159,7 +159,7 @@ pub struct Options {
     pub flamegraph_threads: IndexMap<String, ThreadVisualizationSettings>,
 
     #[cfg_attr(feature = "serde", serde(skip))]
-    filter: Filter,
+    pub filter: Filter,
 
     /// Set when user clicks a scope.
     /// First part is `now()`, second is range.
