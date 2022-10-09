@@ -1,11 +1,11 @@
 use puffin::*;
 
-use crate::flamegraph::Filter;
+use crate::filter::Filter;
 
 #[derive(Clone, Debug, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "serde", serde(default))]
-pub struct Options {   
+pub struct Options {
     #[cfg_attr(feature = "serde", serde(skip))]
     pub filter: Filter,
 }
@@ -39,11 +39,11 @@ pub fn ui(ui: &mut egui::Ui, options: &mut Options, frames: &[std::sync::Arc<Unp
     ));
 
     ui.separator();
-    
+
     options.filter.ui(ui);
-    
+
     ui.separator();
-        
+
     let mut scopes: Vec<_> = stats
         .scopes
         .iter()

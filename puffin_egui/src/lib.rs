@@ -90,6 +90,7 @@
 // crate-specific exceptions:
 #![allow(clippy::float_cmp, clippy::manual_range_contains)]
 
+mod filter;
 mod flamegraph;
 mod maybe_mut_ref;
 mod stats;
@@ -132,7 +133,7 @@ static PROFILE_UI: once_cell::sync::Lazy<Mutex<GlobalProfilerUi>> =
 /// Call this from within an [`egui::Window`], or use [`profiler_window`] instead.
 pub fn profiler_ui(ui: &mut egui::Ui) {
     let mut profile_ui = PROFILE_UI.lock().unwrap();
-    
+
     profile_ui.ui(ui);
 }
 
@@ -165,7 +166,6 @@ impl GlobalProfilerUi {
     ///
     /// Call this from within an [`egui::Window`], or use [`Self::window`] instead.
     pub fn ui(&mut self, ui: &mut egui::Ui) {
-        
         let mut frame_view = self.global_frame_view.lock();
         self.profiler_ui
             .ui(ui, &mut MaybeMutRef::MutRef(&mut frame_view));
@@ -603,8 +603,9 @@ impl ProfilerUi {
 
             // Show as many slow frames as we fit in the view:
             Frame::dark_canvas(ui.style()).show(ui, |ui| {
-                let num_fit =
-                    (ui.available_size_before_wrap().x / self.flamegraph_options.frame_width).floor();
+                let num_fit = (ui.available_size_before_wrap().x
+                    / self.flamegraph_options.frame_width)
+                    .floor();
                 let num_fit = (num_fit as usize).at_least(1).at_most(frames.slowest.len());
                 let slowest_of_the_slow = puffin::select_slowest(&frames.slowest, num_fit);
 
