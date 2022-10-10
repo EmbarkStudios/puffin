@@ -3,10 +3,7 @@ use puffin::*;
 use crate::filter::Filter;
 
 #[derive(Clone, Debug, Default)]
-#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
-#[cfg_attr(feature = "serde", serde(default))]
 pub struct Options {
-    #[cfg_attr(feature = "serde", serde(skip))]
     filter: Filter,
 }
 

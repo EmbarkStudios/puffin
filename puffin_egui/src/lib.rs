@@ -326,7 +326,9 @@ impl Default for View {
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "serde", serde(default))]
 pub struct ProfilerUi {
+    #[cfg_attr(feature = "serde", serde(alias = "options"))]
     pub flamegraph_options: flamegraph::Options,
+    #[cfg_attr(feature = "serde", serde(skip))]
     pub stats_options: stats::Options,
 
     pub view: View,
