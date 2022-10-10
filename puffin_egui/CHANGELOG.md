@@ -11,6 +11,7 @@ All notable changes to the egui crate will be documented in this file.
 - Add ability to collapse thread lanes.
 - Add ability double click on scope in thread lane applies the scope as filter.
 - [PR#93](https://github.com/EmbarkStudios/puffin/pull/93) Update to `egui` 0.19.
+- Add scope filter option for stats panel.
 
 ## [0.16.0] - 2022-06-22
 ### Changed
