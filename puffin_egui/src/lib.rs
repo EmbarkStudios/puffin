@@ -90,6 +90,7 @@
 // crate-specific exceptions:
 #![allow(clippy::float_cmp, clippy::manual_range_contains)]
 
+mod filter;
 mod flamegraph;
 mod maybe_mut_ref;
 mod stats;
@@ -132,6 +133,7 @@ static PROFILE_UI: once_cell::sync::Lazy<Mutex<GlobalProfilerUi>> =
 /// Call this from within an [`egui::Window`], or use [`profiler_window`] instead.
 pub fn profiler_ui(ui: &mut egui::Ui) {
     let mut profile_ui = PROFILE_UI.lock().unwrap();
+
     profile_ui.ui(ui);
 }
 
@@ -324,7 +326,10 @@ impl Default for View {
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "serde", serde(default))]
 pub struct ProfilerUi {
-    pub options: flamegraph::Options,
+    #[cfg_attr(feature = "serde", serde(alias = "options"))]
+    pub flamegraph_options: flamegraph::Options,
+    #[cfg_attr(feature = "serde", serde(skip))]
+    pub stats_options: stats::Options,
 
     pub view: View,
 
@@ -343,7 +348,8 @@ pub struct ProfilerUi {
 impl Default for ProfilerUi {
     fn default() -> Self {
         Self {
-            options: Default::default(),
+            flamegraph_options: Default::default(),
+            stats_options: Default::default(),
             view: Default::default(),
             paused: None,
             slowest_frame: 0.16,
@@ -543,8 +549,8 @@ impl ProfilerUi {
         ui.separator();
 
         match self.view {
-            View::Flamegraph => flamegraph::ui(ui, &mut self.options, &frames),
-            View::Stats => stats::ui(ui, &frames.frames),
+            View::Flamegraph => flamegraph::ui(ui, &mut self.flamegraph_options, &frames),
+            View::Stats => stats::ui(ui, &mut self.stats_options, &frames.frames),
         }
     }
 
@@ -599,8 +605,9 @@ impl ProfilerUi {
 
             // Show as many slow frames as we fit in the view:
             Frame::dark_canvas(ui.style()).show(ui, |ui| {
-                let num_fit =
-                    (ui.available_size_before_wrap().x / self.options.frame_width).floor();
+                let num_fit = (ui.available_size_before_wrap().x
+                    / self.flamegraph_options.frame_width)
+                    .floor();
                 let num_fit = (num_fit as usize).at_least(1).at_most(frames.slowest.len());
                 let slowest_of_the_slow = puffin::select_slowest(&frames.slowest, num_fit);
 
@@ -653,7 +660,7 @@ impl ProfilerUi {
         hovered_frame: &mut Option<Arc<FrameData>>,
         slowest_frame: f32,
     ) -> NanoSecond {
-        let frame_width_including_spacing = self.options.frame_width;
+        let frame_width_including_spacing = self.flamegraph_options.frame_width;
 
         let desired_width = if tight {
             frames.len() as f32 * frame_width_including_spacing
@@ -663,7 +670,7 @@ impl ProfilerUi {
             num_frames as f32 * frame_width_including_spacing
         };
 
-        let desired_size = Vec2::new(desired_width, self.options.frame_list_height);
+        let desired_size = Vec2::new(desired_width, self.flamegraph_options.frame_list_height);
         let (response, painter) = ui.allocate_painter(desired_size, Sense::click_and_drag());
         let rect = response.rect;
 
@@ -671,7 +678,7 @@ impl ProfilerUi {
         let frame_width = frame_width_including_spacing - frame_spacing;
 
         let viewing_multiple_frames = if let Some(paused) = &self.paused {
-            paused.selected.frames.len() > 1 && !self.options.merge_scopes
+            paused.selected.frames.len() > 1 && !self.flamegraph_options.merge_scopes
         } else {
             false
         };
