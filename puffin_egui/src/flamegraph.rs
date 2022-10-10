@@ -125,7 +125,7 @@ pub struct Options {
     pub flamegraph_threads: IndexMap<String, ThreadVisualizationSettings>,
 
     #[cfg_attr(feature = "serde", serde(skip))]
-    pub filter: Filter,
+    filter: Filter,
 
     /// Set when user clicks a scope.
     /// First part is `now()`, second is range.

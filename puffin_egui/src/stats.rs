@@ -7,7 +7,7 @@ use crate::filter::Filter;
 #[cfg_attr(feature = "serde", serde(default))]
 pub struct Options {
     #[cfg_attr(feature = "serde", serde(skip))]
-    pub filter: Filter,
+    filter: Filter,
 }
 
 pub fn ui(ui: &mut egui::Ui, options: &mut Options, frames: &[std::sync::Arc<UnpackedFrameData>]) {
