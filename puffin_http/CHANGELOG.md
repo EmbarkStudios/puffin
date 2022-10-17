@@ -6,6 +6,8 @@ All notable changes to `puffin_http` will be documented in this file.
 
 <!-- next-header -->
 ## [Unreleased] - ReleaseDate
+- Update crates: ruzstd, criterion, rfd
+
 ## [0.10.0] - 2022-02-07
 ### Changed
 - [PR#64](https://github.com/EmbarkStudios/puffin/pull/64) updated dependencies and cleaned up crate metadata.
