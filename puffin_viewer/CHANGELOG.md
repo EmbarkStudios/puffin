@@ -6,6 +6,7 @@ All notable changes to `puffin_viewer` will be documented in this file.
 
 <!-- next-header -->
 ## [Unreleased] - ReleaseDate
+## [0.12.1] - 2022-10-17
 - [PR#93](https://github.com/EmbarkStudios/puffin/pull/93) Update to `egui` 0.19.
 
 ## [0.12.0] - 2022-05-11
@@ -76,7 +77,8 @@ All notable changes to `puffin_viewer` will be documented in this file.
 First release: connect to a `puffin_server` over HTTP to live view a profiler stream
 
 <!-- next-url -->
-[Unreleased]: https://github.com/EmbarkStudios/puffin/compare/puffin_viewer-0.12.0...HEAD
+[Unreleased]: https://github.com/EmbarkStudios/puffin/compare/puffin_viewer-0.12.1...HEAD
+[0.12.1]: https://github.com/EmbarkStudios/puffin/compare/puffin_viewer-0.12.0...puffin_viewer-0.12.1
 [0.12.0]: https://github.com/EmbarkStudios/puffin/compare/0.11.0...puffin_viewer-0.12.0
 [0.11.0]: https://github.com/EmbarkStudios/puffin/compare/0.10.1...puffin_viewer-0.11.0
 [0.10.1]: https://github.com/EmbarkStudios/puffin/compare/puffin_viewer-0.10.0...puffin_viewer-0.10.1
