@@ -6,6 +6,7 @@ All notable changes to the egui crate will be documented in this file.
 
 <!-- next-header -->
 ## [Unreleased] - ReleaseDate
+## [0.17.0] - 2022-10-17
 
 - Add ability to hide and show thread lanes.
 - Add ability to collapse thread lanes.
@@ -122,7 +123,8 @@ All notable changes to the egui crate will be documented in this file.
 - The view supports viewing merged sibling scopes.
 
 <!-- next-url -->
-[Unreleased]: https://github.com/EmbarkStudios/puffin/compare/puffin_egui-0.15.0...HEAD
+[Unreleased]: https://github.com/EmbarkStudios/puffin/compare/puffin_egui-0.17.0...HEAD
+[0.17.0]: https://github.com/EmbarkStudios/puffin/compare/puffin_egui-0.15.0...puffin_egui-0.17.0
 [0.15.0]: https://github.com/EmbarkStudios/puffin/compare/0.14.0...puffin_egui-0.15.0
 [0.14.0]: https://github.com/EmbarkStudios/puffin/compare/0.13.0...puffin_egui-0.14.0
 [0.13.0]: https://github.com/EmbarkStudios/puffin/compare/0.12.0...puffin_egui-0.13.0
