@@ -41,6 +41,18 @@ impl eframe::App for ExampleApp {
             puffin::profile_scope!("Big spike");
             std::thread::sleep(std::time::Duration::from_millis(50))
         }
+        if self.frame_counter % 55 == 0 {
+            // test to verify these spikes timers are not merged together as they have different data
+            for (name, ms) in [("First".to_string(), 20), ("Second".to_string(), 15)] {
+                puffin::profile_scope!("Spike", name);
+                std::thread::sleep(std::time::Duration::from_millis(ms))
+            }
+            // these are however fine to merge together as data is the same
+            for (_name, ms) in [("First".to_string(), 20), ("Second".to_string(), 15)] {
+                puffin::profile_scope!("Spike");
+                std::thread::sleep(std::time::Duration::from_millis(ms))
+            }
+        }
 
         for _ in 0..1000 {
             puffin::profile_scope!("very thin");
