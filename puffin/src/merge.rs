@@ -2,6 +2,13 @@ use crate::{NanoSecond, Reader, Result, Scope, Stream, ThreadInfo, UnpackedFrame
 use std::collections::BTreeMap;
 
 /// Temporary structure while building a [`MergeScope`].
+#[derive(Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Hash)]
+struct MergeId<'s> {
+    id: &'s str,
+    data: &'s str,
+}
+
+/// Temporary structure while building a [`MergeScope`].
 #[derive(Default)]
 struct MergeNode<'s> {
     /// These are the raw scopes that got merged into us.
@@ -9,7 +16,7 @@ struct MergeNode<'s> {
     pieces: Vec<MergePiece<'s>>,
 
     /// indexed by their id+data
-    children: BTreeMap<(&'s str, &'s str), MergeNode<'s>>,
+    children: BTreeMap<MergeId<'s>, MergeNode<'s>>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -66,7 +73,10 @@ impl<'s> MergeNode<'s> {
         for child in Reader::with_offset(stream, piece.scope.child_begin_position)? {
             let child = child?;
             self.children
-                .entry((child.record.id, child.record.data))
+                .entry(MergeId {
+                    id: child.record.id,
+                    data: child.record.data,
+                })
                 .or_default()
                 .add(
                     stream,
@@ -119,10 +129,7 @@ impl<'s> MergeNode<'s> {
     }
 }
 
-fn build<'s>(
-    nodes: BTreeMap<(&'s str, &'s str), MergeNode<'s>>,
-    num_frames: i64,
-) -> Vec<MergeScope<'s>> {
+fn build<'s>(nodes: BTreeMap<MergeId<'s>, MergeNode<'s>>, num_frames: i64) -> Vec<MergeScope<'s>> {
     let mut scopes: Vec<_> = nodes
         .into_values()
         .map(|node| node.build(num_frames))
@@ -146,7 +153,7 @@ pub fn merge_scopes_for_thread<'s>(
     frames: &'s [std::sync::Arc<UnpackedFrameData>],
     thread_info: &ThreadInfo,
 ) -> Result<Vec<MergeScope<'s>>> {
-    let mut top_nodes: BTreeMap<(&'s str, &'s str), MergeNode<'s>> = Default::default();
+    let mut top_nodes: BTreeMap<MergeId<'s>, MergeNode<'s>> = Default::default();
 
     for frame in frames {
         if let Some(stream_info) = frame.thread_streams.get(thread_info) {
@@ -155,7 +162,10 @@ pub fn merge_scopes_for_thread<'s>(
             let top_scopes = Reader::from_start(&stream_info.stream).read_top_scopes()?;
             for scope in top_scopes {
                 top_nodes
-                    .entry((scope.record.id, scope.record.data))
+                    .entry(MergeId {
+                        id: scope.record.id,
+                        data: scope.record.data,
+                    })
                     .or_default()
                     .add(
                         &stream_info.stream,
