@@ -231,12 +231,11 @@ impl Server {
             .set_nonblocking(true)
             .context("TCP set_nonblocking")?;
 
-        // We use crossbeam_channel instead of `mpsc`,
+        // We use flume instead of `mpsc`,
         // because on shutdown we want all frames to be sent.
         // `mpsc::Receiver` stops receiving as soon as the `Sender` is dropped,
-        // but `crossbeam_channel` will continue until the channel is empty.
-        let (tx, rx): (crossbeam_channel::Sender<Arc<puffin::FrameData>>, _) =
-            crossbeam_channel::unbounded();
+        // but `flume` will continue until the channel is empty.
+        let (tx, rx): (flume::Sender<Arc<puffin::FrameData>>, _) = flume::unbounded();
 
         let num_clients = Arc::new(AtomicUsize::default());
         let num_clients_cloned = num_clients.clone();
@@ -300,7 +299,7 @@ type Packet = Arc<[u8]>;
 
 struct Client {
     client_addr: SocketAddr,
-    packet_tx: Option<crossbeam_channel::Sender<Packet>>,
+    packet_tx: Option<flume::Sender<Packet>>,
     join_handle: Option<std::thread::JoinHandle<()>>,
 }
 
@@ -339,7 +338,7 @@ impl PuffinServerImpl {
 
                     log::info!("{} connected", client_addr);
 
-                    let (packet_tx, packet_rx) = crossbeam_channel::bounded(MAX_FRAMES_IN_QUEUE);
+                    let (packet_tx, packet_rx) = flume::bounded(MAX_FRAMES_IN_QUEUE);
 
                     let join_handle = std::thread::Builder::new()
                         .name("puffin-server-client".to_owned())
@@ -393,8 +392,8 @@ impl PuffinServerImpl {
             None => false,
             Some(packet_tx) => match packet_tx.try_send(packet.clone()) {
                 Ok(()) => true,
-                Err(crossbeam_channel::TrySendError::Disconnected(_)) => false,
-                Err(crossbeam_channel::TrySendError::Full(_)) => {
+                Err(flume::TrySendError::Disconnected(_)) => false,
+                Err(flume::TrySendError::Full(_)) => {
                     log::info!(
                         "puffin client {} is not accepting data fast enough; dropping a frame",
                         client.client_addr
@@ -410,7 +409,7 @@ impl PuffinServerImpl {
 }
 
 fn client_loop(
-    packet_rx: crossbeam_channel::Receiver<Packet>,
+    packet_rx: flume::Receiver<Packet>,
     client_addr: SocketAddr,
     mut tcp_stream: TcpStream,
 ) {

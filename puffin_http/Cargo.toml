@@ -15,7 +15,7 @@ include = ["**/*.rs", "Cargo.toml", "README.md"]
 
 [dependencies]
 anyhow = "1.0"
-crossbeam-channel = "0.5"
+flume = "0.11"
 log = "0.4"
 parking_lot = "0.12"
 puffin = { version = "0.19.1", path = "../puffin", features = [
