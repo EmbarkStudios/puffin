@@ -1,4 +1,13 @@
 //! `puffin_server` is a library for streaming `puffin` profiler data over TCP.
+//!
+//! # How to use
+//! Add a `puffin_http` `Server` to the profiled application.
+//! When the server is started, [`puffin_viewer`](https://crates.io/crates/puffin_viewer) application can connect to it and display profiling informations.
+//!
+//! ```
+//! let server_addr = format!("0.0.0.0:{}", puffin_http::DEFAULT_PORT);
+//! puffin_http::Server::new(&server_addr).unwrap();
+//! ```
 
 // BEGIN - Embark standard lints v5 for Rust 1.55+
 // do not change or add/remove here, but one can add exceptions after this section
