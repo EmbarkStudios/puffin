@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <!-- next-header -->
 ## [Unreleased] - ReleaseDate
 
+## [0.14.0] - 2022-11-07
+
 ### Fixed
 * [PR#102](https://github.com/EmbarkStudios/puffin/pull/102) Add a runtime setting on frameview to pack or not
 
@@ -91,7 +93,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * `GlobalProfiler` now store recent history and the slowest frames.
 
 <!-- next-url -->
-[Unreleased]: https://github.com/EmbarkStudios/puffin/compare/0.13.2...HEAD
+[Unreleased]: https://github.com/EmbarkStudios/puffin/compare/0.14.0...HEAD
+[0.14.0]: https://github.com/EmbarkStudios/puffin/compare/0.13.2...0.14.0
 [0.13.2]: https://github.com/EmbarkStudios/puffin/compare/0.13.0...0.13.2
 [0.13.0]: https://github.com/EmbarkStudios/puffin/compare/0.12.1...0.13.0
 [0.12.1]: https://github.com/EmbarkStudios/puffin/compare/0.12.0...0.12.1
