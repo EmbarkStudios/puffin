@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <!-- next-header -->
 ## [Unreleased] - ReleaseDate
 
+## [0.18.0] - 2022-11-08
+
+- Require `puffin` 0.14.0
+
 ## [0.17.0] - 2022-06-22
 ### Changed
 - [PR#87](https://github.com/EmbarkStudios/puffin/pull/87) Only run pack passes if packing is enabled on the view
