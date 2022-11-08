@@ -6,6 +6,11 @@ All notable changes to the egui crate will be documented in this file.
 
 <!-- next-header -->
 ## [Unreleased] - ReleaseDate
+
+## [0.18.0] - 2022-11-08
+
+- Require `puffin` 0.14.0
+
 ## [0.17.0] - 2022-10-17
 
 - Add ability to hide and show thread lanes.
