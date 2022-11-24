@@ -21,3 +21,46 @@ fn main() {
 ```
 
 You can checkout the examples/server.rs for a more complete example.
+
+# Architecture
+## server
+Listens for incoming connections and streams them puffin profiler data.
+- struct Server
+ - sink_id:
+ - join_handle: **puffin-server** thread handle
+ - num_clients: shared 'nb clients'
+ - fn new() : 
+ 	- create channel for get frame info
+ 	- create thread **puffin-server** with `run` as start function
+  puffin management work is executed in this thread.
+ - fn run() :
+  - Create en LocalExecutor to handle puffin-server async task.
+ 	- create PuffinServerConnect object to use in **ps-connect** task
+  - create PuffinServerSend object to use in **ps-send** task
+	
+- struct Client
+ - client_addr
+ - packet_tx: channel sender
+ - join_handle: **puffin-server-client** thread handle
+
+- struct PuffinServerConnect
+ - executor:
+ - tcp_listener: tcp listener of clients
+ - clients: shared list of **Client** object
+ - num_clients: shared 'nb clients'
+ - fn accept_new_clients :
+  - loop on *tcp_listener*
+  - create thread *puffin-server-client* when client tried to connect
+  - and create **Client** object to allow PuffinSever to interract with client.
+
+- struct PuffinServerSend
+ - clients: shared list of **Client** object
+ - num_clients: shared 'nb clients'
+ - fn send :
+  - send frame data by channel to clients thread
+  
+- fn client_loop :
+ - send frame data to client by socket
+
+## client
+- TODO
