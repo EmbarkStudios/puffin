@@ -1,4 +1,5 @@
 use imgui::*;
+use mint::Vector2;
 use puffin::*;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -104,7 +105,7 @@ impl Sorting {
         vec
     }
 
-    fn ui(&mut self, ui: &imgui::Ui<'_>) {
+    fn ui(&mut self, ui: &imgui::Ui) {
         ui.text("Sort threads by:");
         ui.same_line();
 
@@ -140,7 +141,7 @@ struct Filter {
 }
 
 impl Filter {
-    fn ui(&mut self, ui: &imgui::Ui<'_>) {
+    fn ui(&mut self, ui: &imgui::Ui) {
         ui.text("Scope filter:");
         ui.same_line();
         ui.input_text("##scopefilter", &mut self.filter).build();
@@ -305,7 +306,7 @@ struct Info<'a> {
 
     mouse_pos: Vec2,
 
-    ui: &'a Ui<'a>,
+    ui: &'a Ui,
     draw_list: &'a DrawListMut<'a>,
     font_size: f32,
 
@@ -340,15 +341,15 @@ impl ProfilerUi {
 
     /// Show a [`imgui::Window`] with the profiler contents.
     /// If you want to control the window yourself, use [`Self::ui`] instead.
-    pub fn window(&mut self, ui: &Ui<'_>) -> bool {
+    pub fn window(&mut self, ui: &Ui) -> bool {
         let mut open = true;
-        imgui::Window::new("Profiler")
+        ui.window("Profiler")
             .position([10.0, 25.0], Condition::FirstUseEver)
             .size([800.0, 600.0], Condition::FirstUseEver)
             .bg_alpha(0.99) // Transparency can be distracting
             .always_auto_resize(false)
             .opened(&mut open)
-            .build(ui, || self.ui(ui));
+            .build(|| self.ui(ui));
         open
     }
 
@@ -422,7 +423,7 @@ impl ProfilerUi {
     /// Show the profiler.
     ///
     /// Call this from within an [`imgui::Window`], or use [`Self::window`] instead.
-    pub fn ui(&mut self, ui: &Ui<'_>) {
+    pub fn ui(&mut self, ui: &Ui) {
         #![allow(clippy::collapsible_else_if)]
 
         puffin::profile_function!();
@@ -530,7 +531,7 @@ impl ProfilerUi {
         let draw_list = ui.get_window_draw_list();
 
         // Make it scrollable:
-        imgui::ChildWindow::new("flamegraph").build(ui, || {
+        ui.child_window("flamegraph").build(|| {
             let info = Info {
                 start_ns: min_ns,
                 canvas_min: content_min,
@@ -541,17 +542,24 @@ impl ProfilerUi {
                 font_size: ui.current_font_size(),
             };
 
-            draw_list.with_clip_rect_intersect(content_min.into(), content_max.into(), || {
-                let max_y = self.ui_canvas(&info, &frame, (min_ns, max_ns));
-                let used_space = Vec2::new(
-                    content_region_avail.x,
-                    content_region_avail.y.max(max_y - content_min.y),
-                );
+            draw_list.with_clip_rect_intersect(
+                Vector2::from_slice(&[content_min.x, content_min.y]),
+                Vector2::from_slice(&[content_max.x, content_max.y]),
+                || {
+                    let max_y = self.ui_canvas(&info, &frame, (min_ns, max_ns));
+                    let used_space = Vec2::new(
+                        content_region_avail.x,
+                        content_region_avail.y.max(max_y - content_min.y),
+                    );
 
-                // An invisible button for the canvas allows us to catch input for it.
-                ui.invisible_button("canvas", used_space.into());
-                self.interact_with_canvas(ui, max_ns - min_ns, (content_min, content_max));
-            });
+                    // An invisible button for the canvas allows us to catch input for it.
+                    ui.invisible_button(
+                        "canvas",
+                        Vector2::from_slice(&[used_space.x, used_space.y]),
+                    );
+                    self.interact_with_canvas(ui, max_ns - min_ns, (content_min, content_max));
+                },
+            );
         });
     }
 
@@ -635,7 +643,7 @@ impl ProfilerUi {
     }
 
     /// Returns hovered, if any
-    fn show_frames(&mut self, ui: &Ui<'_>) -> Option<Arc<FrameData>> {
+    fn show_frames(&mut self, ui: &Ui) -> Option<Arc<FrameData>> {
         puffin::profile_function!();
         let frames = self.frames();
 
@@ -693,7 +701,7 @@ impl ProfilerUi {
     /// Returns the slowest visible frame
     fn show_frame_list(
         &mut self,
-        ui: &Ui<'_>,
+        ui: &Ui,
         label: &str,
         frames: &[Arc<FrameData>],
         hovered_frame: &mut Option<Arc<FrameData>>,
@@ -707,7 +715,10 @@ impl ProfilerUi {
         let frame_spacing = 2.0;
         let frame_width = frame_width_including_spacing - frame_spacing;
 
-        ui.invisible_button(&ImString::new(label), size.into());
+        ui.invisible_button(
+            &ImString::new(label),
+            Vector2::from_slice(&[size.x, size.y]),
+        );
         let draw_list = ui.get_window_draw_list();
 
         let selected_frame_index = self.selected_frame_index();
@@ -716,64 +727,77 @@ impl ProfilerUi {
 
         let mut slowest_visible_frame = 0;
 
-        draw_list.with_clip_rect_intersect(min.into(), max.into(), || {
-            for (i, frame) in frames.iter().enumerate() {
-                let x = max.x - (frames.len() as f32 - i as f32) * frame_width_including_spacing;
-                let mut rect_min = Vec2::new(x, min.y);
-                let rect_max = Vec2::new(x + frame_width, max.y);
+        draw_list.with_clip_rect_intersect(
+            Vector2::from_slice(&[min.x, min.y]),
+            Vector2::from_slice(&[max.x, max.y]),
+            || {
+                for (i, frame) in frames.iter().enumerate() {
+                    let x =
+                        max.x - (frames.len() as f32 - i as f32) * frame_width_including_spacing;
+                    let mut rect_min = Vec2::new(x, min.y);
+                    let rect_max = Vec2::new(x + frame_width, max.y);
 
-                let is_visible = min.x <= rect_max.x && rect_min.x <= max.x;
-                if is_visible {
-                    let duration = frame.duration_ns();
-                    slowest_visible_frame = duration.max(slowest_visible_frame);
+                    let is_visible = min.x <= rect_max.x && rect_min.x <= max.x;
+                    if is_visible {
+                        let duration = frame.duration_ns();
+                        slowest_visible_frame = duration.max(slowest_visible_frame);
 
-                    let is_selected = Some(frame.frame_index()) == selected_frame_index;
+                        let is_selected = Some(frame.frame_index()) == selected_frame_index;
 
-                    let is_hovered = rect_min.x - 0.5 * frame_spacing <= mouse_pos.x
-                        && mouse_pos.x < rect_max.x + 0.5 * frame_spacing
-                        && rect_min.y <= mouse_pos.y
-                        && mouse_pos.y <= rect_max.y;
+                        let is_hovered = rect_min.x - 0.5 * frame_spacing <= mouse_pos.x
+                            && mouse_pos.x < rect_max.x + 0.5 * frame_spacing
+                            && rect_min.y <= mouse_pos.y
+                            && mouse_pos.y <= rect_max.y;
 
-                    if is_hovered {
-                        *hovered_frame = Some(frame.clone());
-                        ui.tooltip_text(format!("{:.1} ms", frame.duration_ns() as f64 * 1e-6));
+                        if is_hovered {
+                            *hovered_frame = Some(frame.clone());
+                            ui.tooltip_text(format!("{:.1} ms", frame.duration_ns() as f64 * 1e-6));
+                        }
+                        if is_hovered && ui.is_mouse_clicked(MouseButton::Left) {
+                            self.pause_and_select(frame.clone());
+                        }
+
+                        let mut color = if is_selected {
+                            [1.0; 4]
+                        } else if is_hovered {
+                            HOVER_COLOR
+                        } else {
+                            [0.6, 0.6, 0.4, 1.0]
+                        };
+
+                        // Transparent, full height:
+                        color[3] = if is_selected || is_hovered { 0.6 } else { 0.25 };
+                        draw_list
+                            .add_rect(
+                                Vector2::from_slice(&[rect_min.x, rect_min.y]),
+                                Vector2::from_slice(&[rect_max.x, rect_max.y]),
+                                color,
+                            )
+                            .filled(true)
+                            .build();
+
+                        // Opaque, height based on duration:
+                        color[3] = 1.0;
+                        rect_min.y = lerp(max.y..=min.y, duration as f32 / slowest_frame);
+                        draw_list
+                            .add_rect(
+                                Vector2::from_slice(&[rect_min.x, rect_min.y]),
+                                Vector2::from_slice(&[rect_max.x, rect_max.y]),
+                                color,
+                            )
+                            .filled(true)
+                            .build();
                     }
-                    if is_hovered && ui.is_mouse_clicked(MouseButton::Left) {
-                        self.pause_and_select(frame.clone());
-                    }
-
-                    let mut color = if is_selected {
-                        [1.0; 4]
-                    } else if is_hovered {
-                        HOVER_COLOR
-                    } else {
-                        [0.6, 0.6, 0.4, 1.0]
-                    };
-
-                    // Transparent, full height:
-                    color[3] = if is_selected || is_hovered { 0.6 } else { 0.25 };
-                    draw_list
-                        .add_rect(rect_min.into(), rect_max.into(), color)
-                        .filled(true)
-                        .build();
-
-                    // Opaque, height based on duration:
-                    color[3] = 1.0;
-                    rect_min.y = lerp(max.y..=min.y, duration as f32 / slowest_frame);
-                    draw_list
-                        .add_rect(rect_min.into(), rect_max.into(), color)
-                        .filled(true)
-                        .build();
                 }
-            }
-        });
+            },
+        );
 
         slowest_visible_frame
     }
 
     fn interact_with_canvas(
         &mut self,
-        ui: &Ui<'_>,
+        ui: &Ui,
         duration_ns: NanoSecond,
         (canvas_min, canvas_max): (Vec2, Vec2),
     ) {
@@ -1020,7 +1044,11 @@ fn paint_record(
     let text_color = [0.0, 0.0, 0.0, 1.0];
 
     info.draw_list
-        .add_rect(rect_min.into(), rect_max.into(), rect_color)
+        .add_rect(
+            Vector2::from_slice(&[rect_min.x, rect_min.y]),
+            Vector2::from_slice(&[rect_max.x, rect_max.y]),
+            rect_color,
+        )
         .filled(true)
         .rounding(options.rounding)
         .build();
@@ -1030,8 +1058,10 @@ fn paint_record(
         let rect_min = rect_min.max(info.canvas_min);
         let rect_max = rect_max.min(info.canvas_max);
 
-        info.draw_list
-            .with_clip_rect_intersect(rect_min.into(), rect_max.into(), || {
+        info.draw_list.with_clip_rect_intersect(
+            Vector2::from_slice(&[rect_min.x, rect_min.y]),
+            Vector2::from_slice(&[rect_max.x, rect_max.y]),
+            || {
                 let duration_ms = to_ms(record.duration_ns);
                 let text = if record.data.is_empty() {
                     format!("{}{} {:6.3} ms", prefix, record.id, duration_ms)
@@ -1049,7 +1079,8 @@ fn paint_record(
                     text_color,
                     text,
                 );
-            });
+            },
+        );
     }
 
     if is_hovered {
@@ -1183,7 +1214,7 @@ fn paint_merge_scope(
     Ok(result)
 }
 
-fn merge_scope_tooltip(ui: &Ui<'_>, merge: &MergeScope<'_>) {
+fn merge_scope_tooltip(ui: &Ui, merge: &MergeScope<'_>) {
     ui.text(&format!("id:       {}", merge.id));
     if !merge.location.is_empty() {
         ui.text(&format!("location: {}", merge.location));
@@ -1231,7 +1262,7 @@ fn paint_thread_info(info: &Info<'_>, thread_info: &ThreadInfo, pos: [f32; 2]) {
     info.draw_list.add_text(pos, [0.9, 0.9, 0.9, 1.0], text);
 }
 
-fn max_memory_controls(ui: &Ui<'_>, frames: &Frames, frame_view: &GlobalFrameView) {
+fn max_memory_controls(ui: &Ui, frames: &Frames, frame_view: &GlobalFrameView) {
     let uniq = frames.all_uniq();
 
     let mut bytes = 0;
@@ -1257,12 +1288,14 @@ fn max_memory_controls(ui: &Ui<'_>, frames: &Frames, frame_view: &GlobalFrameVie
     };
 
     let mut memory_length = frame_view.lock().max_recent() as u64;
-    imgui::Slider::new("Max recent frames to store", 10, 100_000)
+
+    ui.slider_config("Max recent frames to store", 10, 100_000)
         .display_format(format!(
             "%d (~ {:.1} minutes, ~ {:.0} MB)",
             memory_length as f64 / 60.0 / frames_per_second,
             memory_length as f64 * bytes as f64 / uniq.len() as f64 * 1e-6,
         ))
-        .build(ui, &mut memory_length);
+        .build(&mut memory_length);
+
     frame_view.lock().set_max_recent(memory_length as _);
 }
