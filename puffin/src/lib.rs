@@ -536,21 +536,26 @@ impl GlobalProfiler {
 /// Returns a high-precision, monotonically increasing nanosecond count since unix epoch.
 #[inline]
 pub fn now_ns() -> NanoSecond {
-    // This can maybe be optimized
-    use once_cell::sync::Lazy;
-    use std::time::Instant;
+    #[cfg(target_arch = "wasm32")]
+    fn nanos_since_epoch() -> NanoSecond {
+        (js_sys::Date::new_0().get_time() * 1e6) as _
+    }
 
-    fn epoch_offset_and_start() -> (NanoSecond, Instant) {
+    #[cfg(not(target_arch = "wasm32"))]
+    fn nanos_since_epoch() -> NanoSecond {
         if let Ok(duration_since_epoch) = std::time::UNIX_EPOCH.elapsed() {
-            let nanos_since_epoch = duration_since_epoch.as_nanos() as NanoSecond;
-            (nanos_since_epoch, Instant::now())
+            duration_since_epoch.as_nanos() as NanoSecond
         } else {
-            // system time is set before 1970. this should be quite rare.
-            (0, Instant::now())
+            0 // system time is set before 1970. this should be quite rare.
         }
     }
 
-    static START_TIME: Lazy<(NanoSecond, Instant)> = Lazy::new(epoch_offset_and_start);
+    // This can maybe be optimized
+    use instant::Instant;
+    use once_cell::sync::Lazy;
+
+    static START_TIME: Lazy<(NanoSecond, Instant)> =
+        Lazy::new(|| (nanos_since_epoch(), Instant::now()));
     START_TIME.0 + START_TIME.1.elapsed().as_nanos() as NanoSecond
 }
 
