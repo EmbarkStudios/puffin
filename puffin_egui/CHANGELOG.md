@@ -7,7 +7,7 @@ All notable changes to the egui crate will be documented in this file.
 <!-- next-header -->
 ## [Unreleased] - ReleaseDate
 
-- [PR#112](https://github.com/EmbarkStudios/puffin/pull/112) You can now compile and run `puffin_egui` on he web
+- [PR#112](https://github.com/EmbarkStudios/puffin/pull/112) You can now compile and run `puffin_egui` on the web
 
 ## [0.18.0] - 2022-11-08
 
