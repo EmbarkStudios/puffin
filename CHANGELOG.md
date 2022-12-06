@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <!-- next-header -->
 ## [Unreleased] - ReleaseDate
 
-- [PR#112](https://github.com/EmbarkStudios/puffin/pull/112) You can now compile and run `puffin` on he web
+- [PR#112](https://github.com/EmbarkStudios/puffin/pull/112) You can now compile and run `puffin` on the web if you enable the "web" feature.
 
 ## [0.14.0] - 2022-11-07
 

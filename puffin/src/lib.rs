@@ -538,7 +538,14 @@ impl GlobalProfiler {
 pub fn now_ns() -> NanoSecond {
     #[cfg(target_arch = "wasm32")]
     fn nanos_since_epoch() -> NanoSecond {
-        (js_sys::Date::new_0().get_time() * 1e6) as _
+        #[cfg(feature = "web")]
+        {
+            (js_sys::Date::new_0().get_time() * 1e6) as _
+        }
+        #[cfg(not(feature = "web"))]
+        {
+            0 // We won't get correct date-times, but that's fine.
+        }
     }
 
     #[cfg(not(target_arch = "wasm32"))]
