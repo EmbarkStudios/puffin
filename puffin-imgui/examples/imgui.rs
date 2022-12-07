@@ -92,10 +92,10 @@ impl System {
                 gl_window.window().request_redraw();
             }
             Event::RedrawRequested(_) => {
-                let mut ui = imgui.frame();
+                let ui = imgui.frame();
 
                 let mut run = true;
-                run_ui(&mut run, &mut ui);
+                run_ui(&mut run, ui);
                 if !run {
                     *control_flow = ControlFlow::Exit;
                 }
@@ -103,7 +103,7 @@ impl System {
                 let gl_window = display.gl_window();
                 let mut target = display.draw();
                 target.clear_color_srgb(1.0, 1.0, 1.0, 1.0);
-                platform.prepare_render(&ui, gl_window.window());
+                platform.prepare_render(ui, gl_window.window());
                 let draw_data = imgui.render();
                 renderer
                     .render(&mut target, draw_data)
