@@ -2018,6 +2018,7 @@ version = "0.12.1"
 dependencies = [
  "argh",
  "eframe",
+ "js-sys",
  "log",
  "mimalloc",
  "puffin",
@@ -2025,6 +2026,7 @@ dependencies = [
  "puffin_http",
  "rfd",
  "simple_logger",
+ "wasm-bindgen-futures",
 ]
 
 [[package]]
@@ -2654,9 +2656,9 @@ dependencies = [
 
 [[package]]
 name = "wasm-bindgen-futures"
-version = "0.4.30"
+version = "0.4.33"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6f741de44b75e14c35df886aff5f1eb73aa114fa5d4d00dcd37b5e01259bf3b2"
+checksum = "23639446165ca5a5de86ae1d8896b737ae80319560fbaa4c2887b7da6e7ebd7d"
 dependencies = [
  "cfg-if",
  "js-sys",
