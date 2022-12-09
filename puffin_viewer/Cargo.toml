@@ -35,4 +35,3 @@ mimalloc = "0.1"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen-futures = "0.4.33"
-js-sys = "0.3.60"
