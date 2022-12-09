@@ -343,12 +343,14 @@ use eframe::{
 #[cfg(target_arch = "wasm32")]
 #[allow(clippy::unused_unit)]
 #[wasm_bindgen]
-pub fn start(canvas_id: &str) -> Result<(), eframe::wasm_bindgen::JsValue> {
+pub async fn start(
+    canvas_id: &str,
+) -> Result<eframe::web::AppRunnerRef, eframe::wasm_bindgen::JsValue> {
     puffin::set_scopes_on(true); // quiet warning in `puffin_egui`.
     eframe::start_web(
         canvas_id,
         WebOptions::default(),
         Box::new(|_cc| Box::new(PuffinViewer::new(Source::None))),
-    )?;
-    Ok(())
+    )
+    .await
 }
