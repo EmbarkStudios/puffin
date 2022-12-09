@@ -22,7 +22,7 @@ include = [
 
 [dependencies]
 chrono = "0.4"
-egui = "0.19.0"
+egui = { version = "0.20.0", default-features = false, features = ["default_fonts"] }
 indexmap = { version = "1.9.1", features = ["serde"] }
 instant = "0.1"
 natord = "1.0.9"
@@ -32,6 +32,8 @@ serde = { version = "1.0", features = ["derive"], optional = true }
 vec1 = "1.8"
 
 [dev-dependencies]
-eframe = "0.19.0"
-egui-macroquad = "0.12.0"
-macroquad = "0.3"
+eframe = { version = "0.20.0", default-features = false, features = ["persistence", "glow", "default_fonts"] }
+
+# Enable examplew when this dependency updated to egui 0.20
+# egui-macroquad = "0.12.0"
+# macroquad = "0.3"
