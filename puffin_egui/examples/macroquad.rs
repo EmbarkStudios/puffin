@@ -1,5 +1,4 @@
 // use macroquad::prelude::*;
-
 // fn window_conf() -> Conf {
 //     Conf {
 //         window_title: "puffin_egui with macroquad".to_owned(),
@@ -74,3 +73,5 @@
 //         }
 //     }
 // }
+ fn main() {}
+ 
