@@ -331,9 +331,7 @@ impl eframe::App for PuffinViewer {
 // When compiling for web:
 
 #[cfg(target_arch = "wasm32")]
-use eframe::{
-    wasm_bindgen::{self, prelude::*},
-};
+use eframe::wasm_bindgen::{self, prelude::*};
 
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
