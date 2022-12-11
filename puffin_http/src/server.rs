@@ -433,13 +433,15 @@ impl PuffinServerSend {
         let packet: Packet = packet.into();
 
         // Send frame to clients, remove disconnected clients and update num_clients var
-        let mut clients = self.clients.borrow_mut();
+        let clients = self.clients.borrow();
         let mut idx_to_remove = Vec::new();
         for (idx, client) in clients.iter().enumerate() {
             if !Self::send_to_client(client, packet.clone()).await {
                 idx_to_remove.push(idx);
             }
         }
+
+        let mut clients = self.clients.borrow_mut();
         idx_to_remove.iter().rev().for_each(|idx| {
             clients.remove(*idx);
         });
