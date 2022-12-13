@@ -6,6 +6,7 @@ All notable changes to the egui crate will be documented in this file.
 
 <!-- next-header -->
 ## [Unreleased] - ReleaseDate
+## [0.19.0] - 2022-12-13
 
 - [PR#112](https://github.com/EmbarkStudios/puffin/pull/112) You can now compile and run `puffin_egui` on the web
 - Upgrade to `egui` 0.20
@@ -132,7 +133,8 @@ All notable changes to the egui crate will be documented in this file.
 - The view supports viewing merged sibling scopes.
 
 <!-- next-url -->
-[Unreleased]: https://github.com/EmbarkStudios/puffin/compare/puffin_egui-0.17.0...HEAD
+[Unreleased]: https://github.com/EmbarkStudios/puffin/compare/puffin_egui-0.19.0...HEAD
+[0.19.0]: https://github.com/EmbarkStudios/puffin/compare/puffin_egui-0.17.0...puffin_egui-0.19.0
 [0.17.0]: https://github.com/EmbarkStudios/puffin/compare/puffin_egui-0.15.0...puffin_egui-0.17.0
 [0.15.0]: https://github.com/EmbarkStudios/puffin/compare/0.14.0...puffin_egui-0.15.0
 [0.14.0]: https://github.com/EmbarkStudios/puffin/compare/0.13.0...puffin_egui-0.14.0
