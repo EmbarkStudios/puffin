@@ -331,10 +331,13 @@ impl eframe::App for PuffinViewer {
 // When compiling for web:
 
 #[cfg(target_arch = "wasm32")]
-use eframe::{
-    wasm_bindgen::{self, prelude::*},
-    WebOptions,
-};
+use eframe::wasm_bindgen::{self, prelude::*};
+
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen]
+pub struct WebHandle {
+    _handle: eframe::web::AppRunnerRef,
+}
 
 /// This is the entry-point for all the web-assembly.
 /// This is called once from the HTML.
@@ -343,12 +346,14 @@ use eframe::{
 #[cfg(target_arch = "wasm32")]
 #[allow(clippy::unused_unit)]
 #[wasm_bindgen]
-pub fn start(canvas_id: &str) -> Result<(), eframe::wasm_bindgen::JsValue> {
+pub async fn start(canvas_id: &str) -> Result<WebHandle, eframe::wasm_bindgen::JsValue> {
     puffin::set_scopes_on(true); // quiet warning in `puffin_egui`.
+    let web_options = eframe::WebOptions::default();
     eframe::start_web(
         canvas_id,
-        WebOptions::default(),
+        web_options,
         Box::new(|_cc| Box::new(PuffinViewer::new(Source::None))),
-    )?;
-    Ok(())
+    )
+    .await
+    .map(|handle| WebHandle { _handle: handle })
 }
