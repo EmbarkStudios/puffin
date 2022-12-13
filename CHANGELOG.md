@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <!-- next-header -->
 ## [Unreleased] - ReleaseDate
+## [0.14.1] - 2022-12-13
 
 - [PR#112](https://github.com/EmbarkStudios/puffin/pull/112) You can now compile and run `puffin` on the web if you enable the "web" feature.
 
@@ -95,7 +96,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * `GlobalProfiler` now store recent history and the slowest frames.
 
 <!-- next-url -->
-[Unreleased]: https://github.com/EmbarkStudios/puffin/compare/0.14.0...HEAD
+[Unreleased]: https://github.com/EmbarkStudios/puffin/compare/0.14.1...HEAD
+[0.14.1]: https://github.com/EmbarkStudios/puffin/compare/0.14.0...0.14.1
 [0.14.0]: https://github.com/EmbarkStudios/puffin/compare/0.13.2...0.14.0
 [0.13.2]: https://github.com/EmbarkStudios/puffin/compare/0.13.0...0.13.2
 [0.13.0]: https://github.com/EmbarkStudios/puffin/compare/0.12.1...0.13.0
