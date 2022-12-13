@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <!-- next-header -->
 ## [Unreleased] - ReleaseDate
 
+- Upgrade to `imgui` 0.9.0
+
 ## [0.18.0] - 2022-11-08
 
 - Require `puffin` 0.14.0
