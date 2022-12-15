@@ -6,11 +6,14 @@ All notable changes to `puffin_viewer` will be documented in this file.
 
 <!-- next-header -->
 ## [Unreleased] - ReleaseDate
+
+- [PR#115](https://github.com/EmbarkStudios/puffin/pull/115) Fix broken flamegraph interaction
+
 ## [0.13.0] - 2022-12-13
 
 - Upgrade to `puffin_egui` 0.19.1
 - Upgrade to `eframe` 0.20
-- **Breaking:** WASM32 `start()` function in crate root is now async. 
+- **Breaking:** WASM32 `start()` function in crate root is now async.
 
 ## [0.12.1] - 2022-10-17
 - [PR#93](https://github.com/EmbarkStudios/puffin/pull/93) Update to `egui` 0.19.

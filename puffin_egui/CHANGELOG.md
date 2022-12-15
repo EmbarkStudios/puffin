@@ -6,6 +6,9 @@ All notable changes to the egui crate will be documented in this file.
 
 <!-- next-header -->
 ## [Unreleased] - ReleaseDate
+
+- [PR#115](https://github.com/EmbarkStudios/puffin/pull/115) Fix broken flamegraph interaction
+
 ## [0.19.0] - 2022-12-13
 
 - [PR#112](https://github.com/EmbarkStudios/puffin/pull/112) You can now compile and run `puffin_egui` on the web
