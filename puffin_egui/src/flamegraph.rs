@@ -314,7 +314,7 @@ pub fn ui(ui: &mut egui::Ui, options: &mut Options, frames: &SelectedFrames) {
             info.painter
                 .set(where_to_put_timeline, Shape::Vec(timeline));
 
-            ui.allocate_rect(used_rect, Sense::click_and_drag());
+            ui.allocate_rect(used_rect, Sense::hover());
         });
     });
 }
