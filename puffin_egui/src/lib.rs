@@ -99,12 +99,12 @@ pub use {egui, maybe_mut_ref::MaybeMutRef, puffin};
 
 use egui::*;
 use puffin::*;
-use time::{OffsetDateTime, macros::format_description};
 use std::{
     collections::{BTreeMap, BTreeSet},
     fmt::Write as _,
     sync::{Arc, Mutex},
 };
+use time::{macros::format_description, OffsetDateTime};
 
 const ERROR_COLOR: Color32 = Color32::RED;
 const HOVER_COLOR: Rgba = Rgba::from_rgb(0.8, 0.8, 0.8);
@@ -820,8 +820,10 @@ fn format_time(nanos: NanoSecond) -> Option<String> {
     let years_since_epoch = nanos / 1_000_000_000 / 60 / 60 / 24 / 365;
     if 50 <= years_since_epoch && years_since_epoch <= 150 {
         let Ok(offset) = OffsetDateTime::from_unix_timestamp_nanos(nanos as i128) else { return None; };
-      
-        let format_desc = format_description!("[year]-[month]-[day] [hour]:[minute]:[second]..[subsecond digits:3]");
+
+        let format_desc = format_description!(
+            "[year]-[month]-[day] [hour]:[minute]:[second]..[subsecond digits:3]"
+        );
         let Ok(datetime) = offset.format(&format_desc) else { return None; };
 
         Some(datetime)

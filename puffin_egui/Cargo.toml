@@ -21,7 +21,7 @@ include = [
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-time = { version = "0.3.17", features = [ "parsing" ] }
+time = { version = "0.3.17", default-features = false, features = [ "parsing" ] }
 egui = { version = "0.20.1", default-features = false, features = ["default_fonts"] }
 indexmap = { version = "1.9.1", features = ["serde"] }
 instant = "0.1"
