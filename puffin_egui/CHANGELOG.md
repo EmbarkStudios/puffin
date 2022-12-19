@@ -8,6 +8,7 @@ All notable changes to the egui crate will be documented in this file.
 ## [Unreleased] - ReleaseDate
 
 - [PR#115](https://github.com/EmbarkStudios/puffin/pull/115) Fix broken flamegraph interaction
+- Change `chrono` to `time`
 
 ## [0.19.0] - 2022-12-13
 

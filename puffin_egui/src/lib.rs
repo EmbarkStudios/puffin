@@ -819,12 +819,12 @@ fn frames_info_ui(ui: &mut egui::Ui, selection: &SelectedFrames) {
 fn format_time(nanos: NanoSecond) -> Option<String> {
     let years_since_epoch = nanos / 1_000_000_000 / 60 / 60 / 24 / 365;
     if 50 <= years_since_epoch && years_since_epoch <= 150 {
-        let Ok(offset) = OffsetDateTime::from_unix_timestamp_nanos(nanos as i128) else { return None; };
+        let offset = OffsetDateTime::from_unix_timestamp_nanos(nanos as i128).ok()?;
 
         let format_desc = format_description!(
             "[year]-[month]-[day] [hour]:[minute]:[second]..[subsecond digits:3]"
         );
-        let Ok(datetime) = offset.format(&format_desc) else { return None; };
+        let datetime = offset.format(&format_desc).ok()?;
 
         Some(datetime)
     } else {
