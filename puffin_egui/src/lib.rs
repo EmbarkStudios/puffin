@@ -104,7 +104,7 @@ use std::{
     fmt::Write as _,
     sync::{Arc, Mutex},
 };
-use time::{macros::format_description, OffsetDateTime};
+use time::OffsetDateTime;
 
 const ERROR_COLOR: Color32 = Color32::RED;
 const HOVER_COLOR: Rgba = Rgba::from_rgb(0.8, 0.8, 0.8);
@@ -821,9 +821,7 @@ fn format_time(nanos: NanoSecond) -> Option<String> {
     if 50 <= years_since_epoch && years_since_epoch <= 150 {
         let offset = OffsetDateTime::from_unix_timestamp_nanos(nanos as i128).ok()?;
 
-        let format_desc = format_description!(
-            "[year]-[month]-[day] [hour]:[minute]:[second]..[subsecond digits:3]"
-        );
+        let format_desc = time::macros::format_description!( "[year]-[month]-[day] [hour]:[minute]:[second].[subsecond digits:3]");
         let datetime = offset.format(&format_desc).ok()?;
 
         Some(datetime)
