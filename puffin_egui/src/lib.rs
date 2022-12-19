@@ -99,6 +99,7 @@ pub use {egui, maybe_mut_ref::MaybeMutRef, puffin};
 
 use egui::*;
 use puffin::*;
+use time::{OffsetDateTime, macros::format_description};
 use std::{
     collections::{BTreeMap, BTreeSet},
     fmt::Write as _,
@@ -818,9 +819,12 @@ fn frames_info_ui(ui: &mut egui::Ui, selection: &SelectedFrames) {
 fn format_time(nanos: NanoSecond) -> Option<String> {
     let years_since_epoch = nanos / 1_000_000_000 / 60 / 60 / 24 / 365;
     if 50 <= years_since_epoch && years_since_epoch <= 150 {
-        use chrono::TimeZone as _;
-        let datetime = chrono::Utc.timestamp(nanos / 1_000_000_000, (nanos % 1_000_000_000) as _);
-        Some(datetime.format("%Y-%m-%d %H:%M:%S%.3f UTC").to_string())
+        let Ok(offset) = OffsetDateTime::from_unix_timestamp_nanos(nanos as i128) else { return None; };
+      
+        let format_desc = format_description!("[year]-[month]-[day] [hour]:[minute]:[second]..[subsecond digits:3]");
+        let Ok(datetime) = offset.format(&format_desc) else { return None; };
+
+        Some(datetime)
     } else {
         None // `nanos` is likely not counting from epoch.
     }
