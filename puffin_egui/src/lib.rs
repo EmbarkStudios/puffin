@@ -338,6 +338,9 @@ pub struct ProfilerUi {
     #[cfg_attr(feature = "serde", serde(skip))]
     paused: Option<Paused>,
 
+    /// How many frames should be used for latest view
+    max_num_latest: usize,
+
     /// Used to normalize frame height in frame view
     slowest_frame: f32,
 
@@ -353,6 +356,7 @@ impl Default for ProfilerUi {
             stats_options: Default::default(),
             view: Default::default(),
             paused: None,
+            max_num_latest: 1,
             slowest_frame: 0.16,
             last_pack_pass: None,
         }
@@ -479,16 +483,16 @@ impl ProfilerUi {
             }
         } else if let Some(paused) = &self.paused {
             Some(paused.selected.clone())
-        } else if let Some(frame) = frame_view.latest_frame() {
-            match frame.unpacked() {
-                Ok(frame) => SelectedFrames::try_from_vec(vec![frame]),
-                Err(err) => {
-                    ui.colored_label(ERROR_COLOR, format!("Failed to load latest frame: {err}"));
-                    return;
-                }
-            }
         } else {
-            None
+            puffin::profile_scope!("select_latest_frames");
+            let latest = frame_view.latest_frames(self.max_num_latest);
+            SelectedFrames::try_from_vec(
+                latest
+                    .into_iter()
+                    .map(|frame| frame.unpacked())
+                    .filter_map(|unpacked| unpacked.ok())
+                    .collect(),
+            )
         };
 
         let frames = if let Some(frames) = frames {
@@ -642,6 +646,9 @@ impl ProfilerUi {
 
             if let Some(frame_view) = frame_view.as_mut() {
                 max_frames_ui(ui, frame_view);
+                if self.paused.is_none() {
+                    max_num_latest_ui(ui, &mut self.max_num_latest);
+                }
             }
         }
 
@@ -858,5 +865,12 @@ fn max_frames_ui(ui: &mut egui::Ui, frame_view: &mut FrameView) {
             memory_length as f64 / 60.0 / frames_per_second,
             memory_length as f64 * bytes as f64 / uniq.len() as f64 * 1e-6,
         ));
+    });
+}
+
+fn max_num_latest_ui(ui: &mut egui::Ui, max_num_latest: &mut usize) {
+    ui.horizontal(|ui| {
+        ui.label("Max latest frames to show:");
+        ui.add(egui::Slider::new(max_num_latest, 1..=100).logarithmic(true));
     });
 }
