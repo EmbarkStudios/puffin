@@ -675,7 +675,7 @@ impl ProfilerUi {
         ui.next_column();
         {
             let num_fit = (ui.content_region_avail()[0] / self.options.frame_width).floor();
-            let num_fit = (num_fit as usize).max(1).min(frames.slowest.len());
+            let num_fit = (num_fit as usize).clamp(1, frames.slowest.len());
             let slowest_of_the_slow = puffin::select_slowest(&frames.slowest, num_fit);
 
             let mut slowest_frame = 0;
