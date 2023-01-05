@@ -821,7 +821,9 @@ fn format_time(nanos: NanoSecond) -> Option<String> {
     if 50 <= years_since_epoch && years_since_epoch <= 150 {
         let offset = OffsetDateTime::from_unix_timestamp_nanos(nanos as i128).ok()?;
 
-        let format_desc = time::macros::format_description!( "[year]-[month]-[day] [hour]:[minute]:[second].[subsecond digits:3]");
+        let format_desc = time::macros::format_description!(
+            "[year]-[month]-[day] [hour]:[minute]:[second].[subsecond digits:3]"
+        );
         let datetime = offset.format(&format_desc).ok()?;
 
         Some(datetime)
