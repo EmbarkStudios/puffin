@@ -762,7 +762,7 @@ impl ProfilerUi {
                 let mut short_rect = frame_rect;
                 short_rect.min.y = lerp(
                     frame_rect.bottom_up_range(),
-                    duration as f32 / slowest_frame as f32,
+                    duration as f32 / slowest_frame,
                 );
                 painter.rect_filled(short_rect, 0.0, color);
             }

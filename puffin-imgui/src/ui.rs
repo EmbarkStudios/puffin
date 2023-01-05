@@ -120,7 +120,7 @@ impl Sorting {
                 format!("{:?}", sort_by)
             };
 
-            if ui.radio_button_bool(&label, selected) {
+            if ui.radio_button_bool(label, selected) {
                 if selected {
                     self.reversed = !self.reversed;
                 } else {
@@ -630,7 +630,7 @@ impl ProfilerUi {
             if let Err(err) = paint_stream() {
                 let text = format!("Profiler stream error: {:?}", err);
                 info.draw_list
-                    .add_text([info.canvas_min.x, cursor_y], ERROR_COLOR, &text);
+                    .add_text([info.canvas_min.x, cursor_y], ERROR_COLOR, text);
             }
 
             cursor_y +=
@@ -716,7 +716,7 @@ impl ProfilerUi {
         let frame_width = frame_width_including_spacing - frame_spacing;
 
         ui.invisible_button(
-            &ImString::new(label),
+            ImString::new(label),
             Vector2::from_slice(&[size.x, size.y]),
         );
         let draw_list = ui.get_window_draw_list();
@@ -1148,18 +1148,18 @@ fn paint_scope(
         if result == PaintResult::Hovered {
             let ui = info.ui;
             ui.tooltip(|| {
-                ui.text(&format!("id:       {}", scope.record.id));
+                ui.text(format!("id:       {}", scope.record.id));
                 if !scope.record.location.is_empty() {
-                    ui.text(&format!("location: {}", scope.record.location));
+                    ui.text(format!("location: {}", scope.record.location));
                 }
                 if !scope.record.data.is_empty() {
-                    ui.text(&format!("data:     {}", scope.record.data));
+                    ui.text(format!("data:     {}", scope.record.data));
                 }
-                ui.text(&format!(
+                ui.text(format!(
                     "duration: {:6.3} ms",
                     to_ms(scope.record.duration_ns)
                 ));
-                ui.text(&format!("children: {}", num_children));
+                ui.text(format!("children: {}", num_children));
             });
         }
     }
@@ -1215,30 +1215,30 @@ fn paint_merge_scope(
 }
 
 fn merge_scope_tooltip(ui: &Ui, merge: &MergeScope<'_>) {
-    ui.text(&format!("id:       {}", merge.id));
+    ui.text(format!("id:       {}", merge.id));
     if !merge.location.is_empty() {
-        ui.text(&format!("location: {}", merge.location));
+        ui.text(format!("location: {}", merge.location));
     }
     if !merge.data.is_empty() {
-        ui.text(&format!("data:     {}", merge.data));
+        ui.text(format!("data:     {}", merge.data));
     }
 
     if merge.num_pieces <= 1 {
-        ui.text(&format!(
+        ui.text(format!(
             "duration: {:6.3} ms",
             to_ms(merge.duration_per_frame_ns)
         ));
     } else {
-        ui.text(&format!("sum of:   {} scopes", merge.num_pieces));
-        ui.text(&format!(
+        ui.text(format!("sum of:   {} scopes", merge.num_pieces));
+        ui.text(format!(
             "total:    {:6.3} ms",
             to_ms(merge.duration_per_frame_ns)
         ));
-        ui.text(&format!(
+        ui.text(format!(
             "mean:     {:6.3} ms",
             to_ms(merge.duration_per_frame_ns) / (merge.num_pieces as f64),
         ));
-        ui.text(&format!(
+        ui.text(format!(
             "max:      {:6.3} ms",
             to_ms(merge.max_duration_ns)
         ));
@@ -1247,7 +1247,7 @@ fn merge_scope_tooltip(ui: &Ui, merge: &MergeScope<'_>) {
 
 fn paint_thread_info(info: &Info<'_>, thread_info: &ThreadInfo, pos: [f32; 2]) {
     let text = &thread_info.name;
-    let text_size = info.ui.calc_text_size(&ImString::new(text));
+    let text_size = info.ui.calc_text_size(ImString::new(text));
 
     info.draw_list
         .add_rect(
