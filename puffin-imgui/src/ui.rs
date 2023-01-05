@@ -715,10 +715,7 @@ impl ProfilerUi {
         let frame_spacing = 2.0;
         let frame_width = frame_width_including_spacing - frame_spacing;
 
-        ui.invisible_button(
-            ImString::new(label),
-            Vector2::from_slice(&[size.x, size.y]),
-        );
+        ui.invisible_button(ImString::new(label), Vector2::from_slice(&[size.x, size.y]));
         let draw_list = ui.get_window_draw_list();
 
         let selected_frame_index = self.selected_frame_index();
@@ -1238,10 +1235,7 @@ fn merge_scope_tooltip(ui: &Ui, merge: &MergeScope<'_>) {
             "mean:     {:6.3} ms",
             to_ms(merge.duration_per_frame_ns) / (merge.num_pieces as f64),
         ));
-        ui.text(format!(
-            "max:      {:6.3} ms",
-            to_ms(merge.max_duration_ns)
-        ));
+        ui.text(format!("max:      {:6.3} ms", to_ms(merge.max_duration_ns)));
     }
 }
 
