@@ -13,7 +13,7 @@ keywords = ["profiler", "instrumentation", "gamedev"]
 include = ["**/*.rs", "Cargo.toml", "README.md"]
 
 [dependencies]
-imgui = "0.9"
+imgui = "0.10"
 natord = "1.0.9"
 puffin = { version = "0.14.1", path = "../puffin", features = ["packing"] }
 serde = { version = "1.0", features = ["derive"] }
@@ -21,5 +21,5 @@ mint = "0.5.6"
 
 [dev-dependencies]
 glium = { version = "0.32", default-features = true }
-imgui-glium-renderer = "0.9"
-imgui-winit-support = { version = "0.9",  default-features = false}
+imgui-glium-renderer = "0.10"
+imgui-winit-support = { version = "0.10",  default-features = false }
