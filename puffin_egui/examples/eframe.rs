@@ -7,7 +7,7 @@ fn main() {
     eframe::run_native(
         "puffin egui eframe",
         native_options,
-        Box::new(|_cc| Box::new(ExampleApp::default())),
+        Box::new(|_cc| Box::<ExampleApp>::default()),
     );
 }
 
