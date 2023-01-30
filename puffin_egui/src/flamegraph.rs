@@ -55,9 +55,9 @@ impl Sorting {
                 let selected = self.sort_by == sort_by;
 
                 let label = if selected {
-                    format!("{:?} {}", sort_by, dir)
+                    format!("{sort_by:?} {dir}")
                 } else {
-                    format!("{:?}", sort_by)
+                    format!("{sort_by:?}")
                 };
 
                 if ui.add(egui::RadioButton::new(selected, label)).clicked() {
@@ -393,7 +393,7 @@ fn ui_canvas(
             };
 
             if let Err(err) = paint_streams() {
-                let text = format!("Profiler stream error: {:?}", err);
+                let text = format!("Profiler stream error: {err:?}");
                 info.painter.text(
                     pos2(info.canvas.min.x, cursor_y),
                     Align2::LEFT_TOP,
@@ -573,13 +573,13 @@ fn paint_timeline(
 fn grid_text(grid_ns: NanoSecond) -> String {
     let grid_ms = to_ms(grid_ns);
     if grid_ns % 1_000_000 == 0 {
-        format!("{:.0} ms", grid_ms)
+        format!("{grid_ms:.0} ms")
     } else if grid_ns % 100_000 == 0 {
-        format!("{:.1} ms", grid_ms)
+        format!("{grid_ms:.1} ms")
     } else if grid_ns % 10_000 == 0 {
-        format!("{:.2} ms", grid_ms)
+        format!("{grid_ms:.2} ms")
     } else {
-        format!("{:.3} ms", grid_ms)
+        format!("{grid_ms:.3} ms")
     }
 }
 
@@ -735,7 +735,7 @@ fn paint_scope(
                     "duration: {:7.3} ms",
                     to_ms(scope.record.duration_ns)
                 ));
-                ui.monospace(format!("children: {}", num_children));
+                ui.monospace(format!("children: {num_children}"));
             });
         }
     }
