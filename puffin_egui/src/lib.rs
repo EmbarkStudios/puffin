@@ -473,10 +473,7 @@ impl ProfilerUi {
             match frame.unpacked() {
                 Ok(frame) => SelectedFrames::try_from_vec(vec![frame]),
                 Err(err) => {
-                    ui.colored_label(
-                        ERROR_COLOR,
-                        format!("Failed to load hovered frame: {err}"),
-                    );
+                    ui.colored_label(ERROR_COLOR, format!("Failed to load hovered frame: {err}"));
                     return;
                 }
             }
