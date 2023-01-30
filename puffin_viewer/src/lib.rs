@@ -121,7 +121,7 @@ impl Source {
                 ui.label(format!("Viewing {}", path.display()));
             }
             Self::FileName(name, _) => {
-                ui.label(format!("Viewing {}", name));
+                ui.label(format!("Viewing {name}"));
             }
         }
     }
@@ -154,7 +154,7 @@ impl PuffinViewer {
             .save_file()
         {
             if let Err(error) = self.source.frame_view().save_to_path(&path) {
-                self.error = Some(format!("Failed to export: {}", error));
+                self.error = Some(format!("Failed to export: {error}"));
             } else {
                 self.error = None;
             }
@@ -195,7 +195,7 @@ impl PuffinViewer {
                 self.error = None;
             }
             Err(err) => {
-                self.error = Some(format!("Failed to load file {:?}: {}", name, err));
+                self.error = Some(format!("Failed to load file {name:?}: {err}"));
             }
         }
     }

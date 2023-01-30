@@ -475,7 +475,7 @@ impl ProfilerUi {
                 Err(err) => {
                     ui.colored_label(
                         ERROR_COLOR,
-                        format!("Failed to load hovered frame: {}", err),
+                        format!("Failed to load hovered frame: {err}"),
                     );
                     return;
                 }
@@ -486,7 +486,7 @@ impl ProfilerUi {
             match frame.unpacked() {
                 Ok(frame) => SelectedFrames::try_from_vec(vec![frame]),
                 Err(err) => {
-                    ui.colored_label(ERROR_COLOR, format!("Failed to load latest frame: {}", err));
+                    ui.colored_label(ERROR_COLOR, format!("Failed to load latest frame: {err}"));
                     return;
                 }
             }
