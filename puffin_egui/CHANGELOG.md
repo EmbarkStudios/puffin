@@ -6,6 +6,9 @@ All notable changes to the egui crate will be documented in this file.
 
 <!-- next-header -->
 ## [Unreleased] - ReleaseDate
+## [0.19.2] - 2023-01-30
+- Upgrade to `puffin` 0.14.2
+
 ## [0.19.1] - 2022-12-19
 
 - [PR#115](https://github.com/EmbarkStudios/puffin/pull/115) Fix broken flamegraph interaction
@@ -138,7 +141,8 @@ All notable changes to the egui crate will be documented in this file.
 - The view supports viewing merged sibling scopes.
 
 <!-- next-url -->
-[Unreleased]: https://github.com/EmbarkStudios/puffin/compare/puffin_egui-0.19.1...HEAD
+[Unreleased]: https://github.com/EmbarkStudios/puffin/compare/puffin_egui-0.19.2...HEAD
+[0.19.2]: https://github.com/EmbarkStudios/puffin/compare/puffin_egui-0.19.1...puffin_egui-0.19.2
 [0.19.1]: https://github.com/EmbarkStudios/puffin/compare/puffin_egui-0.19.0...puffin_egui-0.19.1
 [0.19.0]: https://github.com/EmbarkStudios/puffin/compare/puffin_egui-0.17.0...puffin_egui-0.19.0
 [0.17.0]: https://github.com/EmbarkStudios/puffin/compare/puffin_egui-0.15.0...puffin_egui-0.17.0

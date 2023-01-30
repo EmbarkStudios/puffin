@@ -1,6 +1,6 @@
 [package]
 name = "puffin_viewer"
-version = "0.13.1"
+version = "0.13.2"
 authors = ["Embark <opensource@embark-studios.com>"]
 description = "Viewer GUI for puffin profiler data"
 license = "MIT OR Apache-2.0"
@@ -16,12 +16,12 @@ include = ["**/*.rs", "Cargo.toml", "README.md"]
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-puffin_egui = { version = "0.19.1", path = "../puffin_egui" }
-puffin = { version = "0.14.1", path = "../puffin", features = [
+puffin_egui = { version = "0.19.2", path = "../puffin_egui" }
+puffin = { version = "0.14.2", path = "../puffin", features = [
     "packing",
     "serialization",
 ] }
-puffin_http = { version = "0.11.0", path = "../puffin_http" }
+puffin_http = { version = "0.11.1", path = "../puffin_http" }
 
 argh = "0.1"
 eframe = { version = "0.20.0", default-features = false, features = [

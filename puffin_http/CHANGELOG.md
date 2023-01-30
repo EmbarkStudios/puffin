@@ -6,6 +6,10 @@ All notable changes to `puffin_http` will be documented in this file.
 
 <!-- next-header -->
 ## [Unreleased] - ReleaseDate
+## [0.11.1] - 2023-01-30
+
+- Upgrade to `puffin` 0.14.2
+
 ## [0.11.0] - 2022-11-07
 - Update to puffin 0.14.0
 
@@ -62,7 +66,8 @@ All notable changes to `puffin_http` will be documented in this file.
 - Initial release
 
 <!-- next-url -->
-[Unreleased]: https://github.com/EmbarkStudios/puffin/compare/puffin_http-0.11.0...HEAD
+[Unreleased]: https://github.com/EmbarkStudios/puffin/compare/puffin_http-0.11.1...HEAD
+[0.11.1]: https://github.com/EmbarkStudios/puffin/compare/puffin_http-0.11.0...puffin_http-0.11.1
 [0.10.1]: https://github.com/EmbarkStudios/puffin/compare/puffin_http-0.10.1...puffin_http-0.11.0
 [0.10.1]: https://github.com/EmbarkStudios/puffin/compare/puffin_http-0.10.0...puffin_http-0.10.1
 [0.10.0]: https://github.com/EmbarkStudios/puffin/compare/0.9.0...puffin_http-0.10.0
