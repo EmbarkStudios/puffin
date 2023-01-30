@@ -115,9 +115,9 @@ impl Sorting {
             let selected = self.sort_by == sort_by;
 
             let label = if selected {
-                format!("{:?} {}", sort_by, dir)
+                format!("{sort_by:?} {dir}")
             } else {
-                format!("{:?}", sort_by)
+                format!("{sort_by:?}")
             };
 
             if ui.radio_button_bool(label, selected) {
@@ -460,7 +460,7 @@ impl ProfilerUi {
         let frame = match frame.unpacked() {
             Ok(frame) => frame,
             Err(err) => {
-                ui.text_colored(ERROR_COLOR, format!("Bad frame: {}", err));
+                ui.text_colored(ERROR_COLOR, format!("Bad frame: {err}"));
                 return;
             }
         };
@@ -628,7 +628,7 @@ impl ProfilerUi {
                 Ok(())
             };
             if let Err(err) = paint_stream() {
-                let text = format!("Profiler stream error: {:?}", err);
+                let text = format!("Profiler stream error: {err:?}");
                 info.draw_list
                     .add_text([info.canvas_min.x, cursor_y], ERROR_COLOR, text);
             }
@@ -968,13 +968,13 @@ fn paint_timeline(info: &Info<'_>, options: &Options, start_ns: NanoSecond) {
 fn grid_text(grid_ns: NanoSecond) -> String {
     let grid_ms = to_ms(grid_ns);
     if grid_ns % 1_000_000 == 0 {
-        format!("{:.0} ms", grid_ms)
+        format!("{grid_ms:.0} ms")
     } else if grid_ns % 100_000 == 0 {
-        format!("{:.1} ms", grid_ms)
+        format!("{grid_ms:.1} ms")
     } else if grid_ns % 10_000 == 0 {
-        format!("{:.2} ms", grid_ms)
+        format!("{grid_ms:.2} ms")
     } else {
-        format!("{:.3} ms", grid_ms)
+        format!("{grid_ms:.3} ms")
     }
 }
 
@@ -1156,7 +1156,7 @@ fn paint_scope(
                     "duration: {:6.3} ms",
                     to_ms(scope.record.duration_ns)
                 ));
-                ui.text(format!("children: {}", num_children));
+                ui.text(format!("children: {num_children}"));
             });
         }
     }
