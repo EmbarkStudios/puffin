@@ -564,7 +564,7 @@ pub fn now_ns() -> NanoSecond {
 #[cfg(all(target_arch = "wasm32", not(feature = "web")))]
 pub fn now_ns() -> NanoSecond {
     // This should be unused.
-    0
+    panic!("Wasm without the `web` feature requires passing a custom source of time via `ThreadProfiler::initialize`");
 }
 
 // ----------------------------------------------------------------------------
