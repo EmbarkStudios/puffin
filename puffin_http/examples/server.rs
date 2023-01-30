@@ -6,7 +6,7 @@ fn main() {
         .ok();
 
     let server_addr = format!("0.0.0.0:{}", puffin_http::DEFAULT_PORT);
-    eprintln!("Serving demo profile data on {}", server_addr);
+    eprintln!("Serving demo profile data on {server_addr}");
 
     let _puffin_server = puffin_http::Server::new(&server_addr).unwrap();
 
@@ -15,7 +15,7 @@ fn main() {
     let mut frame_counter = 0;
 
     loop {
-        puffin::profile_scope!("main_loop", format!("frame {}", frame_counter));
+        puffin::profile_scope!("main_loop", format!("frame {frame_counter}"));
         puffin::GlobalProfiler::lock().new_frame();
 
         // Give us something to inspect:

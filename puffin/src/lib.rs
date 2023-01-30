@@ -493,7 +493,7 @@ impl GlobalProfiler {
                     return; // don't warn about empty frames, just ignore them
                 }
                 Err(err) => {
-                    eprintln!("puffin ERROR: Bad frame: {:?}", err);
+                    eprintln!("puffin ERROR: Bad frame: {err:?}");
                     return;
                 }
             };
