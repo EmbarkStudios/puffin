@@ -535,17 +535,11 @@ impl GlobalProfiler {
 
 /// Returns a high-precision, monotonically increasing nanosecond count since unix epoch.
 #[inline]
+#[cfg(any(not(target_arch = "wasm32"), feature = "web"))]
 pub fn now_ns() -> NanoSecond {
     #[cfg(target_arch = "wasm32")]
     fn nanos_since_epoch() -> NanoSecond {
-        #[cfg(feature = "web")]
-        {
-            (js_sys::Date::new_0().get_time() * 1e6) as _
-        }
-        #[cfg(not(feature = "web"))]
-        {
-            0 // We won't get correct date-times, but that's fine.
-        }
+        (js_sys::Date::new_0().get_time() * 1e6) as _
     }
 
     #[cfg(not(target_arch = "wasm32"))]
@@ -564,6 +558,13 @@ pub fn now_ns() -> NanoSecond {
     static START_TIME: Lazy<(NanoSecond, Instant)> =
         Lazy::new(|| (nanos_since_epoch(), Instant::now()));
     START_TIME.0 + START_TIME.1.elapsed().as_nanos() as NanoSecond
+}
+
+#[inline]
+#[cfg(all(target_arch = "wasm32", not(feature = "web")))]
+pub fn now_ns() -> NanoSecond {
+    // This should be unused.
+    panic!("Wasm without the `web` feature requires passing a custom source of time via `ThreadProfiler::initialize`");
 }
 
 // ----------------------------------------------------------------------------
