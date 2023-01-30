@@ -762,7 +762,7 @@ impl ProfilerUi {
                 let mut short_rect = frame_rect;
                 short_rect.min.y = lerp(
                     frame_rect.bottom_up_range(),
-                    duration as f32 / slowest_frame as f32,
+                    duration as f32 / slowest_frame,
                 );
                 painter.rect_filled(short_rect, 0.0, color);
             }
@@ -821,7 +821,9 @@ fn format_time(nanos: NanoSecond) -> Option<String> {
     if 50 <= years_since_epoch && years_since_epoch <= 150 {
         let offset = OffsetDateTime::from_unix_timestamp_nanos(nanos as i128).ok()?;
 
-        let format_desc = time::macros::format_description!( "[year]-[month]-[day] [hour]:[minute]:[second].[subsecond digits:3]");
+        let format_desc = time::macros::format_description!(
+            "[year]-[month]-[day] [hour]:[minute]:[second].[subsecond digits:3]"
+        );
         let datetime = offset.format(&format_desc).ok()?;
 
         Some(datetime)

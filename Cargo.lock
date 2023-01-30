@@ -1316,9 +1316,9 @@ dependencies = [
 
 [[package]]
 name = "imgui"
-version = "0.9.0"
+version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1fed69cf982eee638cb1a2f1cf1d4b20626ea1813b7d37df6f7d3a2d5086c8cc"
+checksum = "2cea19ca90247d9c994663a9f68edd9792b26ad0af390ceb8b43e881c90121bc"
 dependencies = [
  "bitflags",
  "cfg-if",
@@ -1329,9 +1329,9 @@ dependencies = [
 
 [[package]]
 name = "imgui-glium-renderer"
-version = "0.9.0"
+version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "268e540dd36ef37d640cb8d6e66a87af160f61745b8f8ee518109cade69d64fc"
+checksum = "3e25883dd9f02125af7167a07effe4aab4072e9f3857a63fb3c3f5572f7af5ac"
 dependencies = [
  "glium",
  "imgui",
@@ -1339,9 +1339,9 @@ dependencies = [
 
 [[package]]
 name = "imgui-sys"
-version = "0.9.0"
+version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2efc4bf8f1638a573e262ce131f870226d172e986fe966a141c2c60602589b71"
+checksum = "612ceabf43b8c293b165f987539018b3fe6e30dd8af0c890dee1461c75250adb"
 dependencies = [
  "cc",
  "cfg-if",
@@ -1351,9 +1351,9 @@ dependencies = [
 
 [[package]]
 name = "imgui-winit-support"
-version = "0.9.0"
+version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "36f1fe7b8e1e042fadb8e521fe813c0311fdd0de27274bd37ef78eb8ba248161"
+checksum = "5fde5f2092b5852a838ef13eb5dfbd58c18aa8754bbea45cffabd53efb584f3a"
 dependencies = [
  "imgui",
  "winit",
@@ -1950,7 +1950,7 @@ dependencies = [
 
 [[package]]
 name = "puffin-imgui"
-version = "0.19.0"
+version = "0.20.0"
 dependencies = [
  "glium",
  "imgui",
@@ -1991,7 +1991,7 @@ dependencies = [
 
 [[package]]
 name = "puffin_viewer"
-version = "0.13.0"
+version = "0.13.1"
 dependencies = [
  "argh",
  "eframe",
