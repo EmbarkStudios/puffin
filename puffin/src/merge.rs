@@ -281,6 +281,6 @@ fn test_merge() {
 
     assert_eq!(
         merged, expected,
-        "\nGot:\n{merged:#?}\n\n!=\nExpected:\n{expected:#?}",      
+        "\nGot:\n{merged:#?}\n\n!=\nExpected:\n{expected:#?}",
     );
 }
