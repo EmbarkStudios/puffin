@@ -83,6 +83,21 @@ impl FrameView {
         self.recent.back().cloned()
     }
 
+    /// Returns up to `n` latest fully captured frames of data.
+    pub fn latest_frames(&self, n: usize) -> Vec<Arc<FrameData>> {
+        // Probably not the best way to do this, but since
+        // [`self.recent`] is immutable in this context and
+        // working with deque slices is complicated, we'll do
+        // it this way for now.
+        self.recent
+            .iter()
+            .rev()
+            .take(n)
+            .rev()
+            .map(|arc| arc.clone())
+            .collect()
+    }
+
     /// Oldest first
     pub fn recent_frames(&self) -> impl Iterator<Item = &Arc<FrameData>> {
         self.recent.iter()
