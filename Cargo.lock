@@ -20,17 +20,6 @@ checksum = "a13739d7177fbd22bb0ed28badfff9f372f8bef46c863db4e1c6248f6b223b6e"
 
 [[package]]
 name = "accesskit"
-version = "0.8.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3083ac5a97521e35388ca80cf365b6be5210962cc59f11ee238cd92ac2fa9524"
-dependencies = [
- "enumset",
- "kurbo",
- "serde",
-]
-
-[[package]]
-name = "accesskit"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4803cf8c252f374ae6bfbb341e49e5a37f7601f2ce74a105927a663eba952c67"
@@ -685,18 +674,8 @@ version = "0.13.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a01d95850c592940db9b8194bc39f4bc0e89dee5c4265e4b1807c34a9aba453c"
 dependencies = [
- "darling_core 0.13.4",
- "darling_macro 0.13.4",
-]
-
-[[package]]
-name = "darling"
-version = "0.14.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b0dd3cd20dc6b5a876612a6e5accfe7f3dd883db6d07acfbf14c128f61550dfa"
-dependencies = [
- "darling_core 0.14.2",
- "darling_macro 0.14.2",
+ "darling_core",
+ "darling_macro",
 ]
 
 [[package]]
@@ -714,36 +693,12 @@ dependencies = [
 ]
 
 [[package]]
-name = "darling_core"
-version = "0.14.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a784d2ccaf7c98501746bf0be29b2022ba41fd62a2e622af997a03e9f972859f"
-dependencies = [
- "fnv",
- "ident_case",
- "proc-macro2",
- "quote",
- "syn",
-]
-
-[[package]]
 name = "darling_macro"
 version = "0.13.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9c972679f83bdf9c42bd905396b6c3588a843a17f0f16dfcfa3e2c5d57441835"
 dependencies = [
- "darling_core 0.13.4",
- "quote",
- "syn",
-]
-
-[[package]]
-name = "darling_macro"
-version = "0.14.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7618812407e9402654622dd402b0a89dff9ba93badd6540781526117b92aab7e"
-dependencies = [
- "darling_core 0.14.2",
+ "darling_core",
  "quote",
  "syn",
 ]
@@ -835,16 +790,6 @@ dependencies = [
 
 [[package]]
 name = "ecolor"
-version = "0.20.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b601108bca3af7650440ace4ca55b2daf52c36f2635be3587d77b16efd8d0691"
-dependencies = [
- "bytemuck",
- "serde",
-]
-
-[[package]]
-name = "ecolor"
 version = "0.21.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1f99fe3cac305af9d6d92971af60d0f7ea4d783201ef1673571567b6699964d9"
@@ -855,41 +800,16 @@ dependencies = [
 
 [[package]]
 name = "eframe"
-version = "0.20.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8128828b785ecf1552917330354ab2eb9d2c48fbe2ad075fa75f93d4a099a9f1"
-dependencies = [
- "bytemuck",
- "directories-next",
- "egui 0.20.1",
- "egui-winit 0.20.0",
- "egui_glow 0.20.0",
- "glow 0.11.2",
- "glutin 0.30.3",
- "js-sys",
- "percent-encoding",
- "raw-window-handle 0.5.0",
- "ron",
- "serde",
- "tracing",
- "wasm-bindgen",
- "wasm-bindgen-futures",
- "web-sys",
- "winit 0.27.2",
-]
-
-[[package]]
-name = "eframe"
 version = "0.21.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d07e59d9d5ba69e1d261c76e6aa88a95601375805ee473de5eb3163bf5a57704"
 dependencies = [
  "bytemuck",
  "directories-next",
- "egui 0.21.0",
- "egui-winit 0.21.0",
- "egui_glow 0.21.0",
- "glow 0.12.0",
+ "egui",
+ "egui-winit",
+ "egui_glow",
+ "glow",
  "glutin 0.30.3",
  "glutin-winit",
  "js-sys",
@@ -907,48 +827,17 @@ dependencies = [
 
 [[package]]
 name = "egui"
-version = "0.20.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "65a5e883a316e53866977450eecfbcac9c48109c2ab3394af29feb83fcde4ea9"
-dependencies = [
- "accesskit 0.8.1",
- "ahash",
- "epaint 0.20.0",
- "nohash-hasher",
- "ron",
- "serde",
- "tracing",
-]
-
-[[package]]
-name = "egui"
 version = "0.21.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6412a21e0bde7c0918f7fb44bbbb86b5e1f88e63c026a4e747cc7af02f76dfbe"
 dependencies = [
- "accesskit 0.9.0",
+ "accesskit",
  "ahash",
- "epaint 0.21.0",
+ "epaint",
  "nohash-hasher",
  "ron",
  "serde",
  "tracing",
-]
-
-[[package]]
-name = "egui-winit"
-version = "0.20.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2217c2c1e63b7b793753efd23dc68efb86bb09bd298e5de8010e9a82dc63f0a9"
-dependencies = [
- "arboard",
- "egui 0.20.1",
- "instant",
- "serde",
- "smithay-clipboard",
- "tracing",
- "webbrowser",
- "winit 0.27.2",
 ]
 
 [[package]]
@@ -959,7 +848,7 @@ checksum = "c13deffe034ab864042f00d0d1fa220b86bb9a230a7362b81844bb8d1dc6b899"
 dependencies = [
  "android-activity",
  "arboard",
- "egui 0.21.0",
+ "egui",
  "instant",
  "serde",
  "smithay-clipboard",
@@ -970,28 +859,13 @@ dependencies = [
 
 [[package]]
 name = "egui_glow"
-version = "0.20.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "67655a7138ce9d9617811622a3d81577fb477f4447f1a330e89814f16ad35574"
-dependencies = [
- "bytemuck",
- "egui 0.20.1",
- "glow 0.11.2",
- "memoffset",
- "tracing",
- "wasm-bindgen",
- "web-sys",
-]
-
-[[package]]
-name = "egui_glow"
 version = "0.21.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8257332fb168a965b3dca81d6a344e053153773c889cabdba0b3b76f1629ae81"
 dependencies = [
  "bytemuck",
- "egui 0.21.0",
- "glow 0.12.0",
+ "egui",
+ "glow",
  "memoffset",
  "tracing",
  "wasm-bindgen",
@@ -1003,16 +877,6 @@ name = "either"
 version = "1.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e78d4f1cc4ae33bbfc157ed5d5a5ef3bc29227303d595861deb238fcec4e9457"
-
-[[package]]
-name = "emath"
-version = "0.20.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5277249c8c3430e7127e4f2c40a77485e7baf11ae132ce9b3253a8ed710df0a0"
-dependencies = [
- "bytemuck",
- "serde",
-]
 
 [[package]]
 name = "emath"
@@ -1036,45 +900,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "enumset"
-version = "1.0.12"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "19be8061a06ab6f3a6cf21106c873578bf01bd42ad15e0311a9c76161cb1c753"
-dependencies = [
- "enumset_derive",
- "serde",
-]
-
-[[package]]
-name = "enumset_derive"
-version = "0.6.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "03e7b551eba279bf0fa88b83a46330168c1560a52a94f5126f892f0b364ab3e0"
-dependencies = [
- "darling 0.14.2",
- "proc-macro2",
- "quote",
- "syn",
-]
-
-[[package]]
-name = "epaint"
-version = "0.20.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "de14b65fe5e423e0058f77a8beb2c863b056d0566d6c4ce0d097aa5814cb705a"
-dependencies = [
- "ab_glyph",
- "ahash",
- "atomic_refcell",
- "bytemuck",
- "ecolor 0.20.0",
- "emath 0.20.0",
- "nohash-hasher",
- "parking_lot",
- "serde",
-]
-
-[[package]]
 name = "epaint"
 version = "0.21.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1084,8 +909,8 @@ dependencies = [
  "ahash",
  "atomic_refcell",
  "bytemuck",
- "ecolor 0.21.0",
- "emath 0.21.0",
+ "ecolor",
+ "emath",
  "nohash-hasher",
  "parking_lot",
  "serde",
@@ -1296,18 +1121,6 @@ dependencies = [
  "memoffset",
  "smallvec",
  "takeable-option",
-]
-
-[[package]]
-name = "glow"
-version = "0.11.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d8bd5877156a19b8ac83a29b2306fe20537429d318f3ff0a1a2119f8d9c61919"
-dependencies = [
- "js-sys",
- "slotmap",
- "wasm-bindgen",
- "web-sys",
 ]
 
 [[package]]
@@ -1661,16 +1474,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e2db585e1d738fc771bf08a151420d3ed193d9d895a36df7f6f8a9456b911ddc"
 
 [[package]]
-name = "kurbo"
-version = "0.8.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7a53776d271cfb873b17c618af0298445c88afc52837f3e948fa3fafd131f449"
-dependencies = [
- "arrayvec 0.7.2",
- "serde",
-]
-
-[[package]]
 name = "lazy_static"
 version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1858,7 +1661,7 @@ version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0df7ac00c4672f9d5aece54ee3347520b7e20f158656c7db2e6de01902eb7a6c"
 dependencies = [
- "darling 0.13.4",
+ "darling",
  "proc-macro-crate",
  "proc-macro2",
  "quote",
@@ -2223,8 +2026,8 @@ dependencies = [
 name = "puffin_egui"
 version = "0.19.2"
 dependencies = [
- "eframe 0.20.0",
- "egui 0.21.0",
+ "eframe",
+ "egui",
  "indexmap",
  "instant",
  "natord",
@@ -2251,7 +2054,7 @@ name = "puffin_viewer"
 version = "0.13.2"
 dependencies = [
  "argh",
- "eframe 0.21.0",
+ "eframe",
  "log",
  "mimalloc",
  "puffin",
