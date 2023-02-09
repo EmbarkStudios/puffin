@@ -4,7 +4,7 @@ fn main() {
     puffin::set_scopes_on(true); // Remember to call this, or puffin will be disabled!
 
     let native_options = Default::default();
-    eframe::run_native(
+    let _ = eframe::run_native(
         "puffin egui eframe",
         native_options,
         Box::new(|_cc| Box::<ExampleApp>::default()),
