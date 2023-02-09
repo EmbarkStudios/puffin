@@ -54,7 +54,7 @@ fn main() {
         drag_and_drop_support: true,
         ..Default::default()
     };
-    
+
     let _ = eframe::run_native(
         "puffin viewer",
         native_options,

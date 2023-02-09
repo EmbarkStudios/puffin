@@ -268,7 +268,7 @@ impl PuffinViewer {
                     }
                 }
             }
-        })
+        });
     }
 }
 
