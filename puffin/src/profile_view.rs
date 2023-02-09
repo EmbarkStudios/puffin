@@ -89,13 +89,7 @@ impl FrameView {
         // [`self.recent`] is immutable in this context and
         // working with deque slices is complicated, we'll do
         // it this way for now.
-        self.recent
-            .iter()
-            .rev()
-            .take(n)
-            .rev()
-            .map(|arc| arc.clone())
-            .collect()
+        self.recent.iter().rev().take(n).rev().cloned().collect()
     }
 
     /// Oldest first
