@@ -205,16 +205,13 @@ pub fn ui(ui: &mut egui::Ui, options: &mut Options, frames: &SelectedFrames) {
     {
         // reset view if number of selected frames changes (and we are viewing all of them):
         let num_frames_id = ui.id().with("num_frames");
-        let num_frames_last_frame = ui
-            .memory()
-            .data
-            .get_temp::<usize>(num_frames_id)
-            .unwrap_or_default();
+        let num_frames_last_frame =
+            ui.memory_mut(|m| m.data.get_temp::<usize>(num_frames_id).unwrap_or_default());
 
         if num_frames_last_frame != num_frames && !options.merge_scopes {
             reset_view = true;
         }
-        ui.memory().data.insert_temp(num_frames_id, num_frames);
+        ui.memory_mut(|m| m.data.insert_temp(num_frames_id, num_frames));
     }
 
     ui.columns(2, |ui| {
@@ -294,8 +291,10 @@ pub fn ui(ui: &mut egui::Ui, options: &mut Options, frames: &SelectedFrames) {
             };
 
             if reset_view {
-                options.zoom_to_relative_ns_range =
-                    Some((info.ctx.input().time, (0, info.stop_ns - info.start_ns)));
+                options.zoom_to_relative_ns_range = Some((
+                    info.ctx.input(|i| i.time),
+                    (0, info.stop_ns - info.start_ns),
+                ));
             }
 
             interact_with_canvas(options, &info.response, &info);
@@ -420,12 +419,12 @@ fn interact_with_canvas(options: &mut Options, response: &Response, info: &Info)
 
     if response.hovered() {
         // Sideways pan with e.g. a touch pad:
-        if info.ctx.input().scroll_delta.x != 0.0 {
-            options.sideways_pan_in_points += info.ctx.input().scroll_delta.x;
+        if info.ctx.input(|i| i.scroll_delta.x != 0.0) {
+            options.sideways_pan_in_points += info.ctx.input(|i| i.scroll_delta.x);
             options.zoom_to_relative_ns_range = None;
         }
 
-        let mut zoom_factor = info.ctx.input().zoom_delta_2d().x;
+        let mut zoom_factor = info.ctx.input(|i| i.zoom_delta_2d().x);
 
         if response.dragged_by(PointerButton::Secondary) {
             zoom_factor *= (response.drag_delta().y * 0.01).exp();
@@ -445,13 +444,15 @@ fn interact_with_canvas(options: &mut Options, response: &Response, info: &Info)
 
     if response.double_clicked() {
         // Reset view
-        options.zoom_to_relative_ns_range =
-            Some((info.ctx.input().time, (0, info.stop_ns - info.start_ns)));
+        options.zoom_to_relative_ns_range = Some((
+            info.ctx.input(|i| i.time),
+            (0, info.stop_ns - info.start_ns),
+        ));
     }
 
     if let Some((start_time, (start_ns, end_ns))) = options.zoom_to_relative_ns_range {
         const ZOOM_DURATION: f32 = 0.75;
-        let t = ((info.ctx.input().time - start_time) as f32 / ZOOM_DURATION).min(1.0);
+        let t = (info.ctx.input(|i| i.time - start_time) as f32 / ZOOM_DURATION).min(1.0);
 
         let canvas_width = response.rect.width();
 
@@ -542,25 +543,29 @@ fn paint_timeline(
                 let text_x = line_x + 4.0;
                 let text_color = Rgba::from_white_alpha((text_alpha * 2.0).min(1.0)).into();
 
-                // Text at top:
-                shapes.push(egui::Shape::text(
-                    &info.painter.fonts(),
-                    pos2(text_x, canvas.min.y),
-                    Align2::LEFT_TOP,
-                    &text,
-                    info.font_id.clone(),
-                    text_color,
-                ));
+                info.painter.fonts(|f| {
+                    // Text at top:
+                    shapes.push(egui::Shape::text(
+                        f,
+                        pos2(text_x, canvas.min.y),
+                        Align2::LEFT_TOP,
+                        &text,
+                        info.font_id.clone(),
+                        text_color,
+                    ));
+                });
 
-                // Text at bottom:
-                shapes.push(egui::Shape::text(
-                    &info.painter.fonts(),
-                    pos2(text_x, canvas.max.y - info.text_height),
-                    Align2::LEFT_TOP,
-                    &text,
-                    info.font_id.clone(),
-                    text_color,
-                ));
+                info.painter.fonts(|f| {
+                    // Text at bottom:
+                    shapes.push(egui::Shape::text(
+                        f,
+                        pos2(text_x, canvas.max.y - info.text_height),
+                        Align2::LEFT_TOP,
+                        &text,
+                        info.font_id.clone(),
+                        text_color,
+                    ));
+                });
             }
         }
 
@@ -618,7 +623,7 @@ fn paint_record(
         }
     } else if is_hovered && info.response.clicked() {
         options.zoom_to_relative_ns_range = Some((
-            info.ctx.input().time,
+            info.ctx.input(|i| i.time),
             (
                 record.start_ns - info.start_ns,
                 record.stop_ns() - info.start_ns,
@@ -865,11 +870,13 @@ fn merge_scope_tooltip(ui: &mut egui::Ui, merge: &MergeScope<'_>, num_frames: us
 fn paint_thread_info(info: &Info, thread: &ThreadInfo, pos: Pos2, collapsed: &mut bool) {
     let collapsed_symbol = if *collapsed { "⏵" } else { "⏷" };
 
-    let galley = info.ctx.fonts().layout_no_wrap(
-        format!("{} {}", collapsed_symbol, thread.name.clone()),
-        info.font_id.clone(),
-        Rgba::from_white_alpha(0.9).into(),
-    );
+    let galley = info.ctx.fonts(|f| {
+        f.layout_no_wrap(
+            format!("{} {}", collapsed_symbol, thread.name.clone()),
+            info.font_id.clone(),
+            Rgba::from_white_alpha(0.9).into(),
+        )
+    });
 
     let rect = Rect::from_min_size(pos, galley.size());
 

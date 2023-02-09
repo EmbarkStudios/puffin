@@ -509,7 +509,7 @@ impl ProfilerUi {
                     .add_sized(play_pause_button_size, egui::Button::new("▶"))
                     .on_hover_text("Show latest data. Toggle with space.")
                     .clicked()
-                    || ui.input().key_pressed(egui::Key::Space)
+                    || ui.input(|i| i.key_pressed(egui::Key::Space))
                 {
                     self.paused = None;
                 }
@@ -519,7 +519,7 @@ impl ProfilerUi {
                         .add_sized(play_pause_button_size, egui::Button::new("⏸"))
                         .on_hover_text("Pause on this frame. Toggle with space.")
                         .clicked()
-                        || ui.input().key_pressed(egui::Key::Space)
+                        || ui.input(|i| i.key_pressed(egui::Key::Space))
                     {
                         let latest = frame_view.latest_frame();
                         if let Some(latest) = latest {
@@ -735,10 +735,9 @@ impl ProfilerUi {
                 }
 
                 if response.dragged() {
-                    if let (Some(start), Some(curr)) = (
-                        ui.input().pointer.press_origin(),
-                        ui.input().pointer.interact_pos(),
-                    ) {
+                    if let (Some(start), Some(curr)) =
+                        ui.input(|i| (i.pointer.press_origin(), i.pointer.interact_pos()))
+                    {
                         let min_x = start.x.min(curr.x);
                         let max_x = start.x.max(curr.x);
                         let intersects = min_x <= frame_rect.right() && frame_rect.left() <= max_x;

@@ -202,11 +202,11 @@ impl PuffinViewer {
 
     #[cfg(not(target_arch = "wasm32"))]
     fn ui_menu_bar(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
-        if ctx.input().modifiers.command && ctx.input().key_pressed(egui::Key::O) {
+        if ctx.input(|i| i.modifiers.command && i.key_pressed(egui::Key::O)) {
             self.open_dialog();
         }
 
-        if ctx.input().modifiers.command && ctx.input().key_pressed(egui::Key::S) {
+        if ctx.input(|i| i.modifiers.command && i.key_pressed(egui::Key::S)) {
             self.save_dialog();
         }
 
@@ -240,11 +240,11 @@ impl PuffinViewer {
         use egui::*;
 
         // Preview hovering files:
-        if !ctx.input().raw.hovered_files.is_empty() {
+        if !ctx.input(|i| i.raw.hovered_files.is_empty()) {
             let painter =
                 ctx.layer_painter(LayerId::new(Order::Foreground, Id::new("file_drop_target")));
 
-            let screen_rect = ctx.input().screen_rect();
+            let screen_rect = ctx.input(|i| i.screen_rect());
             painter.rect_filled(screen_rect, 0.0, Color32::from_black_alpha(192));
             painter.text(
                 screen_rect.center(),
@@ -256,17 +256,19 @@ impl PuffinViewer {
         }
 
         // Collect dropped files:
-        if !ctx.input().raw.dropped_files.is_empty() {
-            for file in &ctx.input().raw.dropped_files {
-                if let Some(path) = &file.path {
-                    self.open_puffin_path(path.clone());
-                    break;
-                } else if let Some(bytes) = &file.bytes {
-                    self.open_puffin_bytes(file.name.clone(), bytes);
-                    break;
+        ctx.input(|i| {
+            if !i.raw.dropped_files.is_empty() {
+                for file in i.raw.dropped_files.iter() {
+                    if let Some(path) = &file.path {
+                        self.open_puffin_path(path.clone());
+                        break;
+                    } else if let Some(bytes) = &file.bytes {
+                        self.open_puffin_bytes(file.name.clone(), bytes);
+                        break;
+                    }
                 }
             }
-        }
+        })
     }
 }
 
