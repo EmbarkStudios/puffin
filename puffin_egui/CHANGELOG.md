@@ -6,6 +6,10 @@ All notable changes to the egui crate will be documented in this file.
 
 <!-- next-header -->
 ## [Unreleased] - ReleaseDate
+
+* Upgrade to `egui` 0.21
+* [PR#117](https://github.com/EmbarkStudios/puffin/pull/117) Added a sliding window option for unpaused metrics to prevent jittering flamegraph and stats view.
+
 ## [0.19.2] - 2023-01-30
 - Upgrade to `puffin` 0.14.2
 

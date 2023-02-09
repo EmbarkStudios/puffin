@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <!-- next-header -->
 ## [Unreleased] - ReleaseDate
+- [PR#117](https://github.com/EmbarkStudios/puffin/pull/117) Add function `latest_frames` to retrieve latest _n_ captured frames.
+
 ## [0.14.2] - 2023-01-30
 
 - [PR#123](https://github.com/EmbarkStudios/puffin/pull/123) Fix `puffin` build for non-web wasm enviroments. 

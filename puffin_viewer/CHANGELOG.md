@@ -6,6 +6,8 @@ All notable changes to `puffin_viewer` will be documented in this file.
 
 <!-- next-header -->
 ## [Unreleased] - ReleaseDate
+* Upgrade to `puffin_egui` 0.21
+
 ## [0.13.2] - 2023-01-30
 
 - Upgrade to `puffin_egui` 0.19.2
