@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <!-- next-header -->
 ## [Unreleased] - ReleaseDate
+## [0.14.3] - 2023-02-09
 - [PR#117](https://github.com/EmbarkStudios/puffin/pull/117) Add function `latest_frames` to retrieve latest _n_ captured frames.
 
 ## [0.14.2] - 2023-01-30
@@ -102,7 +103,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * `GlobalProfiler` now store recent history and the slowest frames.
 
 <!-- next-url -->
-[Unreleased]: https://github.com/EmbarkStudios/puffin/compare/0.14.2...HEAD
+[Unreleased]: https://github.com/EmbarkStudios/puffin/compare/0.14.3...HEAD
+[0.14.3]: https://github.com/EmbarkStudios/puffin/compare/0.14.2...0.14.3
 [0.14.2]: https://github.com/EmbarkStudios/puffin/compare/0.14.1...0.14.2
 [0.14.1]: https://github.com/EmbarkStudios/puffin/compare/0.14.0...0.14.1
 [0.14.0]: https://github.com/EmbarkStudios/puffin/compare/0.13.2...0.14.0
