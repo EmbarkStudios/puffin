@@ -61,20 +61,20 @@ pub fn compression_comparison(c: &mut Criterion) {
 
     // zstd via `zstd` crate
     {
+        let encoded = zstd::stream::encode_all(test_stream.bytes(), 3).unwrap();
+
         c.bench_function("zstd encode", |b| {
             b.iter(|| {
                 zstd::stream::encode_all(test_stream.bytes(), 3).unwrap();
             })
         });
         c.bench_function("zstd decode", |b| {
-            let encoded = zstd::stream::encode_all(test_stream.bytes(), 3).unwrap();
             b.iter(|| {
                 zstd::stream::decode_all(encoded.as_slice()).unwrap();
             })
         });
 
         // sanity & size check
-        let encoded = zstd::stream::encode_all(test_stream.bytes(), 3).unwrap();
         let decoded = zstd::stream::decode_all(encoded.as_slice()).unwrap();
         assert_eq!(decoded, test_stream.bytes());
         assert_debug_snapshot!("zstd encode", report_compression(&test_stream, &encoded));
@@ -85,25 +85,31 @@ pub fn compression_comparison(c: &mut Criterion) {
         let level = 2; // compression level 0-11, higher means densor/slower
         let buffer_size = test_stream.len();
 
+        // Allocate buffers only once.
+        let mut encoded = Vec::with_capacity(test_stream.len());
+        let mut decoded = Vec::with_capacity(test_stream.len());
+
         // Using with_params with default params was too slow to finish.
         //let mut params = brotli::enc::BrotliEncoderParams::default();
 
         c.bench_function("brotli encode", |b| {
             b.iter(|| {
-                let mut encoded = Vec::with_capacity(test_stream.len());
+                encoded.clear();
                 brotli::CompressorWriter::new(&mut encoded, buffer_size, level, lgwin)
                     .write_all(test_stream.bytes())
                     .unwrap();
             })
         });
-        c.bench_function("brotli decode", |b| {
-            let mut encoded = Vec::with_capacity(test_stream.len());
-            brotli::CompressorWriter::new(&mut encoded, buffer_size, level, lgwin)
-                .write_all(test_stream.bytes())
-                .unwrap();
 
+        // Use this encoded data from here on out.
+        encoded.clear();
+        brotli::CompressorWriter::new(&mut encoded, buffer_size, level, lgwin)
+            .write_all(test_stream.bytes())
+            .unwrap();
+
+        c.bench_function("brotli decode", |b| {
             b.iter(|| {
-                let mut decoded = Vec::with_capacity(test_stream.len());
+                decoded.clear();
                 brotli::Decompressor::new(std::io::Cursor::new(&encoded), decoded.capacity())
                     .read_to_end(&mut decoded)
                     .unwrap();
@@ -111,11 +117,7 @@ pub fn compression_comparison(c: &mut Criterion) {
         });
 
         // sanity & size check
-        let mut encoded = Vec::with_capacity(test_stream.len());
-        brotli::CompressorWriter::new(&mut encoded, buffer_size, level, lgwin)
-            .write_all(test_stream.bytes())
-            .unwrap();
-        let mut decoded = Vec::with_capacity(test_stream.len());
+        decoded.clear();
         brotli::Decompressor::new(std::io::Cursor::new(&encoded), decoded.capacity())
             .read_to_end(&mut decoded)
             .unwrap();
