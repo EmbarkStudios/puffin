@@ -52,6 +52,7 @@ criterion = "0.4"
 insta = "1.26"
 brotli = "3.3.4"
 flate2 = "1.0"
+lzma-rs = "0.3.0"
 
 
 [[bench]]

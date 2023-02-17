@@ -87,9 +87,7 @@ pub fn compression_comparison(c: &mut Criterion) {
         c.bench_function("gzip (flate2) encode", |b| {
             b.iter(|| {
                 encoded.clear();
-                GzEncoder::new(&mut encoded, params)
-                    .write_all(test_stream.bytes())
-                    .unwrap()
+                GzEncoder::new(&mut encoded, params).write_all(test_stream.bytes())
             })
         });
 
@@ -114,6 +112,40 @@ pub fn compression_comparison(c: &mut Criterion) {
         assert_eq!(decoded, test_stream.bytes());
         assert_debug_snapshot!(
             "gzip (flate2) encode",
+            report_compression(&test_stream, &encoded)
+        );
+    }
+    // lzma via `lzma-rs` crate
+    {
+        // Allocate buffers only once.
+        let mut encoded = Vec::with_capacity(test_stream.len());
+        let mut decoded = Vec::with_capacity(test_stream.len());
+
+        c.bench_function("lzma (lzma-rs) encode", |b| {
+            b.iter(|| {
+                encoded.clear();
+                lzma_rs::lzma_compress(&mut std::io::Cursor::new(test_stream.bytes()), &mut encoded)
+            })
+        });
+
+        // Use this encoded data from here on out.
+        encoded.clear();
+        lzma_rs::lzma_compress(&mut std::io::Cursor::new(test_stream.bytes()), &mut encoded)
+            .unwrap();
+
+        c.bench_function("lzma (lzma-rs) decode", |b| {
+            b.iter(|| {
+                decoded.clear();
+                lzma_rs::lzma_decompress(&mut std::io::Cursor::new(&encoded), &mut decoded)
+            })
+        });
+
+        // sanity & size check
+        decoded.clear();
+        lzma_rs::lzma_decompress(&mut std::io::Cursor::new(&encoded), &mut decoded).unwrap();
+        assert_eq!(decoded, test_stream.bytes());
+        assert_debug_snapshot!(
+            "lzma (lzma-rs) encode",
             report_compression(&test_stream, &encoded)
         );
     }

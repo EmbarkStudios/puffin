@@ -1,0 +1,5 @@
+---
+source: puffin/benches/compression.rs
+expression: "report_compression(&test_stream, &encoded)"
+---
+"3664899bytes - ratio 2.16"
