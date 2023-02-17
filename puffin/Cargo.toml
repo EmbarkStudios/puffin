@@ -50,6 +50,8 @@ ruzstd = { version = "0.3.0", optional = true } # works on wasm
 [dev-dependencies]
 criterion = "0.4"
 insta = "1.26"
+brotli = "3.3.4"
+
 
 [[bench]]
 name = "benchmark"

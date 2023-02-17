@@ -1,4 +1,7 @@
-use std::hash::Hasher;
+use std::{
+    hash::Hasher,
+    io::{Read, Write},
+};
 
 use criterion::Criterion;
 use puffin::Stream;
@@ -33,7 +36,7 @@ pub fn create_test_stream() -> Stream {
     )
     .flatten();
 
-    for (i, (id, location)) in message_ids.zip(locations).enumerate().take(1_000_000) {
+    for (i, (id, location)) in message_ids.zip(locations).enumerate().take(100_000) {
         let mut hasher = std::collections::hash_map::DefaultHasher::new();
         hasher.write_usize(i);
         let data = format!("{}", hasher.finish());
@@ -48,7 +51,7 @@ pub fn create_test_stream() -> Stream {
 fn report_compression(uncompressed: &Stream, compressed: &[u8]) -> String {
     format!(
         "{:?}bytes - ratio {:.2}",
-        uncompressed.len(),
+        compressed.len(),
         uncompressed.len() as f32 / compressed.len() as f32
     )
 }
@@ -56,7 +59,7 @@ fn report_compression(uncompressed: &Stream, compressed: &[u8]) -> String {
 pub fn compression_comparison(c: &mut Criterion) {
     let test_stream = create_test_stream();
 
-    // zstd
+    // zstd via `zstd` crate
     {
         c.bench_function("zstd encode", |b| {
             b.iter(|| {
@@ -75,5 +78,48 @@ pub fn compression_comparison(c: &mut Criterion) {
         let decoded = zstd::stream::decode_all(encoded.as_slice()).unwrap();
         assert_eq!(decoded, test_stream.bytes());
         assert_debug_snapshot!("zstd encode", report_compression(&test_stream, &encoded));
+    }
+    // brotli via `brotli` crate
+    {
+        let lgwin = 0; // Let compressor decide.
+        let level = 2; // compression level 0-11, higher means densor/slower
+        let buffer_size = test_stream.len();
+
+        // Using with_params with default params was too slow to finish.
+        //let mut params = brotli::enc::BrotliEncoderParams::default();
+
+        c.bench_function("brotli encode", |b| {
+            b.iter(|| {
+                let mut encoded = Vec::with_capacity(test_stream.len());
+                brotli::CompressorWriter::new(&mut encoded, buffer_size, level, lgwin)
+                    .write_all(test_stream.bytes())
+                    .unwrap();
+            })
+        });
+        c.bench_function("brotli decode", |b| {
+            let mut encoded = Vec::with_capacity(test_stream.len());
+            brotli::CompressorWriter::new(&mut encoded, buffer_size, level, lgwin)
+                .write_all(test_stream.bytes())
+                .unwrap();
+
+            b.iter(|| {
+                let mut decoded = Vec::with_capacity(test_stream.len());
+                brotli::Decompressor::new(std::io::Cursor::new(&encoded), decoded.capacity())
+                    .read_to_end(&mut decoded)
+                    .unwrap();
+            })
+        });
+
+        // sanity & size check
+        let mut encoded = Vec::with_capacity(test_stream.len());
+        brotli::CompressorWriter::new(&mut encoded, buffer_size, level, lgwin)
+            .write_all(test_stream.bytes())
+            .unwrap();
+        let mut decoded = Vec::with_capacity(test_stream.len());
+        brotli::Decompressor::new(std::io::Cursor::new(&encoded), decoded.capacity())
+            .read_to_end(&mut decoded)
+            .unwrap();
+        assert_eq!(decoded, test_stream.bytes());
+        assert_debug_snapshot!("brotli encode", report_compression(&test_stream, &encoded));
     }
 }
