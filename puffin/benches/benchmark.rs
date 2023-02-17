@@ -1,5 +1,7 @@
 use criterion::{criterion_group, criterion_main, Criterion};
 
+mod compression;
+
 pub fn criterion_benchmark(c: &mut Criterion) {
     puffin::set_scopes_on(true);
     puffin::profile_scope!("keep one scope open so we don't profile sending scopes");
@@ -48,5 +50,9 @@ pub fn criterion_benchmark(c: &mut Criterion) {
     });
 }
 
-criterion_group!(benches, criterion_benchmark);
+criterion_group!(
+    benches,
+    criterion_benchmark,
+    compression::compression_comparison
+);
 criterion_main!(benches);
