@@ -64,20 +64,58 @@ pub fn compression_comparison(c: &mut Criterion) {
         let encoded = zstd::stream::encode_all(test_stream.bytes(), 3).unwrap();
 
         c.bench_function("zstd encode", |b| {
-            b.iter(|| {
-                zstd::stream::encode_all(test_stream.bytes(), 3).unwrap();
-            })
+            b.iter(|| zstd::stream::encode_all(test_stream.bytes(), 3))
         });
         c.bench_function("zstd decode", |b| {
-            b.iter(|| {
-                zstd::stream::decode_all(encoded.as_slice()).unwrap();
-            })
+            b.iter(|| zstd::stream::decode_all(encoded.as_slice()))
         });
 
         // sanity & size check
         let decoded = zstd::stream::decode_all(encoded.as_slice()).unwrap();
         assert_eq!(decoded, test_stream.bytes());
         assert_debug_snapshot!("zstd encode", report_compression(&test_stream, &encoded));
+    }
+    // gzip via `flate2` crate
+    {
+        use flate2::{read::GzDecoder, write::GzEncoder};
+        let params = flate2::Compression::fast();
+
+        // Allocate buffers only once.
+        let mut encoded = Vec::with_capacity(test_stream.len());
+        let mut decoded = Vec::with_capacity(test_stream.len());
+
+        c.bench_function("gzip (flate2) encode", |b| {
+            b.iter(|| {
+                encoded.clear();
+                GzEncoder::new(&mut encoded, params)
+                    .write_all(test_stream.bytes())
+                    .unwrap()
+            })
+        });
+
+        // Use this encoded data from here on out.
+        encoded.clear();
+        GzEncoder::new(&mut encoded, params)
+            .write_all(test_stream.bytes())
+            .unwrap();
+
+        c.bench_function("gzip (flate2) decode", |b| {
+            b.iter(|| {
+                decoded.clear();
+                GzDecoder::new(std::io::Cursor::new(&encoded)).read_to_end(&mut decoded)
+            })
+        });
+
+        // sanity & size check
+        decoded.clear();
+        GzDecoder::new(std::io::Cursor::new(&encoded))
+            .read_to_end(&mut decoded)
+            .unwrap();
+        assert_eq!(decoded, test_stream.bytes());
+        assert_debug_snapshot!(
+            "gzip (flate2) encode",
+            report_compression(&test_stream, &encoded)
+        );
     }
     // brotli via `brotli` crate
     {
@@ -97,7 +135,6 @@ pub fn compression_comparison(c: &mut Criterion) {
                 encoded.clear();
                 brotli::CompressorWriter::new(&mut encoded, buffer_size, level, lgwin)
                     .write_all(test_stream.bytes())
-                    .unwrap();
             })
         });
 
@@ -112,7 +149,6 @@ pub fn compression_comparison(c: &mut Criterion) {
                 decoded.clear();
                 brotli::Decompressor::new(std::io::Cursor::new(&encoded), decoded.capacity())
                     .read_to_end(&mut decoded)
-                    .unwrap();
             })
         });
 
