@@ -192,4 +192,23 @@ pub fn compression_comparison(c: &mut Criterion) {
         assert_eq!(decoded, test_stream.bytes());
         assert_debug_snapshot!("brotli encode", report_compression(&test_stream, &encoded));
     }
+    // lz4 via `lz4_flex` crate
+    {
+        let encoded = lz4_flex::compress_prepend_size(test_stream.bytes());
+
+        c.bench_function("lz4_flex encode", |b| {
+            b.iter(|| lz4_flex::compress_prepend_size(test_stream.bytes()))
+        });
+        c.bench_function("lz4_flex decode", |b| {
+            b.iter(|| lz4_flex::decompress_size_prepended(encoded.as_slice()))
+        });
+
+        // sanity & size check
+        let decoded = lz4_flex::decompress_size_prepended(encoded.as_slice()).unwrap();
+        assert_eq!(decoded, test_stream.bytes());
+        assert_debug_snapshot!(
+            "lz4_flex encode",
+            report_compression(&test_stream, &encoded)
+        );
+    }
 }

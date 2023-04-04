@@ -1622,6 +1622,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "lz4_flex"
+version = "0.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8b8c72594ac26bfd34f2d99dfced2edfaddfe8a476e3ff2ca0eb293d925c4f83"
+
+[[package]]
 name = "lzma-rs"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2121,6 +2127,7 @@ dependencies = [
  "insta",
  "instant",
  "js-sys",
+ "lz4_flex",
  "lzma-rs",
  "once_cell",
  "parking_lot",

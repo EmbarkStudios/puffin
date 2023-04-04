@@ -52,6 +52,7 @@ criterion = "0.4"
 insta = "1.26"
 brotli = "3.3.4"
 flate2 = "1.0"
+lz4_flex = { version = "0.10", default-features = false }
 lzma-rs = "0.3.0"
 
 
