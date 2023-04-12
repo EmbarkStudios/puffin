@@ -365,6 +365,11 @@ impl Default for ThreadProfiler {
     }
 }
 
+pub enum ScopeId<'a> {
+    Static(&'static str),
+    Dynamic(&'a str),
+}
+
 impl ThreadProfiler {
     /// Explicit initialize with custom callbacks.
     ///
@@ -382,16 +387,18 @@ impl ThreadProfiler {
 
     /// Returns position where to write scope size once the scope is closed.
     #[must_use]
-    pub fn begin_scope(&mut self, id: &str, location: &str, data: &str) -> usize {
-        let now_ns = (self.now_ns)();
-        self.start_time_ns = Some(self.start_time_ns.unwrap_or(now_ns));
-
+    pub fn begin_scope(&mut self, id: ScopeId<'_>, location: &str, data: &str) -> usize {
         self.depth += 1;
 
-        self.stream_info.range_ns.0 = self.stream_info.range_ns.0.min(now_ns);
-        self.stream_info
-            .stream
-            .begin_scope(now_ns, id, location, data)
+        let (offset, start_ns) =
+            self.stream_info
+                .stream
+                .begin_scope(self.now_ns, id, location, data);
+
+        self.stream_info.range_ns.0 = self.stream_info.range_ns.0.min(start_ns);
+        self.start_time_ns = Some(self.start_time_ns.unwrap_or(start_ns));
+
+        offset
     }
 
     pub fn end_scope(&mut self, start_offset: usize) {
@@ -590,7 +597,7 @@ impl ProfilerScope {
     pub fn new(id: &'static str, location: &str, data: impl AsRef<str>) -> Self {
         Self {
             start_stream_offset: ThreadProfiler::call(|tp| {
-                tp.begin_scope(id, location, data.as_ref())
+                tp.begin_scope(ScopeId::Static(id), location, data.as_ref())
             }),
             _dont_send_me: Default::default(),
         }

@@ -192,16 +192,16 @@ fn test_merge() {
 
         for i in 0..2 {
             let ns = 1000 * i;
-            let a = stream.begin_scope(ns + 100, "a", "", "");
+            let (a, _) = stream.begin_scope(|| ns + 100, ScopeId::Static("a"), "", "");
             stream.end_scope(a, ns + 200);
 
-            let b = stream.begin_scope(ns + 200, "b", "", "");
+            let (b, _) = stream.begin_scope(|| ns + 200, ScopeId::Static("b"), "", "");
 
-            let ba = stream.begin_scope(ns + 400, "ba", "", "");
+            let (ba, _) = stream.begin_scope(|| ns + 400, ScopeId::Static("ba"), "", "");
             stream.end_scope(ba, ns + 600);
 
-            let bb = stream.begin_scope(ns + 600, "bb", "", "");
-            let bba = stream.begin_scope(ns + 600, "bba", "", "");
+            let (bb, _) = stream.begin_scope(|| ns + 600, ScopeId::Static("bb"), "", "");
+            let (bba, _) = stream.begin_scope(|| ns + 600, ScopeId::Static("bba"), "", "");
             stream.end_scope(bba, ns + 700);
             stream.end_scope(bb, ns + 800);
             stream.end_scope(b, ns + 900);

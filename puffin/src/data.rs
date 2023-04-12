@@ -56,23 +56,44 @@ pub type Result<T> = std::result::Result<T, Error>;
 impl Stream {
     /// Returns position where to write scope size once the scope is closed
     #[inline]
-    pub fn begin_scope(
+    pub fn begin_scope<F: Fn() -> NanoSecond>(
         &mut self,
-        start_ns: NanoSecond,
-        id: &str,
+        now_ns: F,
+        id: ScopeId<'_>,
         location: &str,
         data: &str,
-    ) -> usize {
+    ) -> (usize, NanoSecond) {
         self.0.push(SCOPE_BEGIN);
-        self.0.write_i64::<LE>(start_ns).expect("can't fail");
-        self.write_str(id);
+
+        let time_stamp_offset = self.0.len();
+        self.0
+            .write_i64::<LE>(NanoSecond::default())
+            .expect("can't fail");
+
+        // TODO: We can serialize raw pointers as u64 into the stream,
+        // and collect and keep track of pointer to Dynamic strings separately.
+        // At the end of the frame we also make sure to gather all static strings.
+        //
+        // This should improve performance quite a lot if just using static strings.
+        self.write_str(match id {
+            ScopeId::Dynamic(s) | ScopeId::Static(s) => s,
+        });
         self.write_str(location);
         self.write_str(data);
 
         // Put place-holder value for total scope size.
         let offset = self.0.len();
         self.write_scope_size(ScopeSize::unfinished());
-        offset
+
+        // Do the timing last
+        let mut time_stamp_dest =
+            &mut self.0[time_stamp_offset..time_stamp_offset + size_of::<NanoSecond>()];
+        let start_ns = now_ns();
+        time_stamp_dest
+            .write_i64::<LE>(start_ns)
+            .expect("can't fail");
+
+        (offset, start_ns)
     }
 
     #[inline]
@@ -281,10 +302,20 @@ impl<'s> Iterator for Reader<'s> {
 fn test_profile_data() {
     let stream = {
         let mut stream = Stream::default();
-        let t0 = stream.begin_scope(100, "top", "top.rs", "data_top");
-        let m1 = stream.begin_scope(200, "middle_0", "middle.rs", "data_middle_0");
+        let (t0, _) = stream.begin_scope(|| 100, ScopeId::Static("top"), "top.rs", "data_top");
+        let (m1, _) = stream.begin_scope(
+            || 200,
+            ScopeId::Static("middle_0"),
+            "middle.rs",
+            "data_middle_0",
+        );
         stream.end_scope(m1, 300);
-        let m1 = stream.begin_scope(300, "middle_1", "middle.rs:42", "data_middle_1");
+        let (m1, _) = stream.begin_scope(
+            || 300,
+            ScopeId::Static("middle_1"),
+            "middle.rs:42",
+            "data_middle_1",
+        );
         stream.end_scope(m1, 400);
         stream.end_scope(t0, 400);
         stream
