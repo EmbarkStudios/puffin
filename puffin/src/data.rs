@@ -78,6 +78,8 @@ impl Stream {
         self.write_str(match id {
             ScopeId::Dynamic(s) | ScopeId::Static(s) => s,
         });
+
+        // TODO: Should also probably do the same for these:
         self.write_str(location);
         self.write_str(data);
 
