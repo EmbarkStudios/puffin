@@ -355,7 +355,6 @@ impl MaybeStaticString<'_> {
 }
 
 impl<'a> MaybeStaticString<'a> {
-    #[allow(dead_code)]
     #[inline]
     fn get(&self) -> &'a str {
         match *self {
@@ -370,25 +369,49 @@ pub enum MaybeStaticStringMapped {
     Static(&'static str), 
 }
 
+impl MaybeStaticStringMapped {
+    pub fn empty() -> Self {
+        Self::Static("")
+    }
+}
 
 // Allows the code to serialize just pointers in the performance critical code
 // leaving the expensive string operations to after all scopes have been timed. 
-#[derive(Default)]
 pub struct StringMapper
 {
     dynamic_strings: String,
     strings: Vec<MaybeStaticStringMapped>,
 }
 
+impl Default for StringMapper {
+    fn default() -> Self {
+        Self {
+            dynamic_strings: Default::default(),
+            strings: vec![MaybeStaticStringMapped::empty()]
+        }
+    }
+}
+
 impl StringMapper {
+    fn empty_id() -> u32 {
+        0
+    }
+
     pub fn clear(&mut self) {
         self.dynamic_strings.clear();
         self.strings.clear();
+        self.strings.push(MaybeStaticStringMapped::empty());
     }
 
     #[inline]
     pub fn map_string(&mut self, string: MaybeStaticString<'_>) -> u32 {
+        // We always keep the empty string first.
+        if string.get().is_empty() {
+            return Self::empty_id();
+        }
+
         let id = self.strings.len() as u32;
+
         match string {
             MaybeStaticString::Static(s) => {
                 self.strings.push(MaybeStaticStringMapped::Static(s));
