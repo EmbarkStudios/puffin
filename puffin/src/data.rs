@@ -71,14 +71,15 @@ impl Stream {
             .write_i64::<LE>(NanoSecond::default())
             .expect("can't fail");
 
-        // TODO: We can serialize raw pointers as u64 into the stream,
+        // We serialize raw pointers as u64 into the stream,
         // and collect and keep track of pointer to Dynamic strings separately.
-        // At the end of the frame we also make sure to gather all static strings.
+        // At the end of the frame we also make sure to gather all static strings
+        // and build a pointer -> String table.
         //
         // This should improve performance quite a lot if just using static strings.
-        self.write_str(id.get());
-        self.write_str(location.get());
-        self.write_str(data.get());
+        self.write_str_mapped(id, string_mapper);
+        self.write_str_mapped(location, string_mapper);
+        self.write_str_mapped(data, string_mapper);
 
         // Put place-holder value for total scope size.
         let offset = self.0.len();
@@ -121,6 +122,15 @@ impl Stream {
         self.0.write_u64::<LE>(nanos.0).expect("can't fail");
     }
 
+    #[inline]
+    fn write_str_mapped(&mut self, str: MaybeStaticString<'_>, string_mapper: &mut StringMapper) {
+        let str_id = string_mapper.map_string(str);
+
+        self.0.write_u32::<LE>(str_id).expect("can't fail");
+    }
+
+
+    #[allow(dead_code)]
     #[inline]
     fn write_str(&mut self, s: &str) {
         // Future-proof: we may want to use VLQs later.

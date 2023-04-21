@@ -355,6 +355,7 @@ impl MaybeStaticString<'_> {
 }
 
 impl<'a> MaybeStaticString<'a> {
+    #[allow(dead_code)]
     #[inline]
     fn get(&self) -> &'a str {
         match *self {
@@ -364,10 +365,8 @@ impl<'a> MaybeStaticString<'a> {
     }
 }
 
-// Stores (unsafely) a pointer to the dynamic data of the StringMapper
-// or a static string reference.
-pub enum MaybeStaticStringPointer {
-    Dynamic(u64),
+pub enum MaybeStaticStringMapped {
+    Dynamic(std::ops::Range<usize>),
     Static(&'static str), 
 }
 
@@ -378,18 +377,31 @@ pub enum MaybeStaticStringPointer {
 pub struct StringMapper
 {
     dynamic_strings: String,
-    
-    id: Vec<MaybeStaticStringPointer>,
-    location: Vec<MaybeStaticStringPointer>,
-    data: Vec<MaybeStaticStringPointer>
+    strings: Vec<MaybeStaticStringMapped>,
 }
 
-impl<'a> StringMapper {
-    pub fn clear(&'a mut self) {
+impl StringMapper {
+    pub fn clear(&mut self) {
         self.dynamic_strings.clear();
-        self.id.clear();
-        self.location.clear();
-        self.data.clear();
+        self.strings.clear();
+    }
+
+    #[inline]
+    pub fn map_string(&mut self, string: MaybeStaticString<'_>) -> u32 {
+        let id = self.strings.len() as u32;
+        match string {
+            MaybeStaticString::Static(s) => {
+                self.strings.push(MaybeStaticStringMapped::Static(s));
+
+            }
+            MaybeStaticString::Dynamic(s) => {
+                let start = self.dynamic_strings.len();
+                self.dynamic_strings.push_str(s);
+                let end = self.dynamic_strings.len();
+                self.strings.push(MaybeStaticStringMapped::Dynamic(start..end));
+            }
+        }
+        id
     }
 }
 
