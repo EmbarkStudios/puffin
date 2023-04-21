@@ -343,28 +343,6 @@ pub fn global_reporter(info: ThreadInfo, stream_info: &StreamInfoRef<'_>) {
     GlobalProfiler::lock().report(info, stream_info);
 }
 
-/// Collects profiling data for one thread
-pub struct ThreadProfiler {
-    stream_info: StreamInfo,
-    /// Current depth.
-    depth: usize,
-    now_ns: NsSource,
-    reporter: ThreadReporter,
-    start_time_ns: Option<NanoSecond>,
-}
-
-impl Default for ThreadProfiler {
-    fn default() -> Self {
-        Self {
-            stream_info: Default::default(),
-            depth: 0,
-            now_ns: crate::now_ns,
-            reporter: global_reporter,
-            start_time_ns: None,
-        }
-    }
-}
-
 pub enum MaybeStaticString<'a> {
     Dynamic(&'a str),
     Static(&'static str),
@@ -382,6 +360,59 @@ impl<'a> MaybeStaticString<'a> {
         match *self {
             MaybeStaticString::Static(s) => s,
             MaybeStaticString::Dynamic(s) => s,
+        }
+    }
+}
+
+// Stores (unsafely) a pointer to the dynamic data of the StringMapper
+// or a static string reference.
+pub enum MaybeStaticStringPointer {
+    Dynamic(u64),
+    Static(&'static str), 
+}
+
+
+// Allows the code to serialize just pointers in the performance critical code
+// leaving the expensive string operations to after all scopes have been timed. 
+#[derive(Default)]
+pub struct StringMapper
+{
+    dynamic_strings: String,
+    
+    id: Vec<MaybeStaticStringPointer>,
+    location: Vec<MaybeStaticStringPointer>,
+    data: Vec<MaybeStaticStringPointer>
+}
+
+impl<'a> StringMapper {
+    pub fn clear(&'a mut self) {
+        self.dynamic_strings.clear();
+        self.id.clear();
+        self.location.clear();
+        self.data.clear();
+    }
+}
+
+/// Collects profiling data for one thread
+pub struct ThreadProfiler {
+    stream_info: StreamInfo,
+    /// Current depth.
+    depth: usize,
+    now_ns: NsSource,
+    reporter: ThreadReporter,
+    start_time_ns: Option<NanoSecond>,
+    string_mapper: StringMapper,
+}
+
+impl Default for ThreadProfiler {
+    fn default() -> Self {
+        Self {
+            stream_info: Default::default(),
+            depth: 0,
+            now_ns: crate::now_ns,
+            reporter: global_reporter,
+            start_time_ns: None,
+            string_mapper: Default::default()
         }
     }
 }
@@ -409,7 +440,7 @@ impl ThreadProfiler {
         let (offset, start_ns) =
             self.stream_info
                 .stream
-                .begin_scope(self.now_ns, id, location, data);
+                .begin_scope(self.now_ns, id, location, data, &mut self.string_mapper);
 
         self.stream_info.range_ns.0 = self.stream_info.range_ns.0.min(start_ns);
         self.start_time_ns = Some(self.start_time_ns.unwrap_or(start_ns));
@@ -440,6 +471,7 @@ impl ThreadProfiler {
             };
             (self.reporter)(info, &self.stream_info.as_stream_into_ref());
             self.stream_info.clear();
+            self.string_mapper.clear();
         }
     }
 

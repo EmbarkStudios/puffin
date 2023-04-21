@@ -189,19 +189,20 @@ fn test_merge() {
 
     let stream = {
         let mut stream = Stream::default();
+        let mut string_mapper = Default::default();
 
         for i in 0..2 {
             let ns = 1000 * i;
-            let (a, _) = stream.begin_scope(|| ns + 100, MaybeStaticString::Static("a"), MaybeStaticString::empty(), MaybeStaticString::empty());
+            let (a, _) = stream.begin_scope(|| ns + 100, MaybeStaticString::Static("a"), MaybeStaticString::empty(), MaybeStaticString::empty(), &mut string_mapper);
             stream.end_scope(a, ns + 200);
 
-            let (b, _) = stream.begin_scope(|| ns + 200, MaybeStaticString::Static("b"), MaybeStaticString::empty(), MaybeStaticString::empty());
+            let (b, _) = stream.begin_scope(|| ns + 200, MaybeStaticString::Static("b"), MaybeStaticString::empty(), MaybeStaticString::empty(), &mut string_mapper);
 
-            let (ba, _) = stream.begin_scope(|| ns + 400, MaybeStaticString::Static("ba"), MaybeStaticString::empty(), MaybeStaticString::empty());
+            let (ba, _) = stream.begin_scope(|| ns + 400, MaybeStaticString::Static("ba"), MaybeStaticString::empty(), MaybeStaticString::empty(), &mut string_mapper);
             stream.end_scope(ba, ns + 600);
 
-            let (bb, _) = stream.begin_scope(|| ns + 600, MaybeStaticString::Static("bb"), MaybeStaticString::empty(), MaybeStaticString::empty());
-            let (bba, _) = stream.begin_scope(|| ns + 600, MaybeStaticString::Static("bba"), MaybeStaticString::empty(), MaybeStaticString::empty());
+            let (bb, _) = stream.begin_scope(|| ns + 600, MaybeStaticString::Static("bb"), MaybeStaticString::empty(), MaybeStaticString::empty(), &mut string_mapper);
+            let (bba, _) = stream.begin_scope(|| ns + 600, MaybeStaticString::Static("bba"), MaybeStaticString::empty(), MaybeStaticString::empty(), &mut string_mapper);
             stream.end_scope(bba, ns + 700);
             stream.end_scope(bb, ns + 800);
             stream.end_scope(b, ns + 900);

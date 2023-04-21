@@ -62,6 +62,7 @@ impl Stream {
         id: MaybeStaticString<'_>,
         location: MaybeStaticString<'_>,
         data: MaybeStaticString<'_>,
+        string_mapper: &mut StringMapper,
     ) -> (usize, NanoSecond) {
         self.0.push(SCOPE_BEGIN);
 
@@ -300,19 +301,22 @@ impl<'s> Iterator for Reader<'s> {
 fn test_profile_data() {
     let stream = {
         let mut stream = Stream::default();
-        let (t0, _) = stream.begin_scope(|| 100, MaybeStaticString::Static("top"), MaybeStaticString::Static("top.rs"), MaybeStaticString::Static("data_top"));
+        let mut string_mapper = Default::default();
+        let (t0, _) = stream.begin_scope(|| 100, MaybeStaticString::Static("top"), MaybeStaticString::Static("top.rs"), MaybeStaticString::Static("data_top"), &mut string_mapper);
         let (m1, _) = stream.begin_scope(
             || 200,
             MaybeStaticString::Static("middle_0"),
             MaybeStaticString::Static("middle.rs"),
             MaybeStaticString::Static("data_middle_0"),
+             &mut string_mapper
         );
         stream.end_scope(m1, 300);
         let (m1, _) = stream.begin_scope(
             || 300,
             MaybeStaticString::Static("middle_1"),
             MaybeStaticString::Static("middle.rs:42"),
-            MaybeStaticString::Static("data_middle_1"),
+            MaybeStaticString::Static("data_middle_1")
+            , &mut string_mapper
         );
         stream.end_scope(m1, 400);
         stream.end_scope(t0, 400);
