@@ -71,10 +71,10 @@ impl Stream {
             .write_i64::<LE>(NanoSecond::default())
             .expect("can't fail");
 
-        // We serialize raw pointers as u64 into the stream,
-        // and collect and keep track of pointer to Dynamic strings separately.
-        // At the end of the frame we also make sure to gather all static strings
-        // and build a pointer -> String table.
+        // We serialize only ids to strings into the stream, but we keep track of
+        // the dynamic strings and references to static strings.
+        // At the end of the stream we serialize an id -> string table so that 
+        // we can restore strings when parsing.
         //
         // This should improve performance quite a lot if just using static strings.
         self.write_str_mapped(id, string_mapper);
