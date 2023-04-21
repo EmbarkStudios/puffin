@@ -59,9 +59,9 @@ impl Stream {
     pub fn begin_scope<F: Fn() -> NanoSecond>(
         &mut self,
         now_ns: F,
-        id: ScopeId<'_>,
-        location: &str,
-        data: &str,
+        id: MaybeStaticString<'_>,
+        location: MaybeStaticString<'_>,
+        data: MaybeStaticString<'_>,
     ) -> (usize, NanoSecond) {
         self.0.push(SCOPE_BEGIN);
 
@@ -75,13 +75,9 @@ impl Stream {
         // At the end of the frame we also make sure to gather all static strings.
         //
         // This should improve performance quite a lot if just using static strings.
-        self.write_str(match id {
-            ScopeId::Dynamic(s) | ScopeId::Static(s) => s,
-        });
-
-        // TODO: Should also probably do the same for these:
-        self.write_str(location);
-        self.write_str(data);
+        self.write_str(id.get());
+        self.write_str(location.get());
+        self.write_str(data.get());
 
         // Put place-holder value for total scope size.
         let offset = self.0.len();
@@ -304,19 +300,19 @@ impl<'s> Iterator for Reader<'s> {
 fn test_profile_data() {
     let stream = {
         let mut stream = Stream::default();
-        let (t0, _) = stream.begin_scope(|| 100, ScopeId::Static("top"), "top.rs", "data_top");
+        let (t0, _) = stream.begin_scope(|| 100, MaybeStaticString::Static("top"), MaybeStaticString::Static("top.rs"), MaybeStaticString::Static("data_top"));
         let (m1, _) = stream.begin_scope(
             || 200,
-            ScopeId::Static("middle_0"),
-            "middle.rs",
-            "data_middle_0",
+            MaybeStaticString::Static("middle_0"),
+            MaybeStaticString::Static("middle.rs"),
+            MaybeStaticString::Static("data_middle_0"),
         );
         stream.end_scope(m1, 300);
         let (m1, _) = stream.begin_scope(
             || 300,
-            ScopeId::Static("middle_1"),
-            "middle.rs:42",
-            "data_middle_1",
+            MaybeStaticString::Static("middle_1"),
+            MaybeStaticString::Static("middle.rs:42"),
+            MaybeStaticString::Static("data_middle_1"),
         );
         stream.end_scope(m1, 400);
         stream.end_scope(t0, 400);

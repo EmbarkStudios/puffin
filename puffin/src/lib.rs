@@ -365,9 +365,25 @@ impl Default for ThreadProfiler {
     }
 }
 
-pub enum ScopeId<'a> {
-    Static(&'static str),
+pub enum MaybeStaticString<'a> {
     Dynamic(&'a str),
+    Static(&'static str),
+}
+
+impl MaybeStaticString<'_> {
+    pub fn empty() -> Self {
+        Self::Static("")
+    }
+}
+
+impl<'a> MaybeStaticString<'a> {
+    #[inline]
+    fn get(&self) -> &'a str {
+        match *self {
+            MaybeStaticString::Static(s) => s,
+            MaybeStaticString::Dynamic(s) => s,
+        }
+    }
 }
 
 impl ThreadProfiler {
@@ -387,7 +403,7 @@ impl ThreadProfiler {
 
     /// Returns position where to write scope size once the scope is closed.
     #[must_use]
-    pub fn begin_scope(&mut self, id: ScopeId<'_>, location: &str, data: &str) -> usize {
+    pub fn begin_scope(&mut self, id: MaybeStaticString<'_>, location: MaybeStaticString<'_>, data: MaybeStaticString<'_>) -> usize {
         self.depth += 1;
 
         let (offset, start_ns) =
@@ -594,10 +610,10 @@ impl ProfilerScope {
     /// and this is a good way to enforce it.
     /// `data` can be changing, i.e. a name of a mesh or a texture.
     #[inline]
-    pub fn new(id: &'static str, location: &str, data: impl AsRef<str>) -> Self {
+    pub fn new(id: &'static str, location: &'static str, data: impl AsRef<str>) -> Self {
         Self {
             start_stream_offset: ThreadProfiler::call(|tp| {
-                tp.begin_scope(ScopeId::Static(id), location, data.as_ref())
+                tp.begin_scope(MaybeStaticString::Static(id), MaybeStaticString::Static(location), MaybeStaticString::Dynamic(data.as_ref()))
             }),
             _dont_send_me: Default::default(),
         }
