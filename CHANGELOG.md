@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased] - ReleaseDate
 ## [0.15.0] - 2023-04-24
 
-- [PR#118](https://github.com/EmbarkStudios/puffin/pull/118) Updated `zstd` `0.12.3`
+- [PR#132](https://github.com/EmbarkStudios/puffin/pull/132) Updated `zstd` `0.12.3`
 
 ## [0.14.3] - 2023-02-09
 - [PR#117](https://github.com/EmbarkStudios/puffin/pull/117) Add function `latest_frames` to retrieve latest _n_ captured frames.
