@@ -1993,7 +1993,7 @@ dependencies = [
 
 [[package]]
 name = "puffin"
-version = "0.14.3"
+version = "0.15.0"
 dependencies = [
  "anyhow",
  "bincode",
@@ -2010,7 +2010,7 @@ dependencies = [
 
 [[package]]
 name = "puffin-imgui"
-version = "0.20.1"
+version = "0.21.0"
 dependencies = [
  "glium",
  "imgui",
@@ -2024,7 +2024,7 @@ dependencies = [
 
 [[package]]
 name = "puffin_egui"
-version = "0.20.0"
+version = "0.21.0"
 dependencies = [
  "eframe",
  "egui",
@@ -2040,7 +2040,7 @@ dependencies = [
 
 [[package]]
 name = "puffin_http"
-version = "0.11.1"
+version = "0.12.0"
 dependencies = [
  "anyhow",
  "crossbeam-channel",
@@ -2051,7 +2051,7 @@ dependencies = [
 
 [[package]]
 name = "puffin_viewer"
-version = "0.14.0"
+version = "0.15.0"
 dependencies = [
  "argh",
  "eframe",
