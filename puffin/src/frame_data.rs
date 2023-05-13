@@ -16,10 +16,13 @@ pub type ThreadStreams = BTreeMap<ThreadInfo, Arc<StreamInfo>>;
 pub struct FrameMeta {
     /// What frame this is (counting from 0 at application startup).
     pub frame_index: FrameIndex,
+
     /// The span we cover.
     pub range_ns: (NanoSecond, NanoSecond),
+
     /// The unpacked size of all streams.
     pub num_bytes: usize,
+
     /// Total number of scopes.
     pub num_scopes: usize,
 }
@@ -146,6 +149,123 @@ compile_error!(
 
 // ----------------------------------------------------------------------------
 
+/// See <https://github.com/EmbarkStudios/puffin/pull/130> for pros-and-cons of different compression algorithms.
+#[repr(u8)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum CompressionKind {
+    Uncompressed = 0,
+
+    /// Very fast, and lightweight dependency
+    Lz4 = 1,
+
+    /// Big dependency, slow compression, but compresses better than lz4
+    Zstd = 2,
+}
+
+impl CompressionKind {
+    fn from_u8(value: u8) -> anyhow::Result<Self> {
+        match value {
+            0 => Ok(Self::Uncompressed),
+            1 => Ok(Self::Lz4),
+            2 => Ok(Self::Zstd),
+            _ => Err(anyhow::anyhow!("Unknown compression kind: {value}")),
+        }
+    }
+}
+
+/// Packed with bincode and compressed.
+#[cfg(feature = "packing")]
+struct PackedStreams {
+    compression_kind: CompressionKind,
+    bytes: Vec<u8>,
+}
+
+#[cfg(feature = "packing")]
+impl PackedStreams {
+    pub fn new(compression_kind: CompressionKind, bytes: Vec<u8>) -> Self {
+        Self {
+            compression_kind,
+            bytes,
+        }
+    }
+
+    pub fn pack(streams: &ThreadStreams) -> Self {
+        use bincode::Options as _;
+
+        let serialized = bincode::options()
+            .serialize(streams)
+            .expect("bincode failed to encode");
+
+        cfg_if::cfg_if! {
+            if #[cfg(feature = "lz4")] {
+                Self {
+                    compression_kind: CompressionKind::Lz4,
+                    bytes: lz4_flex::compress_prepend_size(&serialized),
+                }
+            } else if #[cfg(feature = "zstd")] {
+                let level = 3;
+                let bytes = zstd::encode_all(std::io::Cursor::new(&serialized), level)
+                    .expect("zstd failed to compress");
+                Self {
+                    compression_kind: CompressionKind::Zstd,
+                    bytes,
+                }
+            } else {
+                Self {
+                    compression_kind: CompressionKind::Uncompressed,
+                    bytes: serialized,
+                }
+            }
+        }
+    }
+
+    pub fn num_bytes(&self) -> usize {
+        self.bytes.len()
+    }
+
+    pub fn unpack(&self) -> anyhow::Result<ThreadStreams> {
+        crate::profile_function!();
+
+        use anyhow::Context as _;
+        use bincode::Options as _;
+
+        fn deserialize(bytes: &[u8]) -> anyhow::Result<ThreadStreams> {
+            crate::profile_scope!("bincode deserialize");
+            bincode::options()
+                .deserialize(bytes)
+                .context("bincode deserialize")
+        }
+
+        match self.compression_kind {
+            CompressionKind::Uncompressed => deserialize(&self.bytes),
+
+            CompressionKind::Lz4 => {
+                cfg_if::cfg_if! {
+                    if #[cfg(feature = "lz4")] {
+                        let compressed = lz4_flex::decompress_size_prepended(&self.bytes)
+                            .map_err(|err| anyhow::anyhow!("lz4: {err}"))?;
+                        deserialize(&compressed)
+                    } else {
+                        anyhow::bail!("Data compressed with lz4, but the lz4 feature is not enabled")
+                    }
+                }
+            }
+
+            CompressionKind::Zstd => {
+                cfg_if::cfg_if! {
+                    if #[cfg(feature = "zstd")] {
+                        deserialize(&decode_zstd(&self.bytes)?)
+                    } else {
+                        anyhow::bail!("Data compressed with zstd, but the zstd feature is not enabled")
+                    }
+                }
+            }
+        }
+    }
+}
+
+// ----------------------------------------------------------------------------
+
 /// One frame worth of profile data, collected from many sources.
 ///
 /// If you turn on the "packing" feature, then [`FrameData`] has interior mutability with double storage:
@@ -162,9 +282,10 @@ pub struct FrameData {
     /// * `Some(Err(…))` if there was a problem during unpacking.
     /// * `Some(Ok(…))` if unpacked.
     unpacked_frame: RwLock<Option<anyhow::Result<Arc<UnpackedFrameData>>>>,
-    /// [`UnpackedFrameData::thread_streams`], compressed with zstd.
+
+    /// [`UnpackedFrameData::thread_streams`], compressed.
     /// [`None`] if not yet compressed.
-    packed_zstd_streams: RwLock<Option<Vec<u8>>>,
+    packed_streams: RwLock<Option<PackedStreams>>,
 }
 
 #[cfg(feature = "packing")]
@@ -183,7 +304,7 @@ impl FrameData {
         Self {
             meta: unpacked_frame.meta.clone(),
             unpacked_frame: RwLock::new(Some(Ok(unpacked_frame))),
-            packed_zstd_streams: RwLock::new(None),
+            packed_streams: RwLock::new(None),
         }
     }
 
@@ -194,7 +315,7 @@ impl FrameData {
 
     /// Number of bytes used by the packed data, if packed.
     pub fn packed_size(&self) -> Option<usize> {
-        self.packed_zstd_streams.read().as_ref().map(|c| c.len())
+        self.packed_streams.read().as_ref().map(|c| c.num_bytes())
     }
 
     /// Number of bytes used when unpacked, if known.
@@ -213,7 +334,7 @@ impl FrameData {
 
     /// Do we have a packed version stored internally?
     pub fn has_packed(&self) -> bool {
-        self.packed_zstd_streams.read().is_some()
+        self.packed_streams.read().is_some()
     }
 
     /// Do we have a unpacked version stored internally?
@@ -229,27 +350,18 @@ impl FrameData {
     pub fn unpacked(&self) -> anyhow::Result<Arc<UnpackedFrameData>> {
         fn unpack_frame_data(
             meta: FrameMeta,
-            compressed: &[u8],
+            packed: &PackedStreams,
         ) -> anyhow::Result<UnpackedFrameData> {
-            use anyhow::Context as _;
-            use bincode::Options as _;
-
-            let streams_serialized = decode_zstd(compressed)?;
-
-            let thread_streams: ThreadStreams = bincode::options()
-                .deserialize(&streams_serialized)
-                .context("bincode deserialize")?;
-
             Ok(UnpackedFrameData {
                 meta,
-                thread_streams,
+                thread_streams: packed.unpack()?,
             })
         }
 
         let has_unpacked = self.unpacked_frame.read().is_some();
         if !has_unpacked {
             crate::profile_scope!("unpack_puffin_frame");
-            let packed_lock = self.packed_zstd_streams.read();
+            let packed_lock = self.packed_streams.read();
             let packed = packed_lock
                 .as_ref()
                 .expect("FrameData is neither packed or unpacked");
@@ -267,23 +379,14 @@ impl FrameData {
 
     /// Make the [`FrameData`] use up less memory.
     /// Idempotent.
-    #[cfg(not(target_arch = "wasm32"))] // compression not supported on wasm
     pub fn pack(&self) {
         self.create_packed();
         *self.unpacked_frame.write() = None;
     }
 
-    #[cfg(target_arch = "wasm32")]
-    #[allow(clippy::unused_self)]
-    pub fn pack(&self) {
-        // compression not supported on wasm, so this is a no-op
-    }
-
     /// Create a packed storage without freeing the unpacked storage.
-    #[cfg(not(target_arch = "wasm32"))] // compression not supported on wasm
     fn create_packed(&self) {
-        use bincode::Options as _;
-        let has_packed = self.packed_zstd_streams.read().is_some();
+        let has_packed = self.packed_streams.read().is_some();
         if !has_packed {
             // crate::profile_scope!("pack_puffin_frame"); // we get called from `GlobalProfiler::new_frame`, so avoid recursiveness!
             let unpacked_frame = self
@@ -295,17 +398,9 @@ impl FrameData {
                 .expect("The unpacked frame should be error free, since it doesn't come from packed source")
                 .clone();
 
-            let streams_serialized = bincode::options()
-                .serialize(&unpacked_frame.thread_streams)
-                .expect("bincode failed to encode");
+            let packed = PackedStreams::pack(&unpacked_frame.thread_streams);
 
-            // zstd cuts sizes in half compared to lz4_flex
-            let level = 3;
-            let streams_compressed =
-                zstd::encode_all(std::io::Cursor::new(&streams_serialized), level)
-                    .expect("zstd failed to compress");
-
-            *self.packed_zstd_streams.write() = Some(streams_compressed);
+            *self.packed_streams.write() = Some(packed);
         }
     }
 
@@ -314,18 +409,20 @@ impl FrameData {
     #[cfg(feature = "serialization")]
     pub fn write_into(&self, write: &mut impl std::io::Write) -> anyhow::Result<()> {
         use bincode::Options as _;
+        use byteorder::WriteBytesExt as _;
         let meta_serialized = bincode::options().serialize(&self.meta)?;
 
-        write.write_all(b"PFD2")?;
+        write.write_all(b"PFD3")?;
         write.write_all(&(meta_serialized.len() as u32).to_le_bytes())?;
         write.write_all(&meta_serialized)?;
 
         self.create_packed();
-        let zstd_streams_lock = self.packed_zstd_streams.read();
-        let zstd_streams = zstd_streams_lock.as_ref().unwrap();
+        let packed_streams_lock = self.packed_streams.read();
+        let packed_streams = packed_streams_lock.as_ref().unwrap(); // We just called create_packed
 
-        write.write_all(&(zstd_streams.len() as u32).to_le_bytes())?;
-        write.write_all(zstd_streams)?;
+        write.write_all(&(packed_streams.num_bytes() as u32).to_le_bytes())?;
+        write.write_u8(packed_streams.compression_kind as u8)?;
+        write.write_all(&packed_streams.bytes)?;
 
         Ok(())
     }
@@ -338,6 +435,7 @@ impl FrameData {
     pub fn read_next(read: &mut impl std::io::Read) -> anyhow::Result<Option<Self>> {
         use anyhow::Context as _;
         use bincode::Options as _;
+        use byteorder::ReadBytesExt;
 
         let mut header = [0_u8; 4];
         if let Err(err) = read.read_exact(&mut header) {
@@ -390,19 +488,26 @@ impl FrameData {
                 // We stopped supporting this in 2021-11-16 in order to remove `lz4_flex` dependency.
                 anyhow::bail!("Found legacy puffin data, which we can no longer decode")
             } else if &header == b"PFD1" {
-                // Added 2021-09
-                let mut compressed_length = [0_u8; 4];
-                read.read_exact(&mut compressed_length)?;
-                let compressed_length = u32::from_le_bytes(compressed_length) as usize;
-                let mut compressed = vec![0_u8; compressed_length];
-                read.read_exact(&mut compressed)?;
+                #[cfg(feature = "zstd")]
+                {
+                    // Added 2021-09
+                    let mut compressed_length = [0_u8; 4];
+                    read.read_exact(&mut compressed_length)?;
+                    let compressed_length = u32::from_le_bytes(compressed_length) as usize;
+                    let mut compressed = vec![0_u8; compressed_length];
+                    read.read_exact(&mut compressed)?;
 
-                let serialized = decode_zstd(&compressed[..])?;
+                    let serialized = decode_zstd(&compressed[..])?;
 
-                let legacy: LegacyFrameData = bincode::options()
-                    .deserialize(&serialized)
-                    .context("bincode deserialize")?;
-                Ok(Some(legacy.into_frame_data()))
+                    let legacy: LegacyFrameData = bincode::options()
+                        .deserialize(&serialized)
+                        .context("bincode deserialize")?;
+                    Ok(Some(legacy.into_frame_data()))
+                }
+                #[cfg(not(feature = "zstd"))]
+                {
+                    anyhow::bail!("Cannot decode old puffin data without the `zstd` feature")
+                }
             } else if &header == b"PFD2" {
                 // Added 2021-11-15
                 let mut meta_length = [0_u8; 4];
@@ -419,15 +524,48 @@ impl FrameData {
                 read.read_exact(&mut streams_compressed_length)?;
                 let streams_compressed_length =
                     u32::from_le_bytes(streams_compressed_length) as usize;
+                let compression_kind = CompressionKind::Zstd;
                 let mut streams_compressed = vec![0_u8; streams_compressed_length];
                 read.read_exact(&mut streams_compressed)?;
+
+                let packed_streams = PackedStreams::new(compression_kind, streams_compressed);
 
                 // Don't unpack now - do it if/when needed!
 
                 Ok(Some(Self {
                     meta,
                     unpacked_frame: RwLock::new(None),
-                    packed_zstd_streams: RwLock::new(Some(streams_compressed)),
+                    packed_streams: RwLock::new(Some(packed_streams)),
+                }))
+            } else if &header == b"PFD3" {
+                // Added 2023-05-13: CompressionKind field
+                let mut meta_length = [0_u8; 4];
+                read.read_exact(&mut meta_length)?;
+                let meta_length = u32::from_le_bytes(meta_length) as usize;
+                let mut meta = vec![0_u8; meta_length];
+                read.read_exact(&mut meta)?;
+
+                let meta: FrameMeta = bincode::options()
+                    .deserialize(&meta)
+                    .context("bincode deserialize")?;
+
+                let mut streams_compressed_length = [0_u8; 4];
+                read.read_exact(&mut streams_compressed_length)?;
+                let streams_compressed_length =
+                    u32::from_le_bytes(streams_compressed_length) as usize;
+                let compression_kind = read.read_u8()?;
+                let compression_kind = CompressionKind::from_u8(compression_kind)?;
+                let mut streams_compressed = vec![0_u8; streams_compressed_length];
+                read.read_exact(&mut streams_compressed)?;
+
+                let packed_streams = PackedStreams::new(compression_kind, streams_compressed);
+
+                // Don't unpack now - do it if/when needed!
+
+                Ok(Some(Self {
+                    meta,
+                    unpacked_frame: RwLock::new(None),
+                    packed_streams: RwLock::new(Some(packed_streams)),
                 }))
             } else {
                 anyhow::bail!("Failed to decode: this data is newer than this reader. Please update your puffin version!");
@@ -470,12 +608,12 @@ impl FrameData {
 #[cfg(feature = "zstd")]
 fn decode_zstd(bytes: &[u8]) -> anyhow::Result<Vec<u8>> {
     use anyhow::Context as _;
-    zstd::decode_all(bytes).context("zstd decompress")
+    zstd::decode_all(bytes).context("zstd decompress failed")
 }
 
 #[cfg(feature = "packing")]
 #[cfg(target_arch = "wasm32")]
-#[cfg(feature = "ruzstd")]
+#[cfg(feature = "zstd")]
 fn decode_zstd(mut bytes: &[u8]) -> anyhow::Result<Vec<u8>> {
     use anyhow::Context as _;
     use std::io::Read as _;
@@ -487,7 +625,3 @@ fn decode_zstd(mut bytes: &[u8]) -> anyhow::Result<Vec<u8>> {
         .context("zstd decompress")?;
     Ok(decoded)
 }
-
-#[cfg(feature = "packing")]
-#[cfg(all(not(feature = "zstd"), not(feature = "ruzstd")))]
-compile_error!("Either feature zstd or ruzstd must be enabled");
