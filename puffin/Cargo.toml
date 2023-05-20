@@ -18,7 +18,14 @@ all-features = true
 
 [features]
 default = []
-packing = ["anyhow", "bincode", "parking_lot", "serde", "zstd", "ruzstd"]
+packing = ["dep:anyhow", "dep:bincode", "dep:parking_lot", "lz4", "serde"]
+
+# Support lz4 compression. Fast, and lightweight dependency.
+# If both `lz4` and `zstd` are enabled, lz4 will be used for compression.
+lz4 = ["dep:lz4_flex"]
+
+# Support zstd compression. Slow and big dependency, but very good compression ratio.
+zstd = ["dep:zstd", "dep:ruzstd"]
 
 # Feature for enabling loading/saving data to a binary stream and/or file.
 serialization = ["packing"]
@@ -29,12 +36,14 @@ web = ["instant/wasm-bindgen", "dep:js-sys"]
 
 [dependencies]
 byteorder = { version = "1.0" }
+cfg-if = "1.0"
 instant = { version = "0.1" }
 once_cell = "1.0"
 
 # Optional:
 anyhow = { version = "1.0", optional = true }
 bincode = { version = "1.3", optional = true }
+lz4_flex = { version = "0.10", optional = true, default-features = false }
 parking_lot = { version = "0.12", optional = true }
 serde = { version = "1.0", features = ["derive", "rc"], optional = true }
 
