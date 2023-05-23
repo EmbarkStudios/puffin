@@ -10,3 +10,5 @@ Use [`puffin_http`](https://github.com/EmbarkStudios/puffin/tree/main/puffin_htt
 cargo install puffin_viewer
 puffin_viewer --url 127.0.0.1:8585
 ```
+
+The puffin icon is based on [a photo by Richard Bartz](https://en.wikipedia.org/wiki/File:Papageitaucher_Fratercula_arctica.jpg).

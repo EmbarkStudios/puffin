@@ -47,6 +47,10 @@ fn main() {
     };
 
     let native_options = eframe::NativeOptions {
+        app_id: Some("puffin_viewer".to_owned()),
+        icon_data: Some(
+            eframe::IconData::try_from_png_bytes(include_bytes!("../icon.png")).unwrap(),
+        ),
         drag_and_drop_support: true,
         ..Default::default()
     };
