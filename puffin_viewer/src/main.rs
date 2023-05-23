@@ -5,6 +5,8 @@ static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
 #[cfg(not(target_arch = "wasm32"))]
 fn main() {
+    env_logger::init(); // Log to stderr (if you run with `RUST_LOG=debug`).
+
     /// puffin profile viewer.
     ///
     /// Can either connect remotely to a puffin server
@@ -28,12 +30,6 @@ fn main() {
     use puffin_viewer::{PuffinViewer, Source};
 
     let opt: Arguments = argh::from_env();
-
-    simple_logger::SimpleLogger::new()
-        .with_level(log::LevelFilter::Info)
-        .without_timestamps()
-        .init()
-        .ok();
 
     puffin::set_scopes_on(true); // so we can profile ourselves
 
