@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <!-- next-header -->
 ## [Unreleased] - ReleaseDate
+
+- [PR#136](https://github.com/EmbarkStudios/puffin/pull/136) Upgrade `ruzstd` to 0.4
+- [PR#135](https://github.com/EmbarkStudios/puffin/pull/135) Allow picking `lz4_flex` and `zstd` compression by feature flag.
+
 ## [0.15.0] - 2023-04-24
 
 - [PR#118](https://github.com/EmbarkStudios/puffin/pull/118) Updated `zstd` `0.12.3`

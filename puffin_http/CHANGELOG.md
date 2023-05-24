@@ -6,6 +6,8 @@ All notable changes to `puffin_http` will be documented in this file.
 
 <!-- next-header -->
 ## [Unreleased] - ReleaseDate
+- Upgrade to `puffin` 0.16
+
 ## [0.12.0] - 2023-04-24
 ## [0.11.1] - 2023-01-30
 - Upgrade to `puffin` 0.14.2
