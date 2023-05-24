@@ -10,7 +10,7 @@ repository = "https://github.com/EmbarkStudios/puffin"
 readme = "README.md"
 categories = ["development-tools::profiling", "gui"]
 keywords = ["profiler", "instrumentation", "gamedev"]
-include = ["**/*.rs", "Cargo.toml", "README.md"]
+include = ["**/*.rs", "Cargo.toml", "README.md", "icon.png"]
 
 [lib]
 crate-type = ["cdylib", "rlib"]
@@ -26,14 +26,14 @@ puffin = { version = "0.15.0", path = "../puffin", features = [
 puffin_http = { version = "0.12.0", path = "../puffin_http" }
 
 argh = "0.1"
-eframe = { version = "0.21.0", default-features = false, features = [
-    "persistence",
-    "glow",
+eframe = { version = "0.22.0", default-features = false, features = [
     "default_fonts",
+    "glow",
+    "persistence",
 ] }
 log = "0.4"
 rfd = "0.10.0"
-simple_logger = "2.1"
+env_logger = "0.10"
 
 # native:
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]

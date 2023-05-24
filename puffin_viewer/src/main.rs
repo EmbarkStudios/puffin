@@ -5,6 +5,8 @@ static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
 #[cfg(not(target_arch = "wasm32"))]
 fn main() {
+    env_logger::init(); // Log to stderr (if you run with `RUST_LOG=debug`).
+
     /// puffin profile viewer.
     ///
     /// Can either connect remotely to a puffin server
@@ -29,12 +31,6 @@ fn main() {
 
     let opt: Arguments = argh::from_env();
 
-    simple_logger::SimpleLogger::new()
-        .with_level(log::LevelFilter::Info)
-        .without_timestamps()
-        .init()
-        .ok();
-
     puffin::set_scopes_on(true); // so we can profile ourselves
 
     let source = if let Some(file) = opt.file {
@@ -51,6 +47,10 @@ fn main() {
     };
 
     let native_options = eframe::NativeOptions {
+        app_id: Some("puffin_viewer".to_owned()),
+        icon_data: Some(
+            eframe::IconData::try_from_png_bytes(include_bytes!("../icon.png")).unwrap(),
+        ),
         drag_and_drop_support: true,
         ..Default::default()
     };

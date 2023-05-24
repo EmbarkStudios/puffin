@@ -1,14 +1,14 @@
 use eframe::egui;
 
-fn main() {
+fn main() -> eframe::Result<()> {
     puffin::set_scopes_on(true); // Remember to call this, or puffin will be disabled!
 
     let native_options = Default::default();
-    let _ = eframe::run_native(
+    eframe::run_native(
         "puffin egui eframe",
         native_options,
         Box::new(|_cc| Box::<ExampleApp>::default()),
-    );
+    )
 }
 
 #[derive(Default)]
@@ -17,9 +17,15 @@ pub struct ExampleApp {
 }
 
 impl eframe::App for ExampleApp {
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+    fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
         puffin::profile_function!();
         puffin::GlobalProfiler::lock().new_frame(); // call once per frame!
+
+        egui::CentralPanel::default().show(ctx, |ui| {
+            if ui.button("Quit").clicked() {
+                frame.close()
+            }
+        });
 
         puffin_egui::profiler_window(ctx);
 

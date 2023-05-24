@@ -21,19 +21,28 @@ include = [
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-egui = { version = "0.21.0", default-features = false, features = ["default_fonts"] }
+egui = { version = "0.22.0", default-features = false, features = [
+  "default_fonts",
+] }
 indexmap = { version = "1.9.1", features = ["serde"] }
 instant = "0.1"
 natord = "1.0.9"
 once_cell = "1.7"
 puffin = { version = "0.15.0", path = "../puffin", features = ["packing"] }
 serde = { version = "1.0", features = ["derive"], optional = true }
-time = { version = "0.3.17", default-features = false, features = [ "formatting", "macros" ] }
+time = { version = "0.3.17", default-features = false, features = [
+  "formatting",
+  "macros",
+] }
 vec1 = "1.8"
 
 [dev-dependencies]
-eframe = { version = "0.21.0", default-features = false, features = ["persistence", "glow", "default_fonts"] }
+eframe = { version = "0.22.0", default-features = false, features = [
+  "default_fonts",
+  "glow",
+  "persistence",
+] }
 
-# Enable example when this dependency updated to egui 0.20
+# Enable example when this dependency is updated to egui 0.22
 # egui-macroquad = "0.12.0"
 # macroquad = "0.3"
