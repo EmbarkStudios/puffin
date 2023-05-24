@@ -2157,7 +2157,7 @@ dependencies = [
 
 [[package]]
 name = "puffin-imgui"
-version = "0.21.0"
+version = "0.22.0"
 dependencies = [
  "glium",
  "imgui",
@@ -2171,7 +2171,7 @@ dependencies = [
 
 [[package]]
 name = "puffin_egui"
-version = "0.21.0"
+version = "0.22.0"
 dependencies = [
  "eframe",
  "egui",
@@ -2187,7 +2187,7 @@ dependencies = [
 
 [[package]]
 name = "puffin_http"
-version = "0.12.0"
+version = "0.13.0"
 dependencies = [
  "anyhow",
  "crossbeam-channel",
@@ -2198,7 +2198,7 @@ dependencies = [
 
 [[package]]
 name = "puffin_viewer"
-version = "0.15.0"
+version = "0.16.0"
 dependencies = [
  "argh",
  "eframe",
