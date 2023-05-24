@@ -32,7 +32,7 @@ eframe = { version = "0.22.0", default-features = false, features = [
     "persistence",
 ] }
 log = "0.4"
-rfd = "0.11.0"
+rfd = "0.10.0"
 env_logger = "0.10"
 
 # native:
