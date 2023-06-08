@@ -146,10 +146,6 @@ criteria = "safe-to-deploy"
 version = "1.4.0"
 criteria = "safe-to-deploy"
 
-[[exemptions.bytes]]
-version = "1.1.0"
-criteria = "safe-to-deploy"
-
 [[exemptions.cairo-sys-rs]]
 version = "0.15.1"
 criteria = "safe-to-deploy"
@@ -442,10 +438,6 @@ criteria = "safe-to-deploy"
 version = "0.1.25"
 criteria = "safe-to-deploy"
 
-[[exemptions.lock_api]]
-version = "0.4.7"
-criteria = "safe-to-deploy"
-
 [[exemptions.lz4_flex]]
 version = "0.10.0"
 criteria = "safe-to-deploy"
@@ -558,14 +550,6 @@ criteria = "safe-to-deploy"
 version = "0.15.10"
 criteria = "safe-to-deploy"
 
-[[exemptions.parking_lot]]
-version = "0.12.0"
-criteria = "safe-to-deploy"
-
-[[exemptions.parking_lot_core]]
-version = "0.9.3"
-criteria = "safe-to-deploy"
-
 [[exemptions.percent-encoding]]
 version = "2.1.0"
 criteria = "safe-to-deploy"
@@ -636,10 +620,6 @@ criteria = "safe-to-run"
 
 [[exemptions.slotmap]]
 version = "1.0.6"
-criteria = "safe-to-deploy"
-
-[[exemptions.smallvec]]
-version = "1.8.0"
 criteria = "safe-to-deploy"
 
 [[exemptions.smithay-client-toolkit]]
@@ -736,14 +716,6 @@ criteria = "safe-to-deploy"
 
 [[exemptions.version-compare]]
 version = "0.1.0"
-criteria = "safe-to-deploy"
-
-[[exemptions.wasm-bindgen-backend]]
-version = "0.2.86"
-criteria = "safe-to-deploy"
-
-[[exemptions.wasm-bindgen-shared]]
-version = "0.2.86"
 criteria = "safe-to-deploy"
 
 [[exemptions.wayland-client]]

@@ -8,6 +8,13 @@ user-id = 189
 user-login = "BurntSushi"
 user-name = "Andrew Gallant"
 
+[[publisher.bytes]]
+version = "1.1.0"
+when = "2021-08-25"
+user-id = 6741
+user-login = "Darksonn"
+user-name = "Alice Ryhl"
+
 [[publisher.cfg-expr]]
 version = "0.10.2"
 when = "2022-02-25"
@@ -154,6 +161,13 @@ user-id = 6825
 user-login = "sunfishcode"
 user-name = "Dan Gohman"
 
+[[publisher.lock_api]]
+version = "0.4.7"
+when = "2022-03-30"
+user-id = 2915
+user-login = "Amanieu"
+user-name = "Amanieu d'Antras"
+
 [[publisher.memchr]]
 version = "2.5.0"
 when = "2022-04-30"
@@ -167,6 +181,20 @@ when = "2021-12-20"
 user-id = 359
 user-login = "seanmonstar"
 user-name = "Sean McArthur"
+
+[[publisher.parking_lot]]
+version = "0.12.0"
+when = "2022-01-28"
+user-id = 2915
+user-login = "Amanieu"
+user-name = "Amanieu d'Antras"
+
+[[publisher.parking_lot_core]]
+version = "0.9.3"
+when = "2022-04-30"
+user-id = 2915
+user-login = "Amanieu"
+user-name = "Amanieu d'Antras"
 
 [[publisher.proc-macro2]]
 version = "1.0.58"
@@ -231,6 +259,13 @@ user-id = 3618
 user-login = "dtolnay"
 user-name = "David Tolnay"
 
+[[publisher.smallvec]]
+version = "1.8.0"
+when = "2022-01-14"
+user-id = 2017
+user-login = "mbrubeck"
+user-name = "Matt Brubeck"
+
 [[publisher.syn]]
 version = "2.0.16"
 when = "2023-05-14"
@@ -266,6 +301,13 @@ user-id = 1
 user-login = "alexcrichton"
 user-name = "Alex Crichton"
 
+[[publisher.wasm-bindgen-backend]]
+version = "0.2.86"
+when = "2023-05-15"
+user-id = 1
+user-login = "alexcrichton"
+user-name = "Alex Crichton"
+
 [[publisher.wasm-bindgen-futures]]
 version = "0.4.33"
 when = "2022-09-12"
@@ -281,6 +323,13 @@ user-login = "alexcrichton"
 user-name = "Alex Crichton"
 
 [[publisher.wasm-bindgen-macro-support]]
+version = "0.2.86"
+when = "2023-05-15"
+user-id = 1
+user-login = "alexcrichton"
+user-name = "Alex Crichton"
+
+[[publisher.wasm-bindgen-shared]]
 version = "0.2.86"
 when = "2023-05-15"
 user-id = 1
