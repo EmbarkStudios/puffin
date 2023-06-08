@@ -70,7 +70,7 @@ jobs:
 
   cargo-vet:
     name: Vet Dependencies
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04-16core
     env:
       # there is no published release for v0.7 yet, build from git revision
       CARGO_VET_REVISION: 088586c
