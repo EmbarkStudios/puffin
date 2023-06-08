@@ -17,11 +17,11 @@ jobs:
     name: Lint
     runs-on: ubuntu-20.04-16core
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
+      - uses: actions/checkout@v3
+      - uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: stable
-          override: true
+          components: clippy, rustfmt
+          targets: wasm32-unknown-unknown
 
       - name: Install packages (Linux)
         if: runner.os == 'Linux'
@@ -31,12 +31,9 @@ jobs:
           sudo apt-get install libgtk-3-dev # rfd dependencies
 
       # make sure all code has been formatted with rustfmt
-      - run: rustup component add rustfmt
       - name: rustfmt
         run: cargo fmt -- --check --color always
 
-      - run: rustup component add clippy
-      - run: rustup target add wasm32-unknown-unknown
       - run: cargo fetch
       - name: cargo clippy
         run: cargo clippy --all-targets -- -D warnings
@@ -50,11 +47,9 @@ jobs:
         os: [ubuntu-20.04-16core, windows-2022-16core, macOS-latest-xl]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          override: true
+      - uses: actions/checkout@v3
+      - uses: dtolnay/rust-toolchain@stable
+
       - run: cargo fetch
       - name: Install packages (Linux)
         if: runner.os == 'Linux'
