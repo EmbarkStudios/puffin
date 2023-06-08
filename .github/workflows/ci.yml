@@ -18,7 +18,11 @@ jobs:
     runs-on: ubuntu-20.04-16core
     steps:
       - uses: actions/checkout@v3
+<<<<<<< HEAD
       - uses: dtolnay/rust-toolchain@stable
+=======
+      - uses: actions-rs/toolchain@v1
+>>>>>>> a5e44cd (Fix checkout action version)
         with:
           components: clippy, rustfmt
           targets: wasm32-unknown-unknown
@@ -75,9 +79,8 @@ jobs:
       # there is no published release for v0.7 yet, build from git revision
       CARGO_VET_REVISION: 088586c
     steps:
-      - uses: actions/checkout@master
-      - name: Install Rust
-        run: rustup update stable && rustup default stable
+      - uses: actions/checkout@v3
+      - uses: dtolnay/rust-toolchain@stable
       - uses: actions/cache@v3
         with:
           path: ${{ runner.tool_cache }}/cargo-vet
