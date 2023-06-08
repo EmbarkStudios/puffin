@@ -35,6 +35,10 @@ url = "https://raw.githubusercontent.com/zcash/rust-ecosystem/main/supply-chain/
 criteria = []
 notes = "Not used, unsupported target"
 
+[policy.orbclient]
+criteria = []
+notes = "Not used, Redox OS-only"
+
 [policy.puffin]
 audit-as-crates-io = false
 
@@ -540,10 +544,6 @@ criteria = "safe-to-run"
 
 [[exemptions.once_cell]]
 version = "1.13.1"
-criteria = "safe-to-deploy"
-
-[[exemptions.orbclient]]
-version = "0.3.42"
 criteria = "safe-to-deploy"
 
 [[exemptions.osmesa-sys]]
