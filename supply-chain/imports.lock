@@ -175,30 +175,6 @@ user-id = 3618
 user-login = "dtolnay"
 user-name = "David Tolnay"
 
-[[publisher.puffin]]
-version = "0.16.0"
-when = "2023-05-24"
-user-id = 52553
-user-login = "embark-studios"
-
-[[publisher.puffin-imgui]]
-version = "0.22.0"
-when = "2023-05-24"
-user-id = 52553
-user-login = "embark-studios"
-
-[[publisher.puffin_egui]]
-version = "0.22.0"
-when = "2023-05-24"
-user-id = 52553
-user-login = "embark-studios"
-
-[[publisher.puffin_http]]
-version = "0.13.0"
-when = "2023-05-24"
-user-id = 52553
-user-login = "embark-studios"
-
 [[publisher.rayon]]
 version = "1.5.2"
 when = "2022-04-14"
@@ -324,38 +300,6 @@ when = "2020-04-20"
 user-id = 189
 user-login = "BurntSushi"
 user-name = "Andrew Gallant"
-
-[[audits.embark.wildcard-audits.puffin]]
-who = "Johan Andersson <opensource@embark-studios.com>"
-criteria = "safe-to-deploy"
-user-id = 52553 # embark-studios
-start = "2021-01-01"
-end = "2024-05-23"
-notes = "Maintained by Embark & emilk"
-
-[[audits.embark.wildcard-audits.puffin-imgui]]
-who = "Johan Andersson <opensource@embark-studios.com>"
-criteria = "safe-to-deploy"
-user-id = 52553 # embark-studios
-start = "2021-01-01"
-end = "2024-05-23"
-notes = "Maintained by Embark & emilk"
-
-[[audits.embark.wildcard-audits.puffin_egui]]
-who = "Johan Andersson <opensource@embark-studios.com>"
-criteria = "safe-to-deploy"
-user-id = 52553 # embark-studios
-start = "2021-01-01"
-end = "2024-05-23"
-notes = "Maintained by Embark & emilk"
-
-[[audits.embark.wildcard-audits.puffin_http]]
-who = "Johan Andersson <opensource@embark-studios.com>"
-criteria = "safe-to-deploy"
-user-id = 52553 # embark-studios
-start = "2021-01-01"
-end = "2024-05-23"
-notes = "Maintained by Embark & emilk"
 
 [[audits.embark.audits.anyhow]]
 who = "Johan Andersson <opensource@embark-studios.com>"

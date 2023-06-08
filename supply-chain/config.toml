@@ -36,19 +36,19 @@ criteria = []
 notes = "Not used, unsupported target"
 
 [policy.puffin]
-audit-as-crates-io = true
+audit-as-crates-io = false
 
 [policy.puffin-imgui]
-audit-as-crates-io = true
+audit-as-crates-io = false
 
 [policy.puffin_egui]
-audit-as-crates-io = true
+audit-as-crates-io = false
 
 [policy.puffin_http]
-audit-as-crates-io = true
+audit-as-crates-io = false
 
 [policy.puffin_viewer]
-audit-as-crates-io = true
+audit-as-crates-io = false
 
 [policy.redox_syscall]
 criteria = []
@@ -584,10 +584,6 @@ criteria = "safe-to-run"
 
 [[exemptions.proc-macro-crate]]
 version = "1.1.3"
-criteria = "safe-to-deploy"
-
-[[exemptions.puffin_viewer]]
-version = "0.16.0"
 criteria = "safe-to-deploy"
 
 [[exemptions.raw-window-handle]]
