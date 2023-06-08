@@ -62,11 +62,11 @@ jobs:
       - name: cargo test build
         run: cargo build --tests --release --all-features
       - name: cargo test
-        run: cargo test -p puffin -p puffin_egui -p puffin_http -p puffin-imgui --release --all-features
+        run: cargo test -p puffin -p puffin_egui -p puffin_http --release --all-features
       - name: cargo test --doc
         run: cargo test --workspace --doc
       - name: cargo doc
-        run: cargo doc -p puffin -p puffin_egui -p puffin_http -p puffin-imgui -p --lib --no-deps --all-features
+        run: cargo doc -p puffin -p puffin_egui -p puffin_http -p --lib --no-deps --all-features
 
   cargo-vet:
     name: Vet Dependencies
