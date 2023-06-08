@@ -167,7 +167,11 @@ version = "0.2.1"
 criteria = "safe-to-run"
 
 [[exemptions.clap]]
-version = "3.2.25"
+version = "4.3.2"
+criteria = "safe-to-run"
+
+[[exemptions.clap_builder]]
+version = "4.3.1"
 criteria = "safe-to-run"
 
 [[exemptions.clipboard-win]]
@@ -492,10 +496,6 @@ criteria = "safe-to-deploy"
 
 [[exemptions.object]]
 version = "0.30.4"
-criteria = "safe-to-run"
-
-[[exemptions.os_str_bytes]]
-version = "6.5.0"
 criteria = "safe-to-run"
 
 [[exemptions.osmesa-sys]]
