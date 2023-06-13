@@ -18,11 +18,7 @@ jobs:
     runs-on: ubuntu-20.04-16core
     steps:
       - uses: actions/checkout@v3
-<<<<<<< HEAD
       - uses: dtolnay/rust-toolchain@stable
-=======
-      - uses: actions-rs/toolchain@v1
->>>>>>> a5e44cd (Fix checkout action version)
         with:
           components: clippy, rustfmt
           targets: wasm32-unknown-unknown
