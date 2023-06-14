@@ -366,10 +366,6 @@ criteria = "safe-to-deploy"
 version = "2.1.0"
 criteria = "safe-to-deploy"
 
-[[exemptions.idna]]
-version = "0.4.0"
-criteria = "safe-to-deploy"
-
 [[exemptions.image]]
 version = "0.24.6"
 criteria = "safe-to-deploy"
@@ -549,10 +545,6 @@ criteria = "safe-to-deploy"
 [[exemptions.ron]]
 version = "0.8.0"
 criteria = "safe-to-deploy"
-
-[[exemptions.rustc-demangle]]
-version = "0.1.23"
-criteria = "safe-to-run"
 
 [[exemptions.ruzstd]]
 version = "0.4.0"
