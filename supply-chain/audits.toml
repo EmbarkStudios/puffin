@@ -21,6 +21,18 @@ user-id = 52553 # embark-studios
 start = "2020-01-09"
 end = "2024-06-08"
 
+[[trusted.clap]]
+criteria = "safe-to-deploy"
+user-id = 6743 # Ed Page (epage)
+start = "2021-12-08"
+end = "2024-06-14"
+
+[[trusted.clap_builder]]
+criteria = "safe-to-deploy"
+user-id = 6743 # Ed Page (epage)
+start = "2023-03-28"
+end = "2024-06-14"
+
 [[trusted.ecolor]]
 criteria = "safe-to-deploy"
 user-id = 5619 # Emil Ernerfeldt (emilk)
@@ -189,6 +201,12 @@ user-id = 3618 # David Tolnay (dtolnay)
 start = "2019-02-28"
 end = "2024-06-08"
 
+[[trusted.serde_spanned]]
+criteria = "safe-to-deploy"
+user-id = 6743 # Ed Page (epage)
+start = "2023-01-20"
+end = "2024-06-14"
+
 [[trusted.smallvec]]
 criteria = "safe-to-deploy"
 user-id = 2017 # Matt Brubeck (mbrubeck)
@@ -302,3 +320,9 @@ criteria = "safe-to-deploy"
 user-id = 64539 # Kenny Kerr (kennykerr)
 start = "2021-10-27"
 end = "2024-06-08"
+
+[[trusted.winnow]]
+criteria = "safe-to-deploy"
+user-id = 6743 # Ed Page (epage)
+start = "2023-02-22"
+end = "2024-06-14"
