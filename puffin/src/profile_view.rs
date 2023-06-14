@@ -1,6 +1,7 @@
+use std::collections::HashSet;
 use std::sync::{Arc, Mutex};
 
-use crate::{FrameData, FrameSinkId};
+use crate::{FrameData, FrameIndex, FrameSinkId};
 
 /// A view of recent and slowest frames, used by GUIs.
 #[derive(Clone)]
@@ -16,12 +17,16 @@ pub struct FrameView {
     ///
     /// Only recommended if you set a large max_recent size.
     pack_frames: bool,
+
+    /// Maintain stats as we add/remove frames
+    stats: FrameStats,
 }
 
 impl Default for FrameView {
     fn default() -> Self {
         let max_recent = 60 * 60 * 5;
         let max_slow = 256;
+        let stats = Default::default();
 
         Self {
             recent: std::collections::VecDeque::with_capacity(max_recent),
@@ -29,6 +34,7 @@ impl Default for FrameView {
             slowest: std::collections::BinaryHeap::with_capacity(max_slow),
             max_slow,
             pack_frames: true,
+            stats,
         }
     }
 }
@@ -46,6 +52,7 @@ impl FrameView {
                 // The safe choice is to clear everything:
                 self.recent.clear();
                 self.slowest.clear();
+                self.stats.clear();
             }
         }
 
@@ -57,24 +64,54 @@ impl FrameView {
             false
         };
 
-        if add_to_slowest {
-            self.slowest.push(OrderedByDuration(new_frame.clone()));
-            while self.slowest.len() > self.max_slow {
-                self.slowest.pop();
-            }
-        }
-
         if let Some(last) = self.recent.back() {
             // Assume there is a viewer viewing the newest frame,
             // and compress the previously newest frame to save RAM:
             if self.pack_frames {
                 last.pack();
             }
+
+            self.stats.add(last);
         }
 
-        self.recent.push_back(new_frame);
+        if add_to_slowest {
+            self.add_slow_frame(&new_frame);
+        }
+
+        self.add_recent_frame(&new_frame);
+    }
+
+    pub fn add_slow_frame(&mut self, new_frame: &Arc<FrameData>) {
+        self.slowest.push(OrderedByDuration(new_frame.clone()));
+
+        while self.slowest.len() > self.max_slow {
+            if let Some(removed_frame) = self.slowest.pop() {
+                // Only remove from stats if the frame is not present in recent
+                if self
+                    .recent
+                    .binary_search_by_key(&removed_frame.0.frame_index(), |f| f.frame_index())
+                    .is_err()
+                {
+                    self.stats.remove(&removed_frame.0);
+                }
+            }
+        }
+    }
+
+    pub fn add_recent_frame(&mut self, new_frame: &Arc<FrameData>) {
+        self.recent.push_back(new_frame.clone());
+
         while self.recent.len() > self.max_recent {
-            self.recent.pop_front();
+            if let Some(removed_frame) = self.recent.pop_front() {
+                // Only remove from stats if the frame is not present in slowest
+                if !self
+                    .slowest
+                    .iter()
+                    .any(|f| removed_frame.frame_index() == f.0.frame_index())
+                {
+                    self.stats.remove(&removed_frame);
+                }
+            }
         }
     }
 
@@ -107,8 +144,13 @@ impl FrameView {
 
     /// All frames sorted chronologically.
     pub fn all_uniq(&self) -> Vec<Arc<FrameData>> {
-        let mut all: Vec<_> = self.slowest.iter().map(|f| f.0.clone()).collect();
-        all.extend(self.recent.iter().cloned());
+        let mut all: Vec<_> = self
+            .slowest
+            .iter()
+            .map(|f| f.0.clone())
+            .chain(self.recent.iter().cloned())
+            .collect();
+
         all.sort_by_key(|frame| frame.frame_index());
         all.dedup_by_key(|frame| frame.frame_index());
         all
@@ -116,7 +158,9 @@ impl FrameView {
 
     /// Clean history of the slowest frames.
     pub fn clear_slowest(&mut self) {
-        self.slowest.clear();
+        for frame in self.slowest.drain() {
+            self.stats.remove(&frame.0);
+        }
     }
 
     /// How many frames of recent history to store.
@@ -145,6 +189,18 @@ impl FrameView {
 
     pub fn set_pack_frames(&mut self, pack_frames: bool) {
         self.pack_frames = pack_frames;
+    }
+
+    /// Retrieve statistics for added frames. This operation is efficient and suitable when
+    /// frames have not been manipulated outside of `ProfileView`, such as being unpacked. For
+    /// comprehensive statistics, refer to [`Self::stats_full()`]
+    pub fn stats(&self) -> &FrameStats {
+        &self.stats
+    }
+
+    /// Retrieve detailed statistics by performing a full computation on all the added frames.
+    pub fn stats_full(&self) -> FrameStats {
+        FrameStats::from_frames(self.all_uniq().map(Arc::as_ref))
     }
 
     /// Export profile data as a `.puffin` file.
@@ -269,5 +325,73 @@ impl GlobalFrameView {
     /// View the latest profiling data.
     pub fn lock(&self) -> std::sync::MutexGuard<'_, FrameView> {
         self.view.lock().unwrap()
+    }
+}
+
+// ----------------------------------------------------------------------------
+
+/// Collect statistics for maintained frames
+#[derive(Clone, Debug, Default)]
+pub struct FrameStats {
+    unique_frames: HashSet<FrameIndex>,
+    total_ram_used: usize,
+    unpacked_frames: usize,
+}
+
+impl FrameStats {
+    pub fn from_frames<'a>(frames: impl Iterator<Item = &'a FrameData>) -> Self {
+        let mut stats = FrameStats::default();
+
+        for frame in frames {
+            stats.add(frame);
+        }
+
+        stats
+    }
+
+    fn add(&mut self, frame: &FrameData) {
+        if self.unique_frames.insert(frame.frame_index()) {
+            self.total_ram_used = self
+                .total_ram_used
+                .saturating_add(frame.bytes_of_ram_used());
+
+            self.unpacked_frames = self
+                .unpacked_frames
+                .saturating_add(frame.has_unpacked() as usize);
+        }
+    }
+
+    fn remove(&mut self, frame: &FrameData) {
+        if self.unique_frames.remove(&frame.frame_index()) {
+            self.total_ram_used = self
+                .total_ram_used
+                .saturating_sub(frame.bytes_of_ram_used());
+
+            self.unpacked_frames = self
+                .unpacked_frames
+                .saturating_sub(frame.has_unpacked() as usize);
+        }
+    }
+
+    pub fn frames(&self) -> usize {
+        assert!(self.unique_frames.len() >= self.unpacked_frames);
+        self.unique_frames.len()
+    }
+
+    pub fn unpacked_frames(&self) -> usize {
+        assert!(self.unique_frames.len() >= self.unpacked_frames);
+        self.unpacked_frames
+    }
+
+    pub fn bytes_of_ram_used(&self) -> usize {
+        assert!(self.unique_frames.len() >= self.unpacked_frames);
+        self.total_ram_used
+    }
+
+    pub fn clear(&mut self) {
+        self.unique_frames.clear();
+
+        self.unpacked_frames = 0;
+        self.total_ram_used = 0;
     }
 }
