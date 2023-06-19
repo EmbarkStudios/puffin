@@ -185,6 +185,7 @@ impl GlobalProfilerUi {
 pub struct AvailableFrames {
     pub recent: Vec<Arc<FrameData>>,
     pub slowest: Vec<Arc<FrameData>>,
+    pub uniq: Vec<Arc<FrameData>>,
     pub stats: FrameStats,
 }
 
@@ -192,26 +193,10 @@ impl AvailableFrames {
     fn latest(frame_view: &FrameView) -> Self {
         Self {
             recent: frame_view.recent_frames().cloned().collect(),
-            slowest: frame_view.slowest_frames_chronological(),
+            slowest: frame_view.slowest_frames_chronological().cloned().collect(),
+            uniq: frame_view.all_uniq().cloned().collect(),
             stats: Default::default(),
         }
-    }
-
-    fn all_uniq(&self) -> Vec<Arc<FrameData>> {
-        let mut all = self
-            .slowest
-            .iter()
-            .cloned()
-            .chain(self.recent.iter().cloned())
-            .collect::<Vec<_>>();
-
-        all.sort_by_key(|frame| frame.frame_index());
-        all.dedup_by_key(|frame| frame.frame_index());
-        all
-    }
-
-    fn stats(&self) -> &FrameStats {
-        &self.stats
     }
 }
 
@@ -436,14 +421,14 @@ impl ProfilerUi {
         }
     }
 
-    fn all_known_frames(&self, frame_view: &FrameView) -> Vec<Arc<FrameData>> {
-        let mut all = frame_view.all_uniq();
-        if let Some(paused) = &self.paused {
-            all.append(&mut paused.frames.all_uniq());
+    fn all_known_frames<'a>(
+        &'a self,
+        frame_view: &'a FrameView,
+    ) -> Box<dyn Iterator<Item = &'_ Arc<FrameData>> + '_> {
+        match &self.paused {
+            Some(paused) => Box::new(frame_view.all_uniq().chain(paused.frames.uniq.iter())),
+            None => Box::new(frame_view.all_uniq()),
         }
-        all.sort_by_key(|frame| frame.frame_index());
-        all.dedup_by_key(|frame| frame.frame_index());
-        all
     }
 
     fn run_pack_pass_if_needed(&mut self, frame_view: &FrameView) {
@@ -649,8 +634,8 @@ impl ProfilerUi {
         });
 
         {
-            let uniq = frames.all_uniq();
-            let stats = frames.stats();
+            let uniq = &frames.uniq;
+            let stats = &frames.stats;
 
             ui.label(format!(
                 "{} frames ({} unpacked) using approximately {:.1} MB.",
@@ -660,7 +645,7 @@ impl ProfilerUi {
             ));
 
             if let Some(frame_view) = frame_view.as_mut() {
-                max_frames_ui(ui, frame_view, &uniq);
+                max_frames_ui(ui, frame_view, uniq);
                 if self.paused.is_none() {
                     max_num_latest_ui(ui, &mut self.max_num_latest);
                 }

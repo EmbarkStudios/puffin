@@ -1,16 +1,20 @@
-use std::collections::HashSet;
+use std::cmp::Ordering;
+
 use std::sync::{Arc, Mutex};
 
-use crate::{FrameData, FrameIndex, FrameSinkId};
+use itertools::Itertools;
+
+use crate::{FrameData, FrameSinkId};
 
 /// A view of recent and slowest frames, used by GUIs.
 #[derive(Clone)]
 pub struct FrameView {
     /// newest first
-    recent: std::collections::VecDeque<Arc<FrameData>>,
+    recent: std::collections::VecDeque<OrderedByIndex>,
     max_recent: usize,
 
-    slowest: std::collections::BinaryHeap<OrderedByDuration>,
+    slowest_by_index: std::collections::BTreeSet<OrderedByIndex>,
+    slowest_by_duration: std::collections::BTreeSet<OrderedByDuration>,
     max_slow: usize,
 
     /// Minimizes memory usage at the expense of CPU time.
@@ -31,7 +35,8 @@ impl Default for FrameView {
         Self {
             recent: std::collections::VecDeque::with_capacity(max_recent),
             max_recent,
-            slowest: std::collections::BinaryHeap::with_capacity(max_slow),
+            slowest_by_index: std::collections::BTreeSet::new(),
+            slowest_by_duration: std::collections::BTreeSet::new(),
             max_slow,
             pack_frames: true,
             stats,
@@ -41,38 +46,39 @@ impl Default for FrameView {
 
 impl FrameView {
     pub fn is_empty(&self) -> bool {
-        self.recent.is_empty() && self.slowest.is_empty()
+        self.recent.is_empty() && self.slowest_by_duration.is_empty()
     }
 
     pub fn add_frame(&mut self, new_frame: Arc<FrameData>) {
-        if let Some(last) = self.recent.back() {
-            if new_frame.frame_index() <= last.frame_index() {
+        if let Some(last) = self.recent.iter().last() {
+            if new_frame.frame_index() <= last.0.frame_index() {
                 // A frame from the past!?
                 // Likely we are `puffin_viewer`, and the server restarted.
                 // The safe choice is to clear everything:
-                self.recent.clear();
-                self.slowest.clear();
                 self.stats.clear();
+                self.recent.clear();
+                self.slowest_by_index.clear();
+                self.slowest_by_duration.clear();
             }
         }
 
-        let add_to_slowest = if self.slowest.len() < self.max_slow {
+        if let Some(last) = self.recent.iter().last() {
+            // Assume there is a viewer viewing the newest frame,
+            // and compress the previously newest frame to save RAM:
+            if self.pack_frames {
+                last.0.pack();
+            }
+
+            self.stats.add(&last.0);
+        }
+
+        let add_to_slowest = if self.slowest_by_duration.len() < self.max_slow {
             true
-        } else if let Some(fastest_of_the_slow) = self.slowest.peek() {
+        } else if let Some(fastest_of_the_slow) = self.slowest_by_duration.iter().last() {
             new_frame.duration_ns() > fastest_of_the_slow.0.duration_ns()
         } else {
             false
         };
-
-        if let Some(last) = self.recent.back() {
-            // Assume there is a viewer viewing the newest frame,
-            // and compress the previously newest frame to save RAM:
-            if self.pack_frames {
-                last.pack();
-            }
-
-            self.stats.add(last);
-        }
 
         if add_to_slowest {
             self.add_slow_frame(&new_frame);
@@ -82,16 +88,20 @@ impl FrameView {
     }
 
     pub fn add_slow_frame(&mut self, new_frame: &Arc<FrameData>) {
-        self.slowest.push(OrderedByDuration(new_frame.clone()));
+        assert_eq!(self.slowest_by_duration.len(), self.slowest_by_index.len());
 
-        while self.slowest.len() > self.max_slow {
-            if let Some(removed_frame) = self.slowest.pop() {
+        self.slowest_by_duration
+            .insert(OrderedByDuration(new_frame.clone()));
+        self.slowest_by_index
+            .insert(OrderedByIndex(new_frame.clone()));
+
+        while self.slowest_by_duration.len() > self.max_slow {
+            if let Some(removed_frame) = self.slowest_by_duration.pop_last() {
+                let removed_by_index = OrderedByIndex(removed_frame.0.clone());
+                self.slowest_by_index.remove(&removed_by_index);
+
                 // Only remove from stats if the frame is not present in recent
-                if self
-                    .recent
-                    .binary_search_by_key(&removed_frame.0.frame_index(), |f| f.frame_index())
-                    .is_err()
-                {
+                if self.recent.binary_search(&removed_by_index).is_err() {
                     self.stats.remove(&removed_frame.0);
                 }
             }
@@ -99,17 +109,13 @@ impl FrameView {
     }
 
     pub fn add_recent_frame(&mut self, new_frame: &Arc<FrameData>) {
-        self.recent.push_back(new_frame.clone());
+        self.recent.push_back(OrderedByIndex(new_frame.clone()));
 
         while self.recent.len() > self.max_recent {
             if let Some(removed_frame) = self.recent.pop_front() {
                 // Only remove from stats if the frame is not present in slowest
-                if !self
-                    .slowest
-                    .iter()
-                    .any(|f| removed_frame.frame_index() == f.0.frame_index())
-                {
-                    self.stats.remove(&removed_frame);
+                if !self.slowest_by_index.contains(&removed_frame) {
+                    self.stats.remove(&removed_frame.0);
                 }
             }
         }
@@ -117,50 +123,44 @@ impl FrameView {
 
     /// The latest fully captured frame of data.
     pub fn latest_frame(&self) -> Option<Arc<FrameData>> {
-        self.recent.back().cloned()
+        self.recent.back().map(|f| f.0.clone())
     }
 
     /// Returns up to `n` latest fully captured frames of data.
-    pub fn latest_frames(&self, n: usize) -> Vec<Arc<FrameData>> {
+    pub fn latest_frames(&self, n: usize) -> impl Iterator<Item = &Arc<FrameData>> {
         // Probably not the best way to do this, but since
         // [`self.recent`] is immutable in this context and
         // working with deque slices is complicated, we'll do
         // it this way for now.
-        self.recent.iter().rev().take(n).rev().cloned().collect()
+        self.recent.iter().rev().take(n).rev().map(|f| &f.0)
     }
 
     /// Oldest first
     pub fn recent_frames(&self) -> impl Iterator<Item = &Arc<FrameData>> {
-        self.recent.iter()
+        self.recent.iter().map(|f| &f.0)
     }
 
     /// The slowest frames so far (or since last call to [`Self::clear_slowest()`])
     /// in chronological order.
-    pub fn slowest_frames_chronological(&self) -> Vec<Arc<FrameData>> {
-        let mut frames: Vec<_> = self.slowest.iter().map(|f| f.0.clone()).collect();
-        frames.sort_by_key(|frame| frame.frame_index());
-        frames
+    pub fn slowest_frames_chronological(&self) -> impl Iterator<Item = &Arc<FrameData>> {
+        self.slowest_by_index.iter().map(|f| &f.0)
     }
 
     /// All frames sorted chronologically.
-    pub fn all_uniq(&self) -> Vec<Arc<FrameData>> {
-        let mut all: Vec<_> = self
-            .slowest
-            .iter()
-            .map(|f| f.0.clone())
-            .chain(self.recent.iter().cloned())
-            .collect();
-
-        all.sort_by_key(|frame| frame.frame_index());
-        all.dedup_by_key(|frame| frame.frame_index());
-        all
+    pub fn all_uniq(&self) -> impl Iterator<Item = &Arc<FrameData>> {
+        Itertools::merge(self.recent.iter(), self.slowest_by_index.iter())
+            .dedup()
+            .map(|f| &f.0)
     }
 
     /// Clean history of the slowest frames.
     pub fn clear_slowest(&mut self) {
-        for frame in self.slowest.drain() {
+        for frame in self.slowest_by_index.iter() {
             self.stats.remove(&frame.0);
         }
+
+        self.slowest_by_duration.clear();
+        self.slowest_by_index.clear();
     }
 
     /// How many frames of recent history to store.
@@ -217,12 +217,7 @@ impl FrameView {
     pub fn save_to_writer(&self, write: &mut impl std::io::Write) -> anyhow::Result<()> {
         write.write_all(b"PUF0")?;
 
-        let slowest_frames = self.slowest.iter().map(|f| &f.0);
-        let mut frames: Vec<_> = slowest_frames.chain(self.recent.iter()).collect();
-        frames.sort_by_key(|frame| frame.frame_index());
-        frames.dedup_by_key(|frame| frame.frame_index());
-
-        for frame in frames {
+        for frame in self.all_uniq() {
             frame.write_into(write)?;
         }
         Ok(())
@@ -277,22 +272,55 @@ pub fn select_slowest(frames: &[Arc<FrameData>], max: usize) -> Vec<Arc<FrameDat
 #[derive(Clone)]
 struct OrderedByDuration(Arc<FrameData>);
 
-impl PartialEq for OrderedByDuration {
-    fn eq(&self, other: &Self) -> bool {
-        self.0.duration_ns().eq(&other.0.duration_ns())
+impl Ord for OrderedByDuration {
+    fn cmp(&self, other: &Self) -> Ordering {
+        match self.0.duration_ns().cmp(&other.0.duration_ns()).reverse() {
+            Ordering::Equal => self.0.frame_index().cmp(&other.0.frame_index()),
+            res => res,
+        }
     }
 }
-impl Eq for OrderedByDuration {}
 
 impl PartialOrd for OrderedByDuration {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }
 
-impl Ord for OrderedByDuration {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.0.duration_ns().cmp(&other.0.duration_ns()).reverse()
+impl Eq for OrderedByDuration {}
+
+impl PartialEq for OrderedByDuration {
+    fn eq(&self, other: &Self) -> bool {
+        self.0.duration_ns() == other.0.duration_ns()
+            && self.0.frame_index() == other.0.frame_index()
+    }
+}
+
+// ----------------------------------------------------------------------------
+#[derive(Clone)]
+struct OrderedByIndex(Arc<FrameData>);
+
+impl Ord for OrderedByIndex {
+    fn cmp(&self, other: &Self) -> Ordering {
+        match self.0.frame_index().cmp(&other.0.frame_index()) {
+            Ordering::Equal => self.0.duration_ns().cmp(&other.0.duration_ns()),
+            res => res,
+        }
+    }
+}
+
+impl PartialOrd for OrderedByIndex {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Eq for OrderedByIndex {}
+
+impl PartialEq for OrderedByIndex {
+    fn eq(&self, other: &Self) -> bool {
+        self.0.frame_index() == other.0.frame_index()
+            && self.0.duration_ns() == other.0.duration_ns()
     }
 }
 
@@ -333,7 +361,7 @@ impl GlobalFrameView {
 /// Collect statistics for maintained frames
 #[derive(Clone, Debug, Default)]
 pub struct FrameStats {
-    unique_frames: HashSet<FrameIndex>,
+    unique_frames: usize,
     total_ram_used: usize,
     unpacked_frames: usize,
 }
@@ -350,47 +378,43 @@ impl FrameStats {
     }
 
     fn add(&mut self, frame: &FrameData) {
-        if self.unique_frames.insert(frame.frame_index()) {
-            self.total_ram_used = self
-                .total_ram_used
-                .saturating_add(frame.bytes_of_ram_used());
+        self.total_ram_used = self
+            .total_ram_used
+            .saturating_add(frame.bytes_of_ram_used());
 
-            self.unpacked_frames = self
-                .unpacked_frames
-                .saturating_add(frame.has_unpacked() as usize);
-        }
+        self.unpacked_frames = self
+            .unpacked_frames
+            .saturating_add(frame.has_unpacked() as usize);
+
+        self.unique_frames = self.unique_frames.saturating_add(1);
     }
 
     fn remove(&mut self, frame: &FrameData) {
-        if self.unique_frames.remove(&frame.frame_index()) {
-            self.total_ram_used = self
-                .total_ram_used
-                .saturating_sub(frame.bytes_of_ram_used());
+        self.total_ram_used = self
+            .total_ram_used
+            .saturating_sub(frame.bytes_of_ram_used());
 
-            self.unpacked_frames = self
-                .unpacked_frames
-                .saturating_sub(frame.has_unpacked() as usize);
-        }
+        self.unpacked_frames = self
+            .unpacked_frames
+            .saturating_sub(frame.has_unpacked() as usize);
+
+        self.unique_frames = self.unique_frames.saturating_sub(1);
     }
 
     pub fn frames(&self) -> usize {
-        assert!(self.unique_frames.len() >= self.unpacked_frames);
-        self.unique_frames.len()
+        self.unique_frames
     }
 
     pub fn unpacked_frames(&self) -> usize {
-        assert!(self.unique_frames.len() >= self.unpacked_frames);
         self.unpacked_frames
     }
 
     pub fn bytes_of_ram_used(&self) -> usize {
-        assert!(self.unique_frames.len() >= self.unpacked_frames);
         self.total_ram_used
     }
 
     pub fn clear(&mut self) {
-        self.unique_frames.clear();
-
+        self.unique_frames = 0;
         self.unpacked_frames = 0;
         self.total_ram_used = 0;
     }
