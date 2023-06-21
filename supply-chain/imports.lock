@@ -371,6 +371,20 @@ user-id = 64539
 user-login = "kennykerr"
 user-name = "Kenny Kerr"
 
+[[publisher.windows-sys]]
+version = "0.45.0"
+when = "2023-01-21"
+user-id = 64539
+user-login = "kennykerr"
+user-name = "Kenny Kerr"
+
+[[publisher.windows-sys]]
+version = "0.48.0"
+when = "2023-03-31"
+user-id = 64539
+user-login = "kennykerr"
+user-name = "Kenny Kerr"
+
 [[publisher.windows_aarch64_msvc]]
 version = "0.36.1"
 when = "2022-04-27"
@@ -388,6 +402,13 @@ user-name = "Kenny Kerr"
 [[publisher.windows_aarch64_msvc]]
 version = "0.42.2"
 when = "2023-03-13"
+user-id = 64539
+user-login = "kennykerr"
+user-name = "Kenny Kerr"
+
+[[publisher.windows_aarch64_msvc]]
+version = "0.48.0"
+when = "2023-03-31"
 user-id = 64539
 user-login = "kennykerr"
 user-name = "Kenny Kerr"
@@ -413,6 +434,13 @@ user-id = 64539
 user-login = "kennykerr"
 user-name = "Kenny Kerr"
 
+[[publisher.windows_i686_gnu]]
+version = "0.48.0"
+when = "2023-03-31"
+user-id = 64539
+user-login = "kennykerr"
+user-name = "Kenny Kerr"
+
 [[publisher.windows_i686_msvc]]
 version = "0.36.1"
 when = "2022-04-27"
@@ -430,6 +458,13 @@ user-name = "Kenny Kerr"
 [[publisher.windows_i686_msvc]]
 version = "0.42.2"
 when = "2023-03-13"
+user-id = 64539
+user-login = "kennykerr"
+user-name = "Kenny Kerr"
+
+[[publisher.windows_i686_msvc]]
+version = "0.48.0"
+when = "2023-03-31"
 user-id = 64539
 user-login = "kennykerr"
 user-name = "Kenny Kerr"
@@ -455,6 +490,13 @@ user-id = 64539
 user-login = "kennykerr"
 user-name = "Kenny Kerr"
 
+[[publisher.windows_x86_64_gnu]]
+version = "0.48.0"
+when = "2023-03-31"
+user-id = 64539
+user-login = "kennykerr"
+user-name = "Kenny Kerr"
+
 [[publisher.windows_x86_64_msvc]]
 version = "0.36.1"
 when = "2022-04-27"
@@ -472,6 +514,13 @@ user-name = "Kenny Kerr"
 [[publisher.windows_x86_64_msvc]]
 version = "0.42.2"
 when = "2023-03-13"
+user-id = 64539
+user-login = "kennykerr"
+user-name = "Kenny Kerr"
+
+[[publisher.windows_x86_64_msvc]]
+version = "0.48.0"
+when = "2023-03-31"
 user-id = 64539
 user-login = "kennykerr"
 user-name = "Kenny Kerr"
@@ -1280,102 +1329,6 @@ criteria = "safe-to-deploy"
 delta = "2.3.2 -> 2.3.3"
 notes = "No significant changes: minor refactoring and removes the need to use `winapi`."
 
-[[audits.wasmtime.audits.windows-sys]]
-who = "Dan Gohman <dev@sunfishcode.online>"
-criteria = "safe-to-deploy"
-version = "0.42.0"
-notes = "This is a Windows API bindings library maintained by Microsoft themselves."
-
-[[audits.wasmtime.audits.windows-sys]]
-who = "Dan Gohman <dev@sunfishcode.online>"
-criteria = "safe-to-deploy"
-version = "0.48.0"
-notes = "This is a Windows API bindings library maintained by Microsoft themselves."
-
-[[audits.wasmtime.audits.windows-sys]]
-who = "Pat Hickey <phickey@fastly.com>"
-criteria = "safe-to-deploy"
-delta = "0.42.0 -> 0.45.0"
-notes = "This is a Windows API bindings library maintained by Microsoft themselves."
-
-[[audits.wasmtime.audits.windows-targets]]
-who = "Pat Hickey <phickey@fastly.com>"
-criteria = "safe-to-deploy"
-version = "0.42.1"
-notes = "This is a Windows API bindings library maintained by Microsoft themselves. Additionally, this particular crate is empty and just collects a bunch of dependencies, which are not exported, so I don't understand why it exists at all."
-
-[[audits.wasmtime.audits.windows-targets]]
-who = "Dan Gohman <dev@sunfishcode.online>"
-criteria = "safe-to-deploy"
-version = "0.48.0"
-notes = "This is a Windows API bindings library maintained by Microsoft themselves. It just provides the import libs needed by windows-sys."
-
-[[audits.wasmtime.audits.windows_aarch64_gnullvm]]
-who = "Dan Gohman <dev@sunfishcode.online>"
-criteria = "safe-to-deploy"
-version = "0.42.0"
-notes = "This is a Windows API bindings library maintained by Microsoft themselves."
-
-[[audits.wasmtime.audits.windows_aarch64_gnullvm]]
-who = "Dan Gohman <dev@sunfishcode.online>"
-criteria = "safe-to-deploy"
-version = "0.48.0"
-notes = "This is a Windows API bindings library maintained by Microsoft themselves."
-
-[[audits.wasmtime.audits.windows_aarch64_gnullvm]]
-who = "Pat Hickey <phickey@fastly.com>"
-criteria = "safe-to-deploy"
-delta = "0.42.0 -> 0.42.1"
-notes = "This is a Windows API bindings library maintained by Microsoft themselves. The diff is just adding license files."
-
-[[audits.wasmtime.audits.windows_aarch64_msvc]]
-who = "Dan Gohman <dev@sunfishcode.online>"
-criteria = "safe-to-deploy"
-version = "0.48.0"
-notes = "This is a Windows API bindings library maintained by Microsoft themselves."
-
-[[audits.wasmtime.audits.windows_i686_gnu]]
-who = "Dan Gohman <dev@sunfishcode.online>"
-criteria = "safe-to-deploy"
-version = "0.48.0"
-notes = "This is a Windows API bindings library maintained by Microsoft themselves."
-
-[[audits.wasmtime.audits.windows_i686_msvc]]
-who = "Dan Gohman <dev@sunfishcode.online>"
-criteria = "safe-to-deploy"
-version = "0.48.0"
-notes = "This is a Windows API bindings library maintained by Microsoft themselves."
-
-[[audits.wasmtime.audits.windows_x86_64_gnu]]
-who = "Dan Gohman <dev@sunfishcode.online>"
-criteria = "safe-to-deploy"
-version = "0.48.0"
-notes = "This is a Windows API bindings library maintained by Microsoft themselves."
-
-[[audits.wasmtime.audits.windows_x86_64_gnullvm]]
-who = "Dan Gohman <dev@sunfishcode.online>"
-criteria = "safe-to-deploy"
-version = "0.42.0"
-notes = "This is a Windows API bindings library maintained by Microsoft themselves."
-
-[[audits.wasmtime.audits.windows_x86_64_gnullvm]]
-who = "Dan Gohman <dev@sunfishcode.online>"
-criteria = "safe-to-deploy"
-version = "0.48.0"
-notes = "This is a Windows API bindings library maintained by Microsoft themselves."
-
-[[audits.wasmtime.audits.windows_x86_64_gnullvm]]
-who = "Pat Hickey <phickey@fastly.com>"
-criteria = "safe-to-deploy"
-delta = "0.42.0 -> 0.42.1"
-notes = "This is a Windows API bindings library maintained by Microsoft themselves. The diff is just adding license files."
-
-[[audits.wasmtime.audits.windows_x86_64_msvc]]
-who = "Dan Gohman <dev@sunfishcode.online>"
-criteria = "safe-to-deploy"
-version = "0.48.0"
-notes = "This is a Windows API bindings library maintained by Microsoft themselves."
-
 [[audits.zcash.audits.arrayref]]
 who = "Sean Bowe <ewillbefull@gmail.com>"
 criteria = "safe-to-deploy"
@@ -1446,10 +1399,30 @@ delta = "0.42.1 -> 0.42.2"
 aggregated-from = "https://raw.githubusercontent.com/zcash/zcash/master/qa/supply-chain/audits.toml"
 
 [[audits.zcash.audits.windows_aarch64_gnullvm]]
+who = "Jack Grigg <jack@z.cash>"
+criteria = "safe-to-deploy"
+delta = "0.42.0 -> 0.42.1"
+notes = """
+This is a Windows API bindings library maintained by Microsoft themselves.
+Changes are to a bundled binary library; it looks like these were accidentally left out of 0.42.0.
+"""
+aggregated-from = "https://raw.githubusercontent.com/zcash/zcash/master/qa/supply-chain/audits.toml"
+
+[[audits.zcash.audits.windows_aarch64_gnullvm]]
 who = "Jack Grigg <jack@electriccoin.co>"
 criteria = "safe-to-deploy"
 delta = "0.42.1 -> 0.42.2"
 notes = "This is an opaque Windows API bindings library maintained by Microsoft."
+aggregated-from = "https://raw.githubusercontent.com/zcash/zcash/master/qa/supply-chain/audits.toml"
+
+[[audits.zcash.audits.windows_x86_64_gnullvm]]
+who = "Jack Grigg <jack@z.cash>"
+criteria = "safe-to-deploy"
+delta = "0.42.0 -> 0.42.1"
+notes = """
+This is a Windows API bindings library maintained by Microsoft themselves.
+Changes are to a bundled binary library; it looks like these were accidentally left out of 0.42.0.
+"""
 aggregated-from = "https://raw.githubusercontent.com/zcash/zcash/master/qa/supply-chain/audits.toml"
 
 [[audits.zcash.audits.windows_x86_64_gnullvm]]
