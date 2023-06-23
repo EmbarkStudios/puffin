@@ -31,6 +31,15 @@ pub fn criterion_benchmark(c: &mut Criterion) {
             puffin::profile_scope!("my longish scope name", "my_mesh.obj");
         })
     });
+    c.bench_function("flush_frames", |b| {
+        puffin::GlobalProfiler::lock().new_frame();
+        let _fv = puffin::GlobalFrameView::default();
+
+        b.iter(|| {
+            puffin::profile_function!();
+            puffin::GlobalProfiler::lock().new_frame();
+        })
+    });
 
     puffin::set_scopes_on(false);
     c.bench_function("profile_function_off", |b| {

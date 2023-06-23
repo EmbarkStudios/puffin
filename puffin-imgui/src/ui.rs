@@ -357,7 +357,7 @@ impl ProfilerUi {
         let view = self.frame_view.lock();
         Frames {
             recent: view.recent_frames().cloned().collect(),
-            slowest: view.slowest_frames_chronological(),
+            slowest: view.slowest_frames_chronological().cloned().collect(),
         }
     }
 
@@ -392,10 +392,17 @@ impl ProfilerUi {
     }
 
     fn all_known_frames(&self) -> Vec<Arc<FrameData>> {
-        let mut all = self.frame_view.lock().all_uniq();
+        let mut all = self
+            .frame_view
+            .lock()
+            .all_uniq()
+            .cloned()
+            .collect::<Vec<_>>();
+
         if let Some(paused) = &self.paused {
             all.append(&mut paused.frames.all_uniq());
         }
+
         all.sort_by_key(|frame| frame.frame_index());
         all.dedup_by_key(|frame| frame.frame_index());
         all

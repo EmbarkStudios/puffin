@@ -2138,6 +2138,7 @@ dependencies = [
  "cfg-if",
  "criterion",
  "instant",
+ "itertools",
  "js-sys",
  "lz4_flex",
  "once_cell",

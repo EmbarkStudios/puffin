@@ -109,7 +109,7 @@ mod profile_view;
 pub use data::*;
 pub use frame_data::{FrameData, FrameMeta, UnpackedFrameData};
 pub use merge::*;
-pub use profile_view::{select_slowest, FrameView, GlobalFrameView};
+pub use profile_view::{select_slowest, FrameStats, FrameView, GlobalFrameView};
 
 use std::collections::BTreeMap;
 use std::sync::{
