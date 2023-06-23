@@ -388,12 +388,12 @@ impl ProfilerUi {
         self.paused.as_ref().map_or_else(
             || {
                 let mut frames = AvailableFrames::latest(frame_view);
-                frames.stats = frame_view.stats().clone();
+                frames.stats = frame_view.stats();
                 frames
             },
             |paused| {
                 let mut frames = paused.frames.clone();
-                frames.stats = frame_view.stats_full();
+                frames.stats = FrameStats::from_frames(paused.frames.uniq.iter().map(Arc::as_ref));
                 frames
             },
         )
