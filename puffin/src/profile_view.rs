@@ -87,7 +87,7 @@ impl FrameView {
         self.add_recent_frame(&new_frame);
     }
 
-    pub fn add_slow_frame(&mut self, new_frame: &Arc<FrameData>) {
+    fn add_slow_frame(&mut self, new_frame: &Arc<FrameData>) {
         assert_eq!(self.slowest_by_duration.len(), self.slowest_by_index.len());
 
         self.slowest_by_duration
@@ -108,7 +108,7 @@ impl FrameView {
         }
     }
 
-    pub fn add_recent_frame(&mut self, new_frame: &Arc<FrameData>) {
+    fn add_recent_frame(&mut self, new_frame: &Arc<FrameData>) {
         self.recent.push_back(OrderedByIndex(new_frame.clone()));
 
         while self.recent.len() > self.max_recent {
@@ -194,8 +194,8 @@ impl FrameView {
     /// Retrieve statistics for added frames. This operation is efficient and suitable when
     /// frames have not been manipulated outside of `ProfileView`, such as being unpacked. For
     /// comprehensive statistics, refer to [`Self::stats_full()`]
-    pub fn stats(&self) -> &FrameStats {
-        &self.stats
+    pub fn stats(&self) -> FrameStats {
+        self.stats
     }
 
     /// Retrieve detailed statistics by performing a full computation on all the added frames.
@@ -358,8 +358,16 @@ impl GlobalFrameView {
 
 // ----------------------------------------------------------------------------
 
+fn stats_entry(frame: &FrameData) -> (usize, usize) {
+    let info = frame.packing_info();
+    (
+        info.packed_size.unwrap_or(0) + info.unpacked_size.unwrap_or(0),
+        info.unpacked_size.is_some() as usize,
+    )
+}
+
 /// Collect statistics for maintained frames
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Copy, Debug, Default)]
 pub struct FrameStats {
     unique_frames: usize,
     total_ram_used: usize,
@@ -378,26 +386,18 @@ impl FrameStats {
     }
 
     fn add(&mut self, frame: &FrameData) {
-        self.total_ram_used = self
-            .total_ram_used
-            .saturating_add(frame.bytes_of_ram_used());
+        let (total, unpacked) = stats_entry(frame);
 
-        self.unpacked_frames = self
-            .unpacked_frames
-            .saturating_add(frame.has_unpacked() as usize);
-
+        self.total_ram_used = self.total_ram_used.saturating_add(total);
+        self.unpacked_frames = self.unpacked_frames.saturating_add(unpacked);
         self.unique_frames = self.unique_frames.saturating_add(1);
     }
 
     fn remove(&mut self, frame: &FrameData) {
-        self.total_ram_used = self
-            .total_ram_used
-            .saturating_sub(frame.bytes_of_ram_used());
+        let (total, unpacked) = stats_entry(frame);
 
-        self.unpacked_frames = self
-            .unpacked_frames
-            .saturating_sub(frame.has_unpacked() as usize);
-
+        self.total_ram_used = self.total_ram_used.saturating_sub(total);
+        self.unpacked_frames = self.unpacked_frames.saturating_sub(unpacked);
         self.unique_frames = self.unique_frames.saturating_sub(1);
     }
 
