@@ -214,40 +214,42 @@ pub fn ui(ui: &mut egui::Ui, options: &mut Options, frames: &SelectedFrames) {
         ui.memory_mut(|m| m.data.insert_temp(num_frames_id, num_frames));
     }
 
-    ui.columns(2, |ui| {
-        ui[0].horizontal(|ui| {
-            ui.colored_label(ui.visuals().widgets.inactive.text_color(), "❓")
-                .on_hover_text(
-                    "Drag to pan.\n\
+    ui.horizontal(|ui| {
+        ui.vertical(|ui| {
+            ui.horizontal(|ui| {
+                ui.colored_label(ui.visuals().widgets.inactive.text_color(), "❓")
+                    .on_hover_text(
+                        "Drag to pan.\n\
             Zoom: Ctrl/cmd + scroll, or drag with secondary mouse button.\n\
             Click on a scope to zoom to it.\n\
             Double-click to reset view.\n\
             Press spacebar to pause/resume.",
-                );
+                    );
 
-            ui.separator();
+                ui.separator();
 
-            ui.horizontal(|ui| {
-                let changed = ui
-                    .checkbox(&mut options.merge_scopes, "Merge children with same ID")
-                    .changed();
-                // If we have multiple frames selected this will toggle
-                // if we view all the frames, or an average of them,
-                // and that difference is pretty massive, so help the user:
-                if changed && num_frames > 1 {
-                    reset_view = true;
-                }
+                ui.horizontal(|ui| {
+                    let changed = ui
+                        .checkbox(&mut options.merge_scopes, "Merge children with same ID")
+                        .changed();
+                    // If we have multiple frames selected this will toggle
+                    // if we view all the frames, or an average of them,
+                    // and that difference is pretty massive, so help the user:
+                    if changed && num_frames > 1 {
+                        reset_view = true;
+                    }
+                });
+
+                ui.separator();
+
+                // The number of threads can change between frames, so always show this even if there currently is only one thread:
+                options.sorting.ui(ui);
             });
 
-            ui.separator();
-
-            // The number of threads can change between frames, so always show this even if there currently is only one thread:
-            options.sorting.ui(ui);
+            options.filter.ui(ui);
         });
 
-        options.filter.ui(&mut ui[0]);
-
-        ui[1].collapsing("Visible Threads", |ui| {
+        ui.collapsing("Visible Threads", |ui| {
             egui::ScrollArea::vertical()
                 .max_height(150.0)
                 .id_source("f")
