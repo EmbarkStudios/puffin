@@ -644,7 +644,8 @@ fn paint_record(
             // keep full opacity
             min_width *= 2.0; // make it more visible even when thin
         } else {
-            rect_color = rect_color.multiply(0.075); // fade to highlight others
+            // fade to highlight others
+            rect_color = lerp(Rgba::BLACK..=rect_color, 0.075);
         }
     }
 
