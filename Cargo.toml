@@ -1,11 +1,5 @@
 [workspace]
 resolver = "2"
-members = [
-    "puffin",
-    "puffin_egui",
-    "puffin_http",
-    "puffin-imgui",
-    "puffin_viewer",
-]
+members = ["puffin", "puffin_egui", "puffin_http", "puffin_viewer"]
 
 [patch.crates-io]

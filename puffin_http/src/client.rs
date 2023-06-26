@@ -27,7 +27,7 @@ impl Client {
     /// that is then fed to [`puffin::GlobalProfiler`].
     ///
     /// You can then view the data with
-    /// [`puffin_egui`](https://crates.io/crates/puffin_egui) or [`puffin-imgui`](https://crates.io/crates/puffin-imgui).
+    /// [`puffin_egui`](https://crates.io/crates/puffin_egui).
     ///
     /// ``` no_run
     /// puffin_http::Client::new("127.0.0.1:8585".to_owned());

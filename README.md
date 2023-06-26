@@ -42,8 +42,6 @@ To view the profile data in-game you can use [`puffin_egui`](https://github.com/
 
 ![Puffin Flamegraph using puffin_egui](puffin_egui.gif)
 
-If you are using the [`imgui`](https://crates.io/crates/imgui) crate, there is also [`puffin-imgui`](https://github.com/EmbarkStudios/puffin/tree/main/puffin-imgui).
-
 ## Remote profiling
 
 You can use [`puffin_http`](https://github.com/EmbarkStudios/puffin/tree/main/puffin_http) to send profile events over TCP to [`puffin_viewer`](https://github.com/EmbarkStudios/puffin/tree/main/puffin_viewer).
