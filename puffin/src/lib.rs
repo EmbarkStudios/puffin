@@ -552,7 +552,12 @@ pub fn now_ns() -> NanoSecond {
     }
 
     // This can maybe be optimized
+
+    #[cfg(feature = "web")]
     use instant::Instant;
+    #[cfg(not(feature = "web"))]
+    use std::time::Instant;
+
     use once_cell::sync::Lazy;
 
     static START_TIME: Lazy<(NanoSecond, Instant)> =
