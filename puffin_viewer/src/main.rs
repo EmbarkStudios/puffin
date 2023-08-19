@@ -19,12 +19,14 @@ fn main() {
 
         /// what .puffin file to open, e.g. `my/recording.puffin`.
         #[argh(positional)]
-        file: Option<String>,
+        file: Option<PathBuf>,
     }
 
     fn default_url() -> String {
         format!("127.0.0.1:{}", puffin_http::DEFAULT_PORT)
     }
+
+    use std::path::PathBuf;
 
     use puffin::FrameView;
     use puffin_viewer::{PuffinViewer, Source};
@@ -33,12 +35,19 @@ fn main() {
 
     puffin::set_scopes_on(true); // so we can profile ourselves
 
-    let source = if let Some(file) = opt.file {
-        let path = std::path::PathBuf::from(file);
-        match FrameView::load_path(&path) {
+    let source = if let Some(path) = opt.file {
+        let mut file = match std::fs::File::open(&path) {
+            Ok(file) => file,
+            Err(err) => {
+                log::error!("Failed to open {:?}: {err:#}", path.display());
+                std::process::exit(1);
+            }
+        };
+
+        match FrameView::read(&mut file) {
             Ok(frame_view) => Source::FilePath(path, frame_view),
             Err(err) => {
-                log::error!("Failed to load {:?}: {}", path.display(), err);
+                log::error!("Failed to load {:?}: {err:#}", path.display());
                 std::process::exit(1);
             }
         }

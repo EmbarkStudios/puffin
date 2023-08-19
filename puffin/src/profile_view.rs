@@ -147,18 +147,10 @@ impl FrameView {
         self.pack_frames = pack_frames;
     }
 
-    /// Export profile data as a `.puffin` file.
+    /// Export profile data as a `.puffin` file/stream.
     #[cfg(feature = "serialization")]
     #[cfg(not(target_arch = "wasm32"))] // compression not supported on wasm
-    pub fn save_to_path(&self, path: &std::path::Path) -> anyhow::Result<()> {
-        let mut file = std::fs::File::create(path)?;
-        self.save_to_writer(&mut file)
-    }
-
-    /// Export profile data as a `.puffin` file.
-    #[cfg(feature = "serialization")]
-    #[cfg(not(target_arch = "wasm32"))] // compression not supported on wasm
-    pub fn save_to_writer(&self, write: &mut impl std::io::Write) -> anyhow::Result<()> {
+    pub fn write(&self, write: &mut impl std::io::Write) -> anyhow::Result<()> {
         write.write_all(b"PUF0")?;
 
         let slowest_frames = self.slowest.iter().map(|f| &f.0);
@@ -172,16 +164,9 @@ impl FrameView {
         Ok(())
     }
 
-    /// Import profile data from a `.puffin` file.
+    /// Import profile data from a `.puffin` file/stream.
     #[cfg(feature = "serialization")]
-    pub fn load_path(path: &std::path::Path) -> anyhow::Result<Self> {
-        let mut file = std::fs::File::open(path)?;
-        Self::load_reader(&mut file)
-    }
-
-    /// Import profile data from a `.puffin` file.
-    #[cfg(feature = "serialization")]
-    pub fn load_reader(read: &mut impl std::io::Read) -> anyhow::Result<Self> {
+    pub fn read(read: &mut impl std::io::Read) -> anyhow::Result<Self> {
         let mut magic = [0_u8; 4];
         read.read_exact(&mut magic)?;
         if &magic != b"PUF0" {

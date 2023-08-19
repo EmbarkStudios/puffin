@@ -153,8 +153,16 @@ impl PuffinViewer {
             .add_filter("puffin", &["puffin"])
             .save_file()
         {
-            if let Err(error) = self.source.frame_view().save_to_path(&path) {
-                self.error = Some(format!("Failed to export: {error}"));
+            let mut file = match std::fs::File::create(path) {
+                Ok(file) => file,
+                Err(error) => {
+                    self.error = Some(format!("Failed to create file: {error:#}"));
+                    return;
+                }
+            };
+
+            if let Err(error) = self.source.frame_view().write(&mut file) {
+                self.error = Some(format!("Failed to export: {error:#}"));
             } else {
                 self.error = None;
             }
@@ -173,14 +181,23 @@ impl PuffinViewer {
 
     fn open_puffin_path(&mut self, path: std::path::PathBuf) {
         puffin::profile_function!();
-        match FrameView::load_path(&path) {
+
+        let mut file = match std::fs::File::open(&path) {
+            Ok(bytes) => bytes,
+            Err(err) => {
+                self.error = Some(format!("Failed to open {}: {err:#}", path.display()));
+                return;
+            }
+        };
+
+        match FrameView::read(&mut file) {
             Ok(frame_view) => {
                 self.profiler_ui.reset();
                 self.source = Source::FilePath(path, frame_view);
                 self.error = None;
             }
             Err(err) => {
-                self.error = Some(format!("Failed to load {}: {}", path.display(), err));
+                self.error = Some(format!("Failed to load {}: {err:#}", path.display()));
             }
         }
     }
@@ -188,7 +205,7 @@ impl PuffinViewer {
     fn open_puffin_bytes(&mut self, name: String, bytes: &[u8]) {
         puffin::profile_function!();
         let mut reader = std::io::Cursor::new(bytes);
-        match FrameView::load_reader(&mut reader) {
+        match FrameView::read(&mut reader) {
             Ok(frame_view) => {
                 self.profiler_ui.reset();
                 self.source = Source::FileName(name, frame_view);
