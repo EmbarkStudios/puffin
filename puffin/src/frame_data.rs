@@ -153,16 +153,20 @@ compile_error!(
 #[repr(u8)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum CompressionKind {
+    #[allow(dead_code)] // with some feature sets
     Uncompressed = 0,
 
     /// Very fast, and lightweight dependency
+    #[allow(dead_code)] // with some feature sets
     Lz4 = 1,
 
     /// Big dependency, slow compression, but compresses better than lz4
+    #[allow(dead_code)] // with some feature sets
     Zstd = 2,
 }
 
 impl CompressionKind {
+    #[cfg(feature = "serialization")]
     fn from_u8(value: u8) -> anyhow::Result<Self> {
         match value {
             0 => Ok(Self::Uncompressed),
