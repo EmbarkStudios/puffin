@@ -31,7 +31,7 @@ zstd = ["dep:zstd", "dep:ruzstd"]
 serialization = ["packing"]
 
 # Enable this to be able to run puffin inside a browser when compiling to wasm
-web = ["instant/wasm-bindgen", "dep:js-sys"]
+web = ["dep:js-sys"]
 
 
 [dependencies]
@@ -53,7 +53,7 @@ zstd = { version = "0.12.3", optional = true } # native only
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 js-sys = { version = "0.3", optional = true }
 ruzstd = { version = "0.4.0", optional = true } # works on wasm
-instant = { version = "0.1", optional = true }
+web-time = { version = "0.2", optional = true }
 
 
 [dev-dependencies]

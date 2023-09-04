@@ -346,7 +346,7 @@ pub struct ProfilerUi {
 
     /// When did we last run a pass to pack all the frames?
     #[cfg_attr(feature = "serde", serde(skip))]
-    last_pack_pass: Option<instant::Instant>,
+    last_pack_pass: Option<web_time::Instant>,
 }
 
 impl Default for ProfilerUi {
@@ -433,16 +433,16 @@ impl ProfilerUi {
         }
         let last_pack_pass = self
             .last_pack_pass
-            .get_or_insert_with(instant::Instant::now);
+            .get_or_insert_with(web_time::Instant::now);
         let time_since_last_pack = last_pack_pass.elapsed();
-        if time_since_last_pack > instant::Duration::from_secs(1) {
+        if time_since_last_pack > web_time::Duration::from_secs(1) {
             puffin::profile_scope!("pack_pass");
             for frame in self.all_known_frames(frame_view) {
                 if !self.is_selected(frame_view, frame.frame_index()) {
                     frame.pack();
                 }
             }
-            self.last_pack_pass = Some(instant::Instant::now());
+            self.last_pack_pass = Some(web_time::Instant::now());
         }
     }
 
