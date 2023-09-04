@@ -504,12 +504,15 @@ impl ProfilerUi {
 
         ui.horizontal(|ui| {
             let play_pause_button_size = Vec2::splat(24.0);
+            let space_pressed =
+                ui.input(|i| i.key_pressed(egui::Key::Space)) && ui.memory(|m| m.focus().is_none());
+
             if self.paused.is_some() {
                 if ui
                     .add_sized(play_pause_button_size, egui::Button::new("▶"))
                     .on_hover_text("Show latest data. Toggle with space.")
                     .clicked()
-                    || ui.input(|i| i.key_pressed(egui::Key::Space))
+                    || space_pressed
                 {
                     self.paused = None;
                 }
@@ -519,7 +522,7 @@ impl ProfilerUi {
                         .add_sized(play_pause_button_size, egui::Button::new("⏸"))
                         .on_hover_text("Pause on this frame. Toggle with space.")
                         .clicked()
-                        || ui.input(|i| i.key_pressed(egui::Key::Space))
+                        || space_pressed
                     {
                         let latest = frame_view.latest_frame();
                         if let Some(latest) = latest {
