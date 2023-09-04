@@ -37,6 +37,8 @@ jobs:
       - run: cargo fetch
       - name: cargo clippy
         run: cargo clippy --all-targets -- -D warnings
+      - name: cargo clippy wasm32-unknown-unknown WITHOUT web feature
+        run: cargo clippy -p puffin --target wasm32-unknown-unknown --no-default-features -- -D warnings
       - name: cargo clippy wasm32
         run: cargo clippy -p puffin_viewer --target wasm32-unknown-unknown --all-features --lib
 
@@ -73,7 +75,7 @@ jobs:
     runs-on: ubuntu-20.04-16core
     env:
       # there is no published release for v0.7 yet, build from git revision
-      CARGO_VET_REVISION: 088586c
+      CARGO_VET_REVISION: 8c8b6d7a5237544c613de616a031586587f49a42
     steps:
       - uses: actions/checkout@v3
       - uses: dtolnay/rust-toolchain@stable

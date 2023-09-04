@@ -552,7 +552,12 @@ pub fn now_ns() -> NanoSecond {
     }
 
     // This can maybe be optimized
-    use instant::Instant;
+
+    #[cfg(not(target_arch = "wasm32"))]
+    use std::time::Instant;
+    #[cfg(target_arch = "wasm32")]
+    use web_time::Instant;
+
     use once_cell::sync::Lazy;
 
     static START_TIME: Lazy<(NanoSecond, Instant)> =
