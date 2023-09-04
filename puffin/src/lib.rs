@@ -553,9 +553,9 @@ pub fn now_ns() -> NanoSecond {
 
     // This can maybe be optimized
 
-    #[cfg(not(feature = "web"))]
+    #[cfg(not(target_arch = "wasm32"))]
     use std::time::Instant;
-    #[cfg(feature = "web")]
+    #[cfg(target_arch = "wasm32")]
     use web_time::Instant;
 
     use once_cell::sync::Lazy;
