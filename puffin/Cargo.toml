@@ -31,7 +31,7 @@ zstd = ["dep:zstd", "dep:ruzstd"]
 serialization = ["packing"]
 
 # Enable this to be able to run puffin inside a browser when compiling to wasm
-web = ["dep:js-sys"]
+web = ["dep:js-sys", "dep:web-time"]
 
 
 [dependencies]
