@@ -23,4 +23,4 @@ puffin = { version = "0.16.0", path = "../puffin", features = [
 ] }
 
 [dev-dependencies]
-simple_logger = "2.1"
+simple_logger = "4.2"

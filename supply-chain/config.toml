@@ -416,7 +416,7 @@ version = "0.3.5"
 criteria = "safe-to-deploy"
 
 [[exemptions.simple_logger]]
-version = "2.3.0"
+version = "4.2.0"
 criteria = "safe-to-run"
 
 [[exemptions.slotmap]]
