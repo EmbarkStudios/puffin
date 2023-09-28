@@ -1713,7 +1713,7 @@ dependencies = [
 
 [[package]]
 name = "puffin"
-version = "0.16.0"
+version = "0.17.0"
 dependencies = [
  "anyhow",
  "bincode",
@@ -1732,7 +1732,7 @@ dependencies = [
 
 [[package]]
 name = "puffin_egui"
-version = "0.22.0"
+version = "0.23.0"
 dependencies = [
  "eframe",
  "egui",
@@ -1748,7 +1748,7 @@ dependencies = [
 
 [[package]]
 name = "puffin_http"
-version = "0.13.0"
+version = "0.14.0"
 dependencies = [
  "anyhow",
  "crossbeam-channel",
@@ -1759,7 +1759,7 @@ dependencies = [
 
 [[package]]
 name = "puffin_viewer"
-version = "0.16.0"
+version = "0.17.0"
 dependencies = [
  "argh",
  "eframe",

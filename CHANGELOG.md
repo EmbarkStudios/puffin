@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <!-- next-header -->
 ## [Unreleased] - ReleaseDate
+## [0.17.0] - 2023-09-28
 
 - [PR#140](https://github.com/EmbarkStudios/puffin/issues/140) Remove imgui support for
 - [PR#158](https://github.com/EmbarkStudios/puffin/pull/158) Remove file I/O from
@@ -117,7 +118,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * `GlobalProfiler` now store recent history and the slowest frames.
 
 <!-- next-url -->
-[Unreleased]: https://github.com/EmbarkStudios/puffin/compare/0.16.0...HEAD
+[Unreleased]: https://github.com/EmbarkStudios/puffin/compare/0.17.0...HEAD
+[0.17.0]: https://github.com/EmbarkStudios/puffin/compare/0.16.0...0.17.0
 [0.16.0]: https://github.com/EmbarkStudios/puffin/compare/0.15.0...0.16.0
 [0.15.0]: https://github.com/EmbarkStudios/puffin/compare/0.14.3...0.15.0
 [0.14.3]: https://github.com/EmbarkStudios/puffin/compare/0.14.2...0.14.3
