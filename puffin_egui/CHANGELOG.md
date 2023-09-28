@@ -6,6 +6,9 @@ All notable changes to the egui crate will be documented in this file.
 
 <!-- next-header -->
 ## [Unreleased] - ReleaseDate
+
+- [PR#161](https://github.com/EmbarkStudios/puffin/pull/161) Update to egui `0.23` 
+
 ## [0.22.0] - 2023-05-24
 
 * [PR#137](https://github.com/EmbarkStudios/puffin/pull/137) Upgrade to `egui` and `eframe` 0.22
