@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <!-- next-header -->
 ## [Unreleased] - ReleaseDate
+
+- [PR#140](https://github.com/EmbarkStudios/puffin/issues/140) Remove imgui support for
+- [PR#158](https://github.com/EmbarkStudios/puffin/pull/158) Remove file I/O from
+- [PR#157](https://github.com/EmbarkStudios/puffin/issues/157) Remove `instant` dependency when not building for web
+
 ## [0.16.0] - 2023-05-24
 
 - [PR#136](https://github.com/EmbarkStudios/puffin/pull/136) Upgrade `ruzstd` to 0.4

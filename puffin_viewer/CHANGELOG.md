@@ -6,6 +6,9 @@ All notable changes to `puffin_viewer` will be documented in this file.
 
 <!-- next-header -->
 ## [Unreleased] - ReleaseDate
+
+- [PR#161](https://github.com/EmbarkStudios/puffin/pull/161) Update to egui `0.23` 
+
 ## [0.16.0] - 2023-05-24
 
 * Upgrade to `eframe` 0.22
