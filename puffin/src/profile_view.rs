@@ -230,17 +230,41 @@ impl Ord for OrderedByDuration {
 /// Automatically connects to [`crate::GlobalProfiler`].
 pub struct GlobalFrameView {
     sink_id: FrameSinkId,
-    view: Arc<Mutex<FrameView>>,
+    inner: Arc<GlobalFrameViewInner>,
+}
+
+struct GlobalFrameViewInner {
+    view: Mutex<FrameView>,
+    pending: Mutex<Vec<Arc<FrameData>>>,
+}
+
+impl GlobalFrameViewInner {
+    fn process_pending(&self, view: &mut FrameView) {
+        let mut guard = self.pending.lock().unwrap();
+        for frame in guard.drain(..) {
+            view.add_frame(frame);
+        }
+    }
 }
 
 impl Default for GlobalFrameView {
     fn default() -> Self {
-        let view = Arc::new(Mutex::new(FrameView::default()));
-        let view_clone = view.clone();
+        let inner = Arc::new(GlobalFrameViewInner {
+            view: Mutex::new(FrameView::default()),
+            pending: Mutex::new(Vec::new()),
+        });
+        let inner_clone = inner.clone();
         let sink_id = crate::GlobalProfiler::lock().add_sink(Box::new(move |frame| {
-            view_clone.lock().unwrap().add_frame(frame);
+            if let Ok(mut view) = inner_clone.view.try_lock() {
+                inner_clone.process_pending(&mut *view);
+                view.add_frame(frame);
+            } else {
+                // Something is currently looking at the frame view, add the
+                // frame to the pending list.
+                inner_clone.pending.lock().unwrap().push(frame);
+            }
         }));
-        Self { sink_id, view }
+        Self { sink_id, inner }
     }
 }
 
@@ -253,6 +277,8 @@ impl Drop for GlobalFrameView {
 impl GlobalFrameView {
     /// View the latest profiling data.
     pub fn lock(&self) -> std::sync::MutexGuard<'_, FrameView> {
-        self.view.lock().unwrap()
+        let mut guard = self.inner.view.lock().unwrap();
+        self.inner.process_pending(&mut *guard);
+        guard
     }
 }
