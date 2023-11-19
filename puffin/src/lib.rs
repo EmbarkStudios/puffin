@@ -718,9 +718,23 @@ macro_rules! profile_function {
     };
     ($data:expr) => {
         let _profiler_scope = if $crate::are_scopes_on() {
+            static mut _FUNCTION_NAME: &'static str = "";
+            static mut _LOCATION: &'static str = "";
+            static _INITITIALIZED: ::std::sync::Once = ::std::sync::Once::new();
+
+            #[allow(unsafe_code)]
+            // SAFETY: accessing the statics is safe because it is done in cojunction with `std::sync::Once``
+            let (function_name, location) = unsafe {
+                _INITITIALIZED.call_once(|| {
+                    _FUNCTION_NAME = $crate::current_function_name!();
+                    _LOCATION = $crate::current_file_name!();
+                });
+                (_FUNCTION_NAME, _LOCATION)
+            };
+
             Some($crate::ProfilerScope::new(
-                $crate::current_function_name!(),
-                $crate::current_file_name!(),
+                function_name,
+                location,
                 $data,
             ))
         } else {
@@ -747,9 +761,21 @@ macro_rules! profile_scope {
     };
     ($id:expr, $data:expr) => {
         let _profiler_scope = if $crate::are_scopes_on() {
+            static mut _LOCATION: &'static str = "";
+            static _INITITIALIZED: ::std::sync::Once = ::std::sync::Once::new();
+
+            #[allow(unsafe_code)]
+            // SAFETY: accessing the statics is safe because it is done in cojunction with `std::sync::Once``
+            let location = unsafe {
+                _INITITIALIZED.call_once(|| {
+                    _LOCATION = $crate::current_file_name!();
+                });
+                _LOCATION
+            };
+
             Some($crate::ProfilerScope::new(
                 $id,
-                $crate::current_file_name!(),
+                location,
                 $data,
             ))
         } else {
