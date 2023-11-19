@@ -629,20 +629,47 @@ macro_rules! current_function_name {
 
 #[doc(hidden)]
 #[inline]
-pub fn clean_function_name(name: &str) -> &str {
-    // Must be kept fast, as it is run on each invocation of the profiling macros.
-    // It would be nicer to precompute a string once and reuse that, but that
-    // is difficult in Rust.
+pub fn clean_function_name(name: &str) -> String {
+    // "foo::bar::baz" -> "baz"
+    fn last_part(name: &str) -> &str {
+        if let Some(colon) = name.rfind("::") {
+            &name[colon + 2..]
+        } else {
+            name
+        }
+    }
+
+    // look for:  <some::ConcreteType as some::Trait>::function_name
+    if let Some(end_caret) = name.rfind('>') {
+        if let Some(trait_as) = name.rfind(" as ") {
+            if trait_as < end_caret {
+                let concrete_name = if let Some(start_caret) = name[..trait_as].rfind('<') {
+                    &name[start_caret + 1..trait_as]
+                } else {
+                    name
+                };
+
+                let trait_name = &name[trait_as + 4..end_caret];
+
+                let concrete_name = last_part(concrete_name);
+                let trait_name = last_part(trait_name);
+
+                let dubcolon_function_name = &name[end_caret + 1..];
+                return format!("<{concrete_name} as {trait_name}>{dubcolon_function_name}");
+            }
+        }
+    }
+
     if let Some(colon) = name.rfind("::") {
         if let Some(colon) = name[..colon].rfind("::") {
             // "foo::bar::baz::function_name" -> "baz::function_name"
-            &name[colon + 2..]
+            name[colon + 2..].to_owned()
         } else {
             // "foo::function_name" -> "foo::function_name"
-            name
+            name.to_owned()
         }
     } else {
-        name
+        name.to_owned()
     }
 }
 
@@ -657,8 +684,8 @@ fn test_clean_function_name() {
         "GenericThing<_, _>::function_name"
     );
     assert_eq!(
-        clean_function_name("<some::ConcreteType as some::Trait>::function_name"),
-        "Trait>::function_name"
+        clean_function_name("<some::ConcreteType as some::bloody::Trait>::function_name"),
+        "<ConcreteType as Trait>::function_name"
     );
 }
 
@@ -795,7 +822,7 @@ macro_rules! profile_function {
             // SAFETY: accessing the statics is safe because it is done in cojunction with `std::sync::Once``
             let (function_name, location) = unsafe {
                 _INITITIALIZED.call_once(|| {
-                    _FUNCTION_NAME = $crate::current_function_name!();
+                    _FUNCTION_NAME = $crate::current_function_name!().leak();
                     _LOCATION = format!("{}:{}", $crate::current_file_name!(), line!()).leak();
                 });
                 (_FUNCTION_NAME, _LOCATION)
