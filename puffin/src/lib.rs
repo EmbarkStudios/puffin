@@ -630,6 +630,9 @@ macro_rules! current_function_name {
 #[doc(hidden)]
 #[inline]
 pub fn clean_function_name(name: &str) -> &str {
+    // Must be kept fast, as it is run on each invocation of the profiling macros.
+    // It would be nicer to precompute a string once and reuse that, but that
+    // is difficult in Rust.
     if let Some(colon) = name.rfind("::") {
         if let Some(colon) = name[..colon].rfind("::") {
             // "foo::bar::baz::function_name" -> "baz::function_name"
@@ -649,6 +652,14 @@ fn test_clean_function_name() {
     assert_eq!(clean_function_name("foo"), "foo");
     assert_eq!(clean_function_name("foo::bar"), "foo::bar");
     assert_eq!(clean_function_name("foo::bar::baz"), "bar::baz");
+    assert_eq!(
+        clean_function_name("some::GenericThing<_, _>::function_name"),
+        "GenericThing<_, _>::function_name"
+    );
+    assert_eq!(
+        clean_function_name("<some::ConcreteType as some::Trait>::function_name"),
+        "Trait>::function_name"
+    );
 }
 
 /// Returns a shortened path to the current file.
@@ -659,27 +670,85 @@ macro_rules! current_file_name {
     };
 }
 
-/// Removes long path prefix to focus on the last parts of the path (and the file name).
+/// Shortens a long `file!()` path to the essentials.
+///
+/// We want to keep it short for two reasons: readability, and bandwidth
 #[doc(hidden)]
 #[inline]
-pub fn short_file_name(name: &str) -> &str {
-    // TODO: "foo/bar/src/lib.rs" -> "bar/src/lib.rs"
+pub fn short_file_name(path: &str) -> String {
+    let path = path.replace('\\', "/"); // Handle Windows
+    let components: Vec<&str> = path.split('/').collect();
+    if components.len() <= 2 {
+        return path;
+    }
 
-    if let Some(separator) = name.rfind(&['/', '\\'][..]) {
-        // "foo/bar/baz.rs" -> "baz.rs"
-        &name[separator + 1..]
+    // Look for `src` folder:
+
+    let mut src_idx = None;
+    for (i, c) in components.iter().enumerate() {
+        if *c == "src" {
+            src_idx = Some(i);
+        }
+    }
+
+    if let Some(src_idx) = src_idx {
+        // Before `src` comes the name of the crate - let's include that:
+        let crate_index = src_idx.saturating_sub(1);
+        let file_index = components.len() - 1;
+
+        if crate_index + 2 == file_index {
+            // Probably "crate/src/lib.rs" - inlcude it all
+            format!(
+                "{}/{}/{}",
+                components[crate_index],
+                components[crate_index + 1],
+                components[file_index]
+            )
+        } else if components[file_index] == "lib.rs" {
+            // "lib.rs" is very unhelpful - include folder name:
+            let folder_index = file_index - 1;
+
+            if crate_index + 1 == folder_index {
+                format!(
+                    "{}/{}/{}",
+                    components[crate_index], components[folder_index], components[file_index]
+                )
+            } else {
+                // Ellide for brevity:
+                format!(
+                    "{}/…/{}/{}",
+                    components[crate_index], components[folder_index], components[file_index]
+                )
+            }
+        } else {
+            // Ellide for brevity:
+            format!("{}/…/{}", components[crate_index], components[file_index])
+        }
     } else {
-        name
+        // No `src` directory found - could be an example (`examples/hello_world.rs`).
+        // Include the folder and file name.
+        let n = components.len();
+        // NOTE: we've already checked that n > 1 easly in the function
+        format!("{}/{}", components[n - 2], components[n - 1])
     }
 }
 
 #[test]
 fn test_short_file_name() {
-    assert_eq!(short_file_name(""), "");
-    assert_eq!(short_file_name("foo.rs"), "foo.rs");
-    assert_eq!(short_file_name("foo/bar.rs"), "bar.rs");
-    assert_eq!(short_file_name("foo/bar/baz.rs"), "baz.rs");
-    assert_eq!(short_file_name(r"C:\\windows\is\weird\src.rs"), "src.rs");
+    for (before, after) in [
+        ("", ""),
+        ("foo.rs", "foo.rs"),
+        ("foo/bar.rs", "foo/bar.rs"),
+        ("foo/bar/baz.rs", "bar/baz.rs"),
+        ("crates/cratename/src/main.rs", "cratename/src/main.rs"),
+        ("crates/cratename/src/module/lib.rs", "cratename/…/module/lib.rs"),
+        ("workspace/cratename/examples/hello_world.rs", "examples/hello_world.rs"),
+        ("/rustc/d5a82bbd26e1ad8b7401f6a718a9c57c96905483/library/core/src/ops/function.rs", "core/…/function.rs"),
+        ("/Users/emilk/.cargo/registry/src/github.com-1ecc6299db9ec823/tokio-1.24.1/src/runtime/runtime.rs", "tokio-1.24.1/…/runtime.rs"),
+        ]
+        {
+        assert_eq!(short_file_name(before), after);
+    }
 }
 
 #[allow(clippy::doc_markdown)] // clippy wants to put "MacBook" in ticks 🙄
