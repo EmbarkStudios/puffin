@@ -727,7 +727,7 @@ macro_rules! profile_function {
             let (function_name, location) = unsafe {
                 _INITITIALIZED.call_once(|| {
                     _FUNCTION_NAME = $crate::current_function_name!();
-                    _LOCATION = $crate::current_file_name!();
+                    _LOCATION = format!("{}:{}", $crate::current_file_name!(), line!()).leak();
                 });
                 (_FUNCTION_NAME, _LOCATION)
             };
@@ -768,7 +768,7 @@ macro_rules! profile_scope {
             // SAFETY: accessing the statics is safe because it is done in cojunction with `std::sync::Once``
             let location = unsafe {
                 _INITITIALIZED.call_once(|| {
-                    _LOCATION = $crate::current_file_name!();
+                    _LOCATION = format!("{}:{}", $crate::current_file_name!(), line!()).leak();
                 });
                 _LOCATION
             };
