@@ -30,9 +30,9 @@ fn my_function() {
 }
 ```
 
-The Puffin macros write data to a thread-local data stream. When the outermost scope of a thread is closed, the data stream is sent to a global profiler collector. The scopes are pretty light-weight, costing around 60 ns on an M1 MacBook PRO.
+The Puffin macros write data to a thread-local data stream. When the outermost scope of a thread is closed, the data stream is sent to a global profiler collector. The scopes are pretty light-weight, costing around 60 ns on an M1 MacBook Pro.
 
-You have to turn on the profiler before it captures any data with a call to `puffin::set_scopes_on(true);`. When the profiler is off the profiler scope macros only has an overhead of 1 ns on an M1 MacBook PRO (plus some stack space).
+You have to turn on the profiler before it captures any data with a call to `puffin::set_scopes_on(true);`. When the profiler is off the profiler scope macros only has an overhead of 1 ns on an M1 MacBook Pro (plus some stack space).
 
 Once per frame you need to call `puffin::GlobalProfiler::lock().new_frame();`.
 
