@@ -4,18 +4,22 @@
 //!
 //! Each scope start consists of:
 //!
+//! ```ignore
 //!    '('          byte       Sentinel
 //!    time_ns      i64        Time stamp of when scope started
 //!    id           str        Scope name. Human readable, e.g. a function name. Never the empty string.
 //!    location     str        File name or similar. Could be the empty string.
 //!    data         str        Resource that is being processed, e.g. name of image being loaded. Could be the empty string.
 //!    scope_size   u64        Number of bytes of child scope
+//! ```
 //!
 //! This is followed by `scope_size` number of bytes of data
 //! containing any child scopes. The scope is then closed by:
 //!
+//! ```ignore
 //!    ')'          byte       Sentinel
 //!    time_ns      i64        Time stamp of when scope finished
+//! ```
 //!
 //! Integers are encoded in little endian.
 //! Strings are encoded as a single u8 length + that many bytes of UTF8.

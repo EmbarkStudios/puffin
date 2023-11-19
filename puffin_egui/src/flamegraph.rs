@@ -258,7 +258,7 @@ pub fn ui(ui: &mut egui::Ui, options: &mut Options, frames: &SelectedFrames) {
                         let entry = options
                             .flamegraph_threads
                             .entry(f.name.clone())
-                            .or_insert_with(ThreadVisualizationSettings::default);
+                            .or_default();
                         ui.checkbox(&mut entry.flamegraph_show, f.name.clone());
                     }
                 });
@@ -344,7 +344,7 @@ fn ui_canvas(
         let thread_visualization = options
             .flamegraph_threads
             .entry(thread_info.name.clone())
-            .or_insert_with(ThreadVisualizationSettings::default);
+            .or_default();
 
         if !thread_visualization.flamegraph_show {
             continue;
