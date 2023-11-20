@@ -629,7 +629,7 @@ macro_rules! current_function_name {
 
 #[doc(hidden)]
 #[inline(never)]
-pub fn clean_function_name(name: &str) -> String {
+pub fn clean_function_name(name: &'static str) -> String {
     // "foo::bar::baz" -> "baz"
     fn last_part(name: &str) -> &str {
         if let Some(colon) = name.rfind("::") {
