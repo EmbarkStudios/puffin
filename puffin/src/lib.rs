@@ -628,7 +628,7 @@ macro_rules! current_function_name {
 }
 
 #[doc(hidden)]
-#[inline]
+#[inline(never)]
 pub fn clean_function_name(name: &str) -> String {
     // "foo::bar::baz" -> "baz"
     fn last_part(name: &str) -> &str {
