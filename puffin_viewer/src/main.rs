@@ -55,12 +55,12 @@ fn main() {
         Source::Http(puffin_http::Client::new(opt.url))
     };
 
-    let icon = eframe::icon_data::from_png_bytes(include_bytes!("../icon.png")).unwrap();
     let native_options = eframe::NativeOptions {
-        viewport: eframe::egui::ViewportBuilder::default()
-            .with_app_id("puffin_viewer")
-            .with_drag_and_drop(true)
-            .with_window_icon(icon),
+        app_id: Some("puffin_viewer".to_owned()),
+        icon_data: Some(
+            eframe::IconData::try_from_png_bytes(include_bytes!("../icon.png")).unwrap(),
+        ),
+        drag_and_drop_support: true,
         ..Default::default()
     };
 

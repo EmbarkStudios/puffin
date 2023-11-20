@@ -218,7 +218,7 @@ impl PuffinViewer {
     }
 
     #[cfg(not(target_arch = "wasm32"))]
-    fn ui_menu_bar(&mut self, ctx: &egui::Context) {
+    fn ui_menu_bar(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
         if ctx.input(|i| i.modifiers.command && i.key_pressed(egui::Key::O)) {
             self.open_dialog();
         }
@@ -242,7 +242,7 @@ impl PuffinViewer {
                     }
 
                     if ui.button("Quit").clicked() {
-                        ui.ctx().send_viewport_cmd(egui::ViewportCommand::Close);
+                        frame.close();
                     }
                 });
                 ui.menu_button("View", |ui| {
@@ -295,7 +295,7 @@ impl eframe::App for PuffinViewer {
 
         #[cfg(not(target_arch = "wasm32"))]
         {
-            self.ui_menu_bar(ctx);
+            self.ui_menu_bar(ctx, _frame);
         }
 
         #[cfg(target_arch = "wasm32")]
