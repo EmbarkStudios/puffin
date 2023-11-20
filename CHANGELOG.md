@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <!-- next-header -->
 ## [Unreleased] - ReleaseDate
+
+- [PR#165](https://github.com/EmbarkStudios/puffin/issues/165) Faster profiling, add line numbers, better paths, and better function names
+
 ## [0.17.0] - 2023-09-28
 
 - [PR#140](https://github.com/EmbarkStudios/puffin/issues/140) Remove imgui support for
@@ -28,7 +31,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.14.2] - 2023-01-30
 
-- [PR#123](https://github.com/EmbarkStudios/puffin/pull/123) Fix `puffin` build for non-web wasm enviroments. 
+- [PR#123](https://github.com/EmbarkStudios/puffin/pull/123) Fix `puffin` build for non-web wasm enviroments.
 
 ## [0.14.1] - 2022-12-13
 
