@@ -10,7 +10,7 @@ repository = "https://github.com/EmbarkStudios/puffin"
 readme = "README.md"
 categories = ["development-tools::profiling"]
 keywords = ["profiler", "instrumentation", "gamedev"]
-include = ["**/*.rs", "Cargo.toml", "README.md"]
+include = ["**/*.rs", "Cargo.toml", "README.md", "../puffin.jpg"]
 
 [package.metadata.docs.rs]
 all-features = true
