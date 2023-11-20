@@ -36,15 +36,32 @@ You have to turn on the profiler before it captures any data with a call to `puf
 
 Once per frame you need to call `puffin::GlobalProfiler::lock().new_frame();`.
 
-## UI
-
-To view the profile data in-game you can use [`puffin_egui`](https://github.com/EmbarkStudios/puffin/tree/main/puffin_egui).
-
 ![Puffin Flamegraph using puffin_egui](puffin_egui.gif)
 
 ## Remote profiling
 
-You can use [`puffin_http`](https://github.com/EmbarkStudios/puffin/tree/main/puffin_http) to send profile events over TCP to [`puffin_viewer`](https://github.com/EmbarkStudios/puffin/tree/main/puffin_viewer).
+You can use [`puffin_http`](https://github.com/EmbarkStudios/puffin/tree/main/puffin_http) to send profile events over TCP to [`puffin_viewer`](https://github.com/EmbarkStudios/puffin/tree/main/puffin_viewer). This is as easy as:
+
+```rs
+fn main() {
+    let server_addr = format!("127.0.0.1:{}", puffin_http::DEFAULT_PORT);
+    let _puffin_server = puffin_http::Server::new(&server_addr).unwrap();
+    eprintln!("Run this to view profiling data:  puffin_viewer {server_addr}");
+    puffin::set_scopes_on(true);
+
+    …
+
+    // You also need to periodically call
+    // `puffin::GlobalProfiler::lock().new_frame();`
+    // to flush the profiling events.
+}
+```
+
+## [egui](https://github.com/emilk/egui) integration
+
+To view the profile data in-game you can use [`puffin_egui`](https://github.com/EmbarkStudios/puffin/tree/main/puffin_egui).
+
+If you are using [`eframe`](https://crates.io/crates/eframe) you can look at [this example](https://github.com/emilk/egui/tree/master/examples/puffin_profiler).
 
 ## Other
 
