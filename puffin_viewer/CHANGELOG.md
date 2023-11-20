@@ -46,7 +46,7 @@ All notable changes to `puffin_viewer` will be documented in this file.
 ## [0.10.1] - 2022-01-11
 ### Changed
 - Update to latest `eframe` and `winit`
-- Swich renderer from `egui_glium` to `egui_glow`.
+- Switch renderer from `egui_glium` to `egui_glow`.
 
 ## [0.10.0] - 2021-11-16
 ### Changed

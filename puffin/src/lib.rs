@@ -724,7 +724,7 @@ pub fn short_file_name(path: &'static str) -> String {
         let file_index = components.len() - 1;
 
         if crate_index + 2 == file_index {
-            // Probably "crate/src/lib.rs" - inlcude it all
+            // Probably "crate/src/lib.rs" - include it all
             format!(
                 "{}/{}/{}",
                 components[crate_index],
@@ -755,7 +755,7 @@ pub fn short_file_name(path: &'static str) -> String {
         // No `src` directory found - could be an example (`examples/hello_world.rs`).
         // Include the folder and file name.
         let n = components.len();
-        // NOTE: we've already checked that n > 1 easly in the function
+        // NOTE: we've already checked that n > 1 easily in the function
         format!("{}/{}", components[n - 2], components[n - 1])
     }
 }
