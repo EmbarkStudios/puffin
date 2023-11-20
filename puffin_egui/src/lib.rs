@@ -129,7 +129,7 @@ pub fn show_viewport_if_enabled(ctx: &egui::Context) {
         egui::ViewportBuilder::default().with_title("Puffin Profiler"),
         move |ctx, class| {
             if class == egui::ViewportClass::Embedded {
-                // Viewports not supported. Show it as a floawing egui window instead.
+                // Viewports not supported. Show it as a floating egui window instead.
                 let mut open = true;
                 egui::Window::new("Puffin Profiler")
                     .default_size([1024.0, 600.0])

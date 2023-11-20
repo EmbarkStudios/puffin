@@ -11,7 +11,7 @@ You can view them using [`puffin_viewer`](https://github.com/EmbarkStudios/puffi
 
 ## How to use
 Add a `puffin_http` `Server` to the profiled application
-When the server is started, [`puffin_viewer`](https://crates.io/crates/puffin_viewer) application can connect to it and display profiling informations.
+When the server is started, [`puffin_viewer`](https://crates.io/crates/puffin_viewer) application can connect to it and display profiling information.
 
 ``` rust
 fn main() {

@@ -8,13 +8,13 @@ All notable changes to `puffin_viewer` will be documented in this file.
 ## [Unreleased] - ReleaseDate
 ## [0.17.0] - 2023-09-28
 
-- [PR#161](https://github.com/EmbarkStudios/puffin/pull/161) Update to egui `0.23` 
+- [PR#161](https://github.com/EmbarkStudios/puffin/pull/161) Update to egui `0.23`
 
 ## [0.16.0] - 2023-05-24
 
 * Upgrade to `eframe` 0.22
 - Upgrade to `puffin` 0.16
-- 
+-
 ## [0.15.0] - 2023-04-24
 ## [0.14.0] - 2023-02-09
 * Upgrade to `puffin_egui` 0.21
@@ -46,7 +46,7 @@ All notable changes to `puffin_viewer` will be documented in this file.
 ## [0.10.1] - 2022-01-11
 ### Changed
 - Update to latest `eframe` and `winit`
-- Swich renderer from `egui_glium` to `egui_glow`.
+- Switch renderer from `egui_glium` to `egui_glow`.
 
 ## [0.10.0] - 2021-11-16
 ### Changed

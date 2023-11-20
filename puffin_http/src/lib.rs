@@ -2,7 +2,7 @@
 //!
 //! # How to use
 //! Add a `puffin_http` `Server` to the profiled application.
-//! When the server is started, [`puffin_viewer`](https://crates.io/crates/puffin_viewer) application can connect to it and display profiling informations.
+//! When the server is started, [`puffin_viewer`](https://crates.io/crates/puffin_viewer) application can connect to it and display profiling information.
 //!
 //! ```
 //! let server_addr = format!("0.0.0.0:{}", puffin_http::DEFAULT_PORT);
