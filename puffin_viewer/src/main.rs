@@ -60,7 +60,7 @@ fn main() {
         viewport: eframe::egui::ViewportBuilder::default()
             .with_app_id("puffin_viewer")
             .with_drag_and_drop(true)
-            .with_window_icon(icon),
+            .with_icon(icon),
         ..Default::default()
     };
 

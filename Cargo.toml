@@ -3,5 +3,8 @@ resolver = "2"
 members = ["puffin", "puffin_egui", "puffin_http", "puffin_viewer"]
 
 [patch.crates-io]
-eframe = { git = "https://github.com/emilk/egui.git", rev = "7bfaf4963676d02a88000b900b46365a827e0b65" } # egui master 2023-11-19
-egui = { git = "https://github.com/emilk/egui.git", rev = "7bfaf4963676d02a88000b900b46365a827e0b65" }   # egui master 2023-11-19
+eframe = { git = "https://github.com/emilk/egui.git", rev = "44ff29b01237975313606b91e7f3808e49d36d69" } # egui master 2023-11-19
+egui = { git = "https://github.com/emilk/egui.git", rev = "44ff29b01237975313606b91e7f3808e49d36d69" }   # egui master 2023-11-19
+
+# eframe = { path = "../../egui/crates/eframe" }
+# egui = { path = "../../egui/crates/egui" }

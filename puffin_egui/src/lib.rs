@@ -111,6 +111,42 @@ const HOVER_COLOR: Rgba = Rgba::from_rgb(0.8, 0.8, 0.8);
 
 // ----------------------------------------------------------------------------
 
+/// Show the puffin profiler if [`puffin::are_scopes_on`] is true,
+/// i.e. if profiling is enabled for your app.
+///
+/// The profiler will be shown in its own viewport (native window)
+/// if the egui backend supports it (e.g. when using `eframe`);
+/// else it will be shown in a floating [`egui::Window`].
+///
+/// Closing the viewport or window will call `puffin::set_scopes_on(false)`.
+pub fn show_viewport_if_enabled(ctx: &egui::Context) {
+    if !puffin::are_scopes_on() {
+        return;
+    }
+
+    ctx.show_viewport_deferred(
+        egui::ViewportId::from_hash_of("puffin_profiler"),
+        egui::ViewportBuilder::default().with_title("Puffin Profiler"),
+        move |ctx, class| {
+            if class == egui::ViewportClass::Embedded {
+                // Viewports not supported. Show it as a floawing egui window instead.
+                let mut open = true;
+                egui::Window::new("Puffin Profiler")
+                    .default_size([1024.0, 600.0])
+                    .open(&mut open)
+                    .show(ctx, profiler_ui);
+                puffin::set_scopes_on(open);
+            } else {
+                // A proper viewport!
+                egui::CentralPanel::default().show(ctx, profiler_ui);
+                if ctx.input(|i| i.viewport().close_requested()) {
+                    puffin::set_scopes_on(false);
+                }
+            }
+        },
+    );
+}
+
 /// Show an [`egui::Window`] with the profiler contents.
 ///
 /// If you want to control the window yourself, use [`profiler_ui`] instead.
