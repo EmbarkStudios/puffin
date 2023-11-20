@@ -701,7 +701,7 @@ macro_rules! current_file_name {
 ///
 /// We want to keep it short for two reasons: readability, and bandwidth
 #[doc(hidden)]
-#[inline]
+#[inline(never)]
 pub fn short_file_name(path: &'static str) -> String {
     let path = path.replace('\\', "/"); // Handle Windows
     let components: Vec<&str> = path.split('/').collect();
