@@ -23,7 +23,7 @@ puffin = { version = "0.18.0", path = "../puffin", features = [
     "lz4",
     "zstd",          # Support zstd in order to load old puffin files (before 0.16.0)
 ] }
-puffin_http = { version = "0.14.0", path = "../puffin_http" }
+puffin_http = { version = "0.15.0", path = "../puffin_http" }
 
 argh = "0.1"
 eframe = { version = "0.23.0", default-features = false, features = [
