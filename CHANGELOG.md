@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <!-- next-header -->
 ## [Unreleased] - ReleaseDate
+## [0.18.0] - 2023-11-21
 ## [0.17.1] - 2023-11-20
 
 - [PR#165](https://github.com/EmbarkStudios/puffin/issues/165) Faster profiling, add line numbers, better paths, and better function names
@@ -122,7 +123,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * `GlobalProfiler` now store recent history and the slowest frames.
 
 <!-- next-url -->
-[Unreleased]: https://github.com/EmbarkStudios/puffin/compare/0.17.1...HEAD
+[Unreleased]: https://github.com/EmbarkStudios/puffin/compare/0.18.0...HEAD
+[0.18.0]: https://github.com/EmbarkStudios/puffin/compare/0.17.1...0.18.0
 [0.17.1]: https://github.com/EmbarkStudios/puffin/compare/0.17.0...0.17.1
 [0.17.0]: https://github.com/EmbarkStudios/puffin/compare/0.16.0...0.17.0
 [0.16.0]: https://github.com/EmbarkStudios/puffin/compare/0.15.0...0.16.0
