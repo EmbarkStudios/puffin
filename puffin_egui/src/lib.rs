@@ -249,7 +249,11 @@ pub struct Streams {
 }
 
 impl Streams {
-    fn new(frames: &[Arc<UnpackedFrameData>], thread_info: &ThreadInfo) -> Self {
+    fn new(
+        scope_collection: &ScopeCollection,
+        frames: &[Arc<UnpackedFrameData>],
+        thread_info: &ThreadInfo,
+    ) -> Self {
         crate::profile_function!();
 
         let mut streams = vec![];
@@ -261,7 +265,7 @@ impl Streams {
 
         let merges = {
             puffin::profile_scope!("merge_scopes_for_thread");
-            puffin::merge_scopes_for_thread(frames, thread_info).unwrap()
+            puffin::merge_scopes_for_thread(scope_collection, frames, thread_info).unwrap()
         };
         let merges = merges.into_iter().map(|ms| ms.into_owned()).collect();
 
@@ -290,12 +294,18 @@ pub struct SelectedFrames {
 }
 
 impl SelectedFrames {
-    fn try_from_vec(frames: Vec<Arc<UnpackedFrameData>>) -> Option<Self> {
+    fn try_from_vec(
+        scope_collection: &ScopeCollection,
+        frames: Vec<Arc<UnpackedFrameData>>,
+    ) -> Option<Self> {
         let frames = vec1::Vec1::try_from_vec(frames).ok()?;
-        Some(Self::from_vec1(frames))
+        Some(Self::from_vec1(scope_collection, frames))
     }
 
-    fn from_vec1(mut frames: vec1::Vec1<Arc<UnpackedFrameData>>) -> Self {
+    fn from_vec1(
+        scope_collection: &ScopeCollection,
+        mut frames: vec1::Vec1<Arc<UnpackedFrameData>>,
+    ) -> Self {
         puffin::profile_function!();
         frames.sort_by_key(|f| f.frame_index());
         frames.dedup_by_key(|f| f.frame_index());
@@ -309,7 +319,7 @@ impl SelectedFrames {
 
         let threads: BTreeMap<ThreadInfo, Streams> = threads
             .iter()
-            .map(|ti| (ti.clone(), Streams::new(&frames, ti)))
+            .map(|ti| (ti.clone(), Streams::new(scope_collection, &frames, ti)))
             .collect();
 
         let mut merged_min_ns = NanoSecond::MAX;
@@ -511,7 +521,9 @@ impl ProfilerUi {
 
         let frames = if let Some(frame) = hovered_frame {
             match frame.unpacked() {
-                Ok(frame) => SelectedFrames::try_from_vec(vec![frame]),
+                Ok(frame) => {
+                    SelectedFrames::try_from_vec(&frame_view.scope_collection(), vec![frame])
+                }
                 Err(err) => {
                     ui.colored_label(ERROR_COLOR, format!("Failed to load hovered frame: {err}"));
                     return;
@@ -522,13 +534,12 @@ impl ProfilerUi {
         } else {
             puffin::profile_scope!("select_latest_frames");
             let latest = frame_view.latest_frames(self.max_num_latest);
-            SelectedFrames::try_from_vec(
-                latest
-                    .into_iter()
-                    .map(|frame| frame.unpacked())
-                    .filter_map(|unpacked| unpacked.ok())
-                    .collect(),
-            )
+            let unpacked: Vec<Arc<UnpackedFrameData>> = latest
+                .into_iter()
+                .map(|frame| frame.unpacked())
+                .filter_map(|unpacked| unpacked.ok())
+                .collect();
+            SelectedFrames::try_from_vec(&frame_view.scope_collection(), unpacked)
         };
 
         let frames = if let Some(frames) = frames {
@@ -565,7 +576,10 @@ impl ProfilerUi {
                             if let Ok(latest) = latest.unpacked() {
                                 self.pause_and_select(
                                     frame_view,
-                                    SelectedFrames::from_vec1(vec1::vec1![latest]),
+                                    SelectedFrames::from_vec1(
+                                        &frame_view.scope_collection(),
+                                        vec1::vec1![latest],
+                                    ),
                                 );
                             }
                         }
@@ -590,8 +604,18 @@ impl ProfilerUi {
         ui.separator();
 
         match self.view {
-            View::Flamegraph => flamegraph::ui(ui, &mut self.flamegraph_options, &frames),
-            View::Stats => stats::ui(ui, &mut self.stats_options, &frames.frames),
+            View::Flamegraph => flamegraph::ui(
+                ui,
+                &mut self.flamegraph_options,
+                &frame_view.scope_collection(),
+                &frames,
+            ),
+            View::Stats => stats::ui(
+                ui,
+                &mut self.stats_options,
+                &frame_view.scope_collection(),
+                &frames.frames,
+            ),
         }
     }
 
@@ -659,7 +683,7 @@ impl ProfilerUi {
 
                 self.show_frame_list(
                     ui,
-                    frame_view,
+                    &frame_view,
                     &slowest_of_the_slow,
                     true,
                     &mut hovered_frame,
@@ -810,7 +834,9 @@ impl ProfilerUi {
             }
         }
 
-        if let Some(new_selection) = SelectedFrames::try_from_vec(new_selection) {
+        if let Some(new_selection) =
+            SelectedFrames::try_from_vec(&frame_view.scope_collection(), new_selection)
+        {
             self.pause_and_select(frame_view, new_selection);
         }
 

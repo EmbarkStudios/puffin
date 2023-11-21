@@ -1,5 +1,5 @@
+use crate::ScopeDetails;
 use crate::{Error, FrameIndex, NanoSecond, Result, StreamInfo, ThreadInfo};
-
 #[cfg(feature = "packing")]
 use parking_lot::RwLock;
 
@@ -95,6 +95,11 @@ impl UnpackedFrameData {
 #[cfg(not(feature = "packing"))]
 pub struct FrameData {
     unpacked_frame: Arc<UnpackedFrameData>,
+    /// Scopes that were registered during this frame.
+    pub scope_delta: Vec<Arc<ScopeDetails>>,
+    /// Does [`Self::scope_delta`] contain all the scopes up to this point?
+    /// If `false`, it just contains the new scopes since last frame data.
+    pub full_delta: bool,
 }
 
 #[cfg(not(feature = "packing"))]
@@ -105,15 +110,26 @@ impl FrameData {
     pub fn new(
         frame_index: FrameIndex,
         thread_streams: BTreeMap<ThreadInfo, StreamInfo>,
+        scope_delta: Vec<Arc<ScopeDetails>>,
+        full_delta: bool,
     ) -> Result<Self> {
-        Ok(Self::from_unpacked(Arc::new(UnpackedFrameData::new(
-            frame_index,
-            thread_streams,
-        )?)))
+        Ok(Self::from_unpacked(
+            Arc::new(UnpackedFrameData::new(frame_index, thread_streams)?),
+            scope_delta,
+            full_delta,
+        ))
     }
 
-    fn from_unpacked(unpacked_frame: Arc<UnpackedFrameData>) -> Self {
-        Self { unpacked_frame }
+    fn from_unpacked(
+        unpacked_frame: Arc<UnpackedFrameData>,
+        scope_delta: Vec<Arc<ScopeDetails>>,
+        full_delta: bool,
+    ) -> Self {
+        Self {
+            unpacked_frame,
+            scope_delta,
+            full_delta,
+        }
     }
 
     #[inline]
@@ -290,6 +306,13 @@ pub struct FrameData {
     /// [`UnpackedFrameData::thread_streams`], compressed.
     /// [`None`] if not yet compressed.
     packed_streams: RwLock<Option<PackedStreams>>,
+
+    /// Scopes that were registered during this frame.
+    pub scope_delta: Vec<Arc<ScopeDetails>>,
+
+    /// Does [`Self::scope_delta`] contain all the scopes up to this point?
+    /// If `false`, it just contains the new scopes since last frame data.
+    pub full_delta: bool,
 }
 
 #[cfg(feature = "packing")]
@@ -297,18 +320,27 @@ impl FrameData {
     pub fn new(
         frame_index: FrameIndex,
         thread_streams: BTreeMap<ThreadInfo, StreamInfo>,
+        scope_delta: Vec<Arc<ScopeDetails>>,
+        full_delta: bool,
     ) -> Result<Self> {
-        Ok(Self::from_unpacked(Arc::new(UnpackedFrameData::new(
-            frame_index,
-            thread_streams,
-        )?)))
+        Ok(Self::from_unpacked(
+            Arc::new(UnpackedFrameData::new(frame_index, thread_streams)?),
+            scope_delta,
+            full_delta,
+        ))
     }
 
-    fn from_unpacked(unpacked_frame: Arc<UnpackedFrameData>) -> Self {
+    fn from_unpacked(
+        unpacked_frame: Arc<UnpackedFrameData>,
+        scope_delta: Vec<Arc<ScopeDetails>>,
+        full_delta: bool,
+    ) -> Self {
         Self {
             meta: unpacked_frame.meta.clone(),
             unpacked_frame: RwLock::new(Some(Ok(unpacked_frame))),
             packed_streams: RwLock::new(None),
+            scope_delta,
+            full_delta,
         }
     }
 
@@ -411,12 +443,18 @@ impl FrameData {
     /// Writes one [`FrameData`] into a stream, prefixed by its length ([`u32`] le).
     #[cfg(not(target_arch = "wasm32"))] // compression not supported on wasm
     #[cfg(feature = "serialization")]
-    pub fn write_into(&self, write: &mut impl std::io::Write) -> anyhow::Result<()> {
+    pub fn write_into(
+        &self,
+        scope_collection: &crate::ScopeCollection,
+        send_all_scopes: bool,
+        write: &mut impl std::io::Write,
+    ) -> anyhow::Result<()> {
         use bincode::Options as _;
-        use byteorder::WriteBytesExt as _;
+        use byteorder::{WriteBytesExt as _, LE};
+
         let meta_serialized = bincode::options().serialize(&self.meta)?;
 
-        write.write_all(b"PFD3")?;
+        write.write_all(b"PFD4")?;
         write.write_all(&(meta_serialized.len() as u32).to_le_bytes())?;
         write.write_all(&meta_serialized)?;
 
@@ -428,6 +466,15 @@ impl FrameData {
         write.write_u8(packed_streams.compression_kind as u8)?;
         write.write_all(&packed_streams.bytes)?;
 
+        let to_serialize_scopes: Vec<_> = if send_all_scopes {
+            scope_collection.scopes_by_id().values().cloned().collect()
+        } else {
+            self.scope_delta.clone()
+        };
+
+        let serialized_scopes = bincode::options().serialize(&to_serialize_scopes)?;
+        write.write_u32::<LE>(serialized_scopes.len() as u32)?;
+        write.write_all(&serialized_scopes)?;
         Ok(())
     }
 
@@ -439,7 +486,7 @@ impl FrameData {
     pub fn read_next(read: &mut impl std::io::Read) -> anyhow::Result<Option<Self>> {
         use anyhow::Context as _;
         use bincode::Options as _;
-        use byteorder::ReadBytesExt;
+        use byteorder::{ReadBytesExt, LE};
 
         let mut header = [0_u8; 4];
         if let Err(err) = read.read_exact(&mut header) {
@@ -480,7 +527,11 @@ impl FrameData {
             }
 
             fn into_frame_data(self) -> FrameData {
-                FrameData::from_unpacked(Arc::new(self.into_unpacked_frame_data()))
+                FrameData::from_unpacked(
+                    Arc::new(self.into_unpacked_frame_data()),
+                    Default::default(),
+                    false,
+                )
             }
         }
 
@@ -540,6 +591,8 @@ impl FrameData {
                     meta,
                     unpacked_frame: RwLock::new(None),
                     packed_streams: RwLock::new(Some(packed_streams)),
+                    scope_delta: Default::default(),
+                    full_delta: false,
                 }))
             } else if &header == b"PFD3" {
                 // Added 2023-05-13: CompressionKind field
@@ -570,6 +623,48 @@ impl FrameData {
                     meta,
                     unpacked_frame: RwLock::new(None),
                     packed_streams: RwLock::new(Some(packed_streams)),
+                    scope_delta: Default::default(),
+                    full_delta: false,
+                }))
+            } else if &header == b"PFD4" {
+                // Added 2024-01-08: Split up stream scope details from the record stream.
+                let meta_length = read.read_u32::<LE>()? as usize;
+                let meta = {
+                    let mut meta = vec![0_u8; meta_length];
+                    read.read_exact(&mut meta)?;
+                    bincode::options()
+                        .deserialize(&meta)
+                        .context("bincode deserialize")?
+                };
+
+                let streams_compressed_length = read.read_u32::<LE>()? as usize;
+                let compression_kind = CompressionKind::from_u8(read.read_u8()?)?;
+                let streams_compressed = {
+                    let mut streams_compressed = vec![0_u8; streams_compressed_length];
+                    read.read_exact(&mut streams_compressed)?;
+                    PackedStreams::new(compression_kind, streams_compressed)
+                };
+
+                let serialized_scope_len = read.read_u32::<LE>()?;
+                let deserialized_scopes: Vec<crate::ScopeDetails> = {
+                    let mut serialized_scopes = vec![0; serialized_scope_len as usize];
+                    read.read_exact(&mut serialized_scopes)?;
+                    bincode::options()
+                        .deserialize_from(serialized_scopes.as_slice())
+                        .context("Can not deserialize scope details")?
+                };
+
+                let new_scopes: Vec<_> = deserialized_scopes
+                    .into_iter()
+                    .map(|x| Arc::new(x.clone()))
+                    .collect();
+
+                Ok(Some(Self {
+                    meta,
+                    unpacked_frame: RwLock::new(None),
+                    packed_streams: RwLock::new(Some(streams_compressed)),
+                    scope_delta: new_scopes,
+                    full_delta: false,
                 }))
             } else {
                 anyhow::bail!("Failed to decode: this data is newer than this reader. Please update your puffin version!");

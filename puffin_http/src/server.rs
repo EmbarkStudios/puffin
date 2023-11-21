@@ -1,5 +1,5 @@
 use anyhow::Context as _;
-use puffin::GlobalProfiler;
+use puffin::{FrameView, GlobalProfiler};
 use std::{
     io::Write,
     net::{SocketAddr, TcpListener, TcpStream},
@@ -48,12 +48,16 @@ impl Server {
                     tcp_listener,
                     clients: Default::default(),
                     num_clients: num_clients_cloned,
+                    send_all_scopes: false,
+                    frame_view: Default::default(),
                 };
 
                 while let Ok(frame) = rx.recv() {
+                    server_impl.frame_view.add_frame(frame.clone());
                     if let Err(err) = server_impl.accept_new_clients() {
                         log::warn!("puffin server failure: {}", err);
                     }
+
                     if let Err(err) = server_impl.send(&frame) {
                         log::warn!("puffin server failure: {}", err);
                     }
@@ -117,6 +121,8 @@ struct PuffinServerImpl {
     tcp_listener: TcpListener,
     clients: Vec<Client>,
     num_clients: Arc<AtomicUsize>,
+    send_all_scopes: bool,
+    frame_view: FrameView,
 }
 
 impl PuffinServerImpl {
@@ -137,6 +143,8 @@ impl PuffinServerImpl {
                         .spawn(move || client_loop(packet_rx, client_addr, tcp_stream))
                         .context("Couldn't spawn thread")?;
 
+                    // Send all scopes when new client connects.
+                    self.send_all_scopes = true;
                     self.clients.push(Client {
                         client_addr,
                         packet_tx: Some(packet_tx),
@@ -162,12 +170,19 @@ impl PuffinServerImpl {
         puffin::profile_function!();
 
         let mut packet = vec![];
+
         packet
             .write_all(&crate::PROTOCOL_VERSION.to_le_bytes())
             .unwrap();
+
         frame
-            .write_into(&mut packet)
+            .write_into(
+                &self.frame_view.scope_collection(),
+                self.send_all_scopes,
+                &mut packet,
+            )
             .context("Encode puffin frame")?;
+        self.send_all_scopes = false;
 
         let packet: Packet = packet.into();
 

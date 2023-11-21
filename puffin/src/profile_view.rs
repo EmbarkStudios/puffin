@@ -1,6 +1,6 @@
 use std::sync::{Arc, Mutex};
 
-use crate::{FrameData, FrameSinkId};
+use crate::{FrameData, FrameSinkId, ScopeCollection};
 
 /// A view of recent and slowest frames, used by GUIs.
 #[derive(Clone)]
@@ -16,6 +16,7 @@ pub struct FrameView {
     ///
     /// Only recommended if you set a large max_recent size.
     pack_frames: bool,
+    scope_collection: ScopeCollection,
 }
 
 impl Default for FrameView {
@@ -29,6 +30,7 @@ impl Default for FrameView {
             slowest: std::collections::BinaryHeap::with_capacity(max_slow),
             max_slow,
             pack_frames: true,
+            scope_collection: Default::default(),
         }
     }
 }
@@ -38,7 +40,16 @@ impl FrameView {
         self.recent.is_empty() && self.slowest.is_empty()
     }
 
+    pub fn scope_collection(&self) -> &ScopeCollection {
+        &self.scope_collection
+    }
+
     pub fn add_frame(&mut self, new_frame: Arc<FrameData>) {
+        // Register all scopes from the new frame into the scope collection.
+        for new_scope in &new_frame.scope_delta {
+            self.scope_collection.insert(new_scope.clone());
+        }
+
         if let Some(last) = self.recent.back() {
             if new_frame.frame_index() <= last.frame_index() {
                 // A frame from the past!?
@@ -159,7 +170,7 @@ impl FrameView {
         frames.dedup_by_key(|frame| frame.frame_index());
 
         for frame in frames {
-            frame.write_into(write)?;
+            frame.write_into(&self.scope_collection, false, write)?;
         }
         Ok(())
     }
@@ -251,6 +262,11 @@ impl Drop for GlobalFrameView {
 }
 
 impl GlobalFrameView {
+    /// Sink ID
+    pub fn sink_id(&self) -> FrameSinkId {
+        self.sink_id
+    }
+
     /// View the latest profiling data.
     pub fn lock(&self) -> std::sync::MutexGuard<'_, FrameView> {
         self.view.lock().unwrap()

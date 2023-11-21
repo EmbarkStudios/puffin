@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <!-- next-header -->
 ## [Unreleased] - ReleaseDate
+
+- [PR#169](https://github.com/EmbarkStudios/puffin/pull/169) Stream scope information only once. Breaking change! See PR for migration guide.
+
 ## [0.18.1] - 2023-12-11
 
 - [PR#175](https://github.com/EmbarkStudios/puffin/pull/175) Remove accidental `::{{closure}}` suffix from all `profile_function` scopes.

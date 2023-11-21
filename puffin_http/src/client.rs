@@ -122,6 +122,7 @@ pub fn consume_message(stream: &mut impl std::io::Read) -> anyhow::Result<puffin
     }
 
     use anyhow::Context as _;
+
     FrameData::read_next(stream)
         .context("Failed to parse FrameData")?
         .ok_or_else(|| anyhow::format_err!("End of stream"))

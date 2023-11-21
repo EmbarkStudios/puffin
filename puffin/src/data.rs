@@ -6,9 +6,8 @@
 //!
 //! ```ignore
 //!    '('          byte       Sentinel
+//!    scope id     u32        Unique monolithic identifier for a scope
 //!    time_ns      i64        Time stamp of when scope started
-//!    id           str        Scope name. Human readable, e.g. a function name. Never the empty string.
-//!    location     str        File name or similar. Could be the empty string.
 //!    data         str        Resource that is being processed, e.g. name of image being loaded. Could be the empty string.
 //!    scope_size   u64        Number of bytes of child scope
 //! ```
@@ -26,6 +25,7 @@
 //! At the moment strings may be at most 127 bytes long.
 
 use super::*;
+use anyhow::Context;
 use byteorder::{LittleEndian as LE, ReadBytesExt, WriteBytesExt};
 use std::mem::size_of;
 
@@ -60,19 +60,11 @@ pub type Result<T> = std::result::Result<T, Error>;
 impl Stream {
     /// Returns position where to write scope size once the scope is closed
     #[inline]
-    pub fn begin_scope(
-        &mut self,
-        start_ns: NanoSecond,
-        id: &str,
-        location: &str,
-        data: &str,
-    ) -> usize {
+    pub fn begin_scope(&mut self, start_ns: NanoSecond, scope_id: ScopeId, data: &str) -> usize {
         self.0.push(SCOPE_BEGIN);
+        self.write_scope_id(scope_id);
         self.0.write_i64::<LE>(start_ns).expect("can't fail");
-        self.write_str(id);
-        self.write_str(location);
         self.write_str(data);
-
         // Put place-holder value for total scope size.
         let offset = self.0.len();
         self.write_scope_size(ScopeSize::unfinished());
@@ -103,6 +95,14 @@ impl Stream {
     #[inline]
     fn write_scope_size(&mut self, nanos: ScopeSize) {
         self.0.write_u64::<LE>(nanos.0).expect("can't fail");
+    }
+
+    #[inline]
+    fn write_scope_id(&mut self, scope_id: ScopeId) {
+        // Could potentially use varint encoding.
+        self.0
+            .write_u32::<LE>(scope_id.0.get())
+            .expect("can't fail");
     }
 
     #[inline]
@@ -143,14 +143,11 @@ impl<'s> Reader<'s> {
                 self.parse_u8()
                     .expect("swallowing already peeked SCOPE_BEGIN");
             }
-            Some(_) | None => {
-                return Ok(None);
-            }
+            Some(_) | None => return Ok(None),
         }
 
+        let scope_id = self.parse_scope_id()?;
         let start_ns = self.parse_nanos()?;
-        let id = self.parse_string()?;
-        let location = self.parse_string()?;
         let data = self.parse_string()?;
         let scope_size = self.parse_scope_size()?;
         if scope_size == ScopeSize::unfinished() {
@@ -169,11 +166,10 @@ impl<'s> Reader<'s> {
         }
 
         Ok(Some(Scope {
-            record: Record {
+            id: scope_id,
+            record: ScopeRecord {
                 start_ns,
                 duration_ns: stop_ns - start_ns,
-                id,
-                location,
                 data,
             },
             child_begin_position,
@@ -201,6 +197,15 @@ impl<'s> Reader<'s> {
 
     fn parse_u8(&mut self) -> Result<u8> {
         self.0.read_u8().map_err(|_err| Error::PrematureEnd)
+    }
+
+    fn parse_scope_id(&mut self) -> Result<ScopeId> {
+        self.0
+            .read_u32::<LE>()
+            .context("Can not parse scope id")
+            .and_then(|x| NonZeroU32::new(x).context("Not a `NonZeroU32` scope id"))
+            .map(ScopeId)
+            .map_err(|_err| Error::PrematureEnd)
     }
 
     fn parse_nanos(&mut self) -> Result<NanoSecond> {
@@ -282,13 +287,32 @@ impl<'s> Iterator for Reader<'s> {
 // ----------------------------------------------------------------------------
 
 #[test]
+fn write_scope() {
+    let mut stream: Stream = Stream::default();
+    let start = stream.begin_scope(100, ScopeId::new(1), "data");
+    stream.end_scope(start, 300);
+
+    let scopes = Reader::from_start(&stream).read_top_scopes().unwrap();
+    assert_eq!(scopes.len(), 1);
+    assert_eq!(
+        scopes[0].record,
+        ScopeRecord {
+            start_ns: 100,
+            duration_ns: 200,
+            data: "data"
+        }
+    );
+}
+
+#[test]
 fn test_profile_data() {
     let stream = {
         let mut stream = Stream::default();
-        let t0 = stream.begin_scope(100, "top", "top.rs", "data_top");
-        let m1 = stream.begin_scope(200, "middle_0", "middle.rs", "data_middle_0");
+
+        let t0 = stream.begin_scope(100, ScopeId::new(1), "data_top");
+        let m1 = stream.begin_scope(200, ScopeId::new(2), "data_middle_0");
         stream.end_scope(m1, 300);
-        let m1 = stream.begin_scope(300, "middle_1", "middle.rs:42", "data_middle_1");
+        let m1 = stream.begin_scope(300, ScopeId::new(3), "data_middle_1");
         stream.end_scope(m1, 400);
         stream.end_scope(t0, 400);
         stream
@@ -296,46 +320,36 @@ fn test_profile_data() {
 
     let top_scopes = Reader::from_start(&stream).read_top_scopes().unwrap();
     assert_eq!(top_scopes.len(), 1);
+    assert_eq!(
+        top_scopes[0].record,
+        ScopeRecord {
+            start_ns: 100,
+            duration_ns: 300,
+            data: "data_top"
+        }
+    );
+
     let middle_scopes = Reader::with_offset(&stream, top_scopes[0].child_begin_position)
         .unwrap()
         .read_top_scopes()
         .unwrap();
 
-    assert_eq!(
-        top_scopes[0].record,
-        Record {
-            start_ns: 100,
-            duration_ns: 300,
-            id: "top",
-            location: "top.rs",
-            data: "data_top",
-        }
-    );
-    assert_eq!(
-        top_scopes[0].next_sibling_position,
-        stream.len() as u64,
-        "Top scope has no siblings"
-    );
-
     assert_eq!(middle_scopes.len(), 2);
+
     assert_eq!(
         middle_scopes[0].record,
-        Record {
+        ScopeRecord {
             start_ns: 200,
             duration_ns: 100,
-            id: "middle_0",
-            location: "middle.rs",
-            data: "data_middle_0",
+            data: "data_middle_0"
         }
     );
     assert_eq!(
         middle_scopes[1].record,
-        Record {
+        ScopeRecord {
             start_ns: 300,
             duration_ns: 100,
-            id: "middle_1",
-            location: "middle.rs:42",
-            data: "data_middle_1",
+            data: "data_middle_1"
         }
     );
 }
