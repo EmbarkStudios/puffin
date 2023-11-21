@@ -7,7 +7,12 @@ pub struct Options {
     filter: Filter,
 }
 
-pub fn ui(ui: &mut egui::Ui, options: &mut Options, frames: &[std::sync::Arc<UnpackedFrameData>]) {
+pub fn ui(
+    ui: &mut egui::Ui,
+    options: &mut Options,
+    scope_infos: &ScopeDetails,
+    frames: &[std::sync::Arc<UnpackedFrameData>],
+) {
     let mut threads = std::collections::HashSet::<&ThreadInfo>::new();
     let mut stats = Stats::default();
 
@@ -56,7 +61,7 @@ pub fn ui(ui: &mut egui::Ui, options: &mut Options, frames: &[std::sync::Arc<Unp
             .show(ui, |ui| {
                 ui.heading("Thread");
                 ui.heading("Location");
-                ui.heading("ID");
+                ui.heading("Short name");
                 ui.heading("Count");
                 ui.heading("Size");
                 ui.heading("Total self time");
@@ -65,36 +70,40 @@ pub fn ui(ui: &mut egui::Ui, options: &mut Options, frames: &[std::sync::Arc<Unp
                 ui.end_row();
 
                 for (key, stats) in &scopes {
-                    if !options.filter.include(key.id) {
-                        continue;
-                    }
+                    scope_infos.read_by_id(&key.id, |scope_details| {
+                        if !options.filter.include(&scope_details.raw_scope_name) {
+                            return;
+                        }
 
-                    ui.label(&key.thread_name);
-                    ui.label(key.location);
-                    ui.label(key.id);
-                    ui.monospace(format!("{:>5}", stats.count));
-                    ui.monospace(format!("{:>6.1} kB", stats.bytes as f32 * 1e-3));
-                    ui.monospace(format!("{:>8.1} µs", stats.total_self_ns as f32 * 1e-3));
-                    ui.monospace(format!(
-                        "{:>8.1} µs",
-                        stats.total_self_ns as f32 * 1e-3 / (stats.count as f32)
-                    ));
-                    ui.monospace(format!("{:>8.1} µs", stats.max_ns as f32 * 1e-3));
-                    ui.end_row();
+                        ui.label(&key.thread_name);
+                        ui.label(format!(
+                            "{}:{}",
+                            scope_details.cleaned_file_path, scope_details.line_nr
+                        ));
+                        ui.label(format!("{:?}", scope_details.cleaned_scope_name));
+                        ui.monospace(format!("{:>5}", stats.count));
+                        ui.monospace(format!("{:>6.1} kB", stats.bytes as f32 * 1e-3));
+                        ui.monospace(format!("{:>8.1} µs", stats.total_self_ns as f32 * 1e-3));
+                        ui.monospace(format!(
+                            "{:>8.1} µs",
+                            stats.total_self_ns as f32 * 1e-3 / (stats.count as f32)
+                        ));
+                        ui.monospace(format!("{:>8.1} µs", stats.max_ns as f32 * 1e-3));
+                        ui.end_row();
+                    });
                 }
             });
     });
 }
 
 #[derive(Default)]
-struct Stats<'s> {
-    scopes: std::collections::HashMap<Key<'s>, ScopeStats>,
+struct Stats {
+    scopes: std::collections::HashMap<Key, ScopeStats>,
 }
 
 #[derive(Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
-struct Key<'s> {
-    id: &'s str,
-    location: &'s str,
+struct Key {
+    id: ScopeId,
     thread_name: String,
 }
 
@@ -110,35 +119,40 @@ struct ScopeStats {
     max_ns: NanoSecond,
 }
 
-fn collect_stream<'s>(
-    stats: &mut Stats<'s>,
+fn collect_stream(
+    stats: &mut Stats,
     thread_name: &str,
-    stream: &'s puffin::Stream,
+    stream: &puffin::Stream,
 ) -> puffin::Result<()> {
     for scope in puffin::Reader::from_start(stream) {
-        collect_scope(stats, thread_name, stream, &scope?)?;
+        if let Record::Scope(scope) = scope? {
+            collect_scope(stats, thread_name, stream, &scope)?;
+        }
     }
     Ok(())
 }
 
 fn collect_scope<'s>(
-    stats: &mut Stats<'s>,
+    stats: &mut Stats,
     thread_name: &str,
     stream: &'s puffin::Stream,
     scope: &puffin::Scope<'s>,
 ) -> puffin::Result<()> {
     let mut ns_used_by_children = 0;
     for child_scope in Reader::with_offset(stream, scope.child_begin_position)? {
-        let child_scope = &child_scope?;
-        collect_scope(stats, thread_name, stream, child_scope)?;
-        ns_used_by_children += child_scope.record.duration_ns;
+        if let Record::Scope(child_scope) = child_scope? {
+            collect_scope(stats, thread_name, stream, &child_scope)?;
+            ns_used_by_children += child_scope.scope_dynamic_data.duration_ns;
+        }
     }
 
-    let self_time = scope.record.duration_ns.saturating_sub(ns_used_by_children);
+    let self_time = scope
+        .scope_dynamic_data
+        .duration_ns
+        .saturating_sub(ns_used_by_children);
 
     let key = Key {
-        id: scope.record.id,
-        location: scope.record.location,
+        id: scope.scope_id,
         thread_name: thread_name.to_owned(),
     };
     let scope_stats = stats.scopes.entry(key).or_default();
@@ -153,9 +167,8 @@ fn collect_scope<'s>(
 fn scope_byte_size(scope: &puffin::Scope<'_>) -> usize {
     1 + // `(` sentinel
     8 + // start time
-    1 + scope.record.id.len() + //
-    1 + scope.record.location.len() + //
-    1 + scope.record.data.len() + //
+    8 + // scope id
+    1 + scope.scope_dynamic_data.data.len() + // scope name/id
     8 + // scope size
     1 + // `)` sentinel
     8 // stop time

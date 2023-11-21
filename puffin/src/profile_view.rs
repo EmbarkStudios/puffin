@@ -1,6 +1,6 @@
 use std::sync::{Arc, Mutex};
 
-use crate::{FrameData, FrameSinkId};
+use crate::{FrameData, FrameSinkId, GlobalProfiler, ScopeDetails};
 
 /// A view of recent and slowest frames, used by GUIs.
 #[derive(Clone)]
@@ -16,6 +16,9 @@ pub struct FrameView {
     ///
     /// Only recommended if you set a large max_recent size.
     pack_frames: bool,
+
+    /// Contains all the scope details.
+    pub scope_details: ScopeDetails,
 }
 
 impl Default for FrameView {
@@ -29,6 +32,7 @@ impl Default for FrameView {
             slowest: std::collections::BinaryHeap::with_capacity(max_slow),
             max_slow,
             pack_frames: true,
+            scope_details: GlobalProfiler::scope_details(),
         }
     }
 }

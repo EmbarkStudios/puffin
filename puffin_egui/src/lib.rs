@@ -298,7 +298,7 @@ impl SelectedFrames {
     fn from_vec1(mut frames: vec1::Vec1<Arc<UnpackedFrameData>>) -> Self {
         puffin::profile_function!();
         frames.sort_by_key(|f| f.frame_index());
-        frames.dedup_by_key(|f| f.frame_index());
+        frames.dedup_by_key(|f: &mut Arc<UnpackedFrameData>| f.frame_index());
 
         let mut threads: BTreeSet<ThreadInfo> = BTreeSet::new();
         for frame in &frames {
@@ -509,7 +509,7 @@ impl ProfilerUi {
                 hovered_frame = self.show_frames(ui, frame_view);
             });
 
-        let frames = if let Some(frame) = hovered_frame {
+        let frames: Option<SelectedFrames> = if let Some(frame) = hovered_frame {
             match frame.unpacked() {
                 Ok(frame) => SelectedFrames::try_from_vec(vec![frame]),
                 Err(err) => {
@@ -522,13 +522,12 @@ impl ProfilerUi {
         } else {
             puffin::profile_scope!("select_latest_frames");
             let latest = frame_view.latest_frames(self.max_num_latest);
-            SelectedFrames::try_from_vec(
-                latest
-                    .into_iter()
-                    .map(|frame| frame.unpacked())
-                    .filter_map(|unpacked| unpacked.ok())
-                    .collect(),
-            )
+            let unpacked: Vec<Arc<UnpackedFrameData>> = latest
+                .into_iter()
+                .map(|frame| frame.unpacked())
+                .filter_map(|unpacked| unpacked.ok())
+                .collect();
+            SelectedFrames::try_from_vec(unpacked.clone())
         };
 
         let frames = if let Some(frames) = frames {
@@ -561,6 +560,7 @@ impl ProfilerUi {
                         || space_pressed
                     {
                         let latest = frame_view.latest_frame();
+
                         if let Some(latest) = latest {
                             if let Ok(latest) = latest.unpacked() {
                                 self.pause_and_select(
@@ -590,8 +590,18 @@ impl ProfilerUi {
         ui.separator();
 
         match self.view {
-            View::Flamegraph => flamegraph::ui(ui, &mut self.flamegraph_options, &frames),
-            View::Stats => stats::ui(ui, &mut self.stats_options, &frames.frames),
+            View::Flamegraph => flamegraph::ui(
+                ui,
+                &mut self.flamegraph_options,
+                &frame_view.scope_details,
+                &frames,
+            ),
+            View::Stats => stats::ui(
+                ui,
+                &mut self.stats_options,
+                &frame_view.scope_details,
+                &frames.frames,
+            ),
         }
     }
 
@@ -620,7 +630,7 @@ impl ProfilerUi {
                     .show(ui, |ui| {
                         let slowest_visible = self.show_frame_list(
                             ui,
-                            frame_view,
+                            frame_view.as_mut().unwrap(),
                             &frames.recent,
                             false,
                             &mut hovered_frame,
@@ -659,7 +669,7 @@ impl ProfilerUi {
 
                 self.show_frame_list(
                     ui,
-                    frame_view,
+                    frame_view.as_mut().unwrap(),
                     &slowest_of_the_slow,
                     true,
                     &mut hovered_frame,
@@ -698,7 +708,7 @@ impl ProfilerUi {
     fn show_frame_list(
         &mut self,
         ui: &mut egui::Ui,
-        frame_view: &FrameView,
+        frame_view: &mut FrameView,
         frames: &[Arc<FrameData>],
         tight: bool,
         hovered_frame: &mut Option<Arc<FrameData>>,

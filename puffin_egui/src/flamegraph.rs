@@ -196,7 +196,12 @@ impl Info {
 }
 
 /// Show the flamegraph.
-pub fn ui(ui: &mut egui::Ui, options: &mut Options, frames: &SelectedFrames) {
+pub fn ui(
+    ui: &mut egui::Ui,
+    options: &mut Options,
+    scope_infos: &ScopeDetails,
+    frames: &SelectedFrames,
+) {
     puffin::profile_function!();
     let mut reset_view = false;
 
@@ -303,7 +308,7 @@ pub fn ui(ui: &mut egui::Ui, options: &mut Options, frames: &SelectedFrames) {
 
             let where_to_put_timeline = info.painter.add(Shape::Noop);
 
-            let max_y = ui_canvas(options, &info, frames, (min_ns, max_ns));
+            let max_y = ui_canvas(options, &info, frames, scope_infos, (min_ns, max_ns));
 
             let mut used_rect = canvas;
             used_rect.max.y = max_y;
@@ -324,6 +329,7 @@ fn ui_canvas(
     options: &mut Options,
     info: &Info,
     frames: &SelectedFrames,
+    scope_infos: &ScopeDetails,
     (min_ns, max_ns): (NanoSecond, NanoSecond),
 ) -> f32 {
     puffin::profile_function!();
@@ -379,14 +385,22 @@ fn ui_canvas(
             let mut paint_streams = || -> Result<()> {
                 if options.merge_scopes {
                     for merge in &frames.threads[&thread_info].merged_scopes {
-                        paint_merge_scope(info, options, 0, merge, 0, cursor_y)?;
+                        paint_merge_scope(info, options, 0, merge, scope_infos, 0, cursor_y)?;
                     }
                 } else {
                     for stream_info in &frames.threads[&thread_info].streams {
                         let top_scopes =
                             Reader::from_start(&stream_info.stream).read_top_scopes()?;
                         for scope in top_scopes {
-                            paint_scope(info, options, &stream_info.stream, &scope, 0, cursor_y)?;
+                            paint_scope(
+                                info,
+                                options,
+                                &stream_info.stream,
+                                scope_infos,
+                                &scope,
+                                0,
+                                cursor_y,
+                            )?;
                         }
                     }
                 }
@@ -595,7 +609,9 @@ fn paint_record(
     options: &mut Options,
     prefix: &str,
     suffix: &str,
-    record: &Record<'_>,
+    scope_id: ScopeId,
+    record: &ScopeDynamicData<'_>,
+    scope_details: &ScopeDetails,
     top_y: f32,
 ) -> PaintResult {
     let start_x = info.point_from_ns(options, record.start_ns);
@@ -620,7 +636,11 @@ fn paint_record(
     if info.response.double_clicked() {
         if let Some(mouse_pos) = info.response.interact_pointer_pos() {
             if rect.contains(mouse_pos) {
-                options.filter.set_filter(record.id.to_string());
+                scope_details.read_by_id(&scope_id, |scope_details| {
+                    options
+                        .filter
+                        .set_filter(scope_details.raw_scope_name.clone());
+                });
             }
         }
     } else if is_hovered && info.response.clicked() {
@@ -642,13 +662,15 @@ fn paint_record(
     let mut min_width = options.min_width;
 
     if !options.filter.is_empty() {
-        if options.filter.include(record.id) {
-            // keep full opacity
-            min_width *= 2.0; // make it more visible even when thin
-        } else {
-            // fade to highlight others
-            rect_color = lerp(Rgba::BLACK..=rect_color, 0.075);
-        }
+        scope_details.read_by_id(&scope_id, |scope_details| {
+            if options.filter.include(&scope_details.raw_scope_name) {
+                // keep full opacity
+                min_width *= 2.0; // make it more visible even when thin
+            } else {
+                // fade to highlight others
+                rect_color = lerp(Rgba::BLACK..=rect_color, 0.075);
+            }
+        });
     }
 
     if rect.width() <= min_width {
@@ -665,13 +687,18 @@ fn paint_record(
     if wide_enough_for_text {
         let painter = info.painter.with_clip_rect(rect.intersect(info.canvas));
 
+        let mut name = String::new();
+        scope_details.read_by_id(&scope_id, |scope_details| {
+            name = scope_details.cleaned_scope_name.clone()
+        });
+
         let duration_ms = to_ms(record.duration_ns);
         let text = if record.data.is_empty() {
-            format!("{}{} {:6.3} ms {}", prefix, record.id, duration_ms, suffix)
+            format!("{}{} {:6.3} ms {}", prefix, name, duration_ms, suffix)
         } else {
             format!(
                 "{}{} {:?} {:6.3} ms {}",
-                prefix, record.id, record.data, duration_ms, suffix
+                prefix, name, record.data, duration_ms, suffix
             )
         };
         let pos = pos2(
@@ -711,39 +738,69 @@ fn to_ms(ns: NanoSecond) -> f64 {
     ns as f64 * 1e-6
 }
 
+#[allow(clippy::too_many_arguments)]
 fn paint_scope(
     info: &Info,
     options: &mut Options,
     stream: &Stream,
+    scope_detais: &ScopeDetails,
     scope: &Scope<'_>,
     depth: usize,
     min_y: f32,
 ) -> Result<PaintResult> {
     let top_y = min_y + (depth as f32) * (options.rect_height + options.spacing);
 
-    let result = paint_record(info, options, "", "", &scope.record, top_y);
+    let result = paint_record(
+        info,
+        options,
+        "",
+        "",
+        scope.scope_id,
+        &scope.scope_dynamic_data,
+        scope_detais,
+        top_y,
+    );
 
     if result != PaintResult::Culled {
         let mut num_children = 0;
         for child_scope in Reader::with_offset(stream, scope.child_begin_position)? {
-            paint_scope(info, options, stream, &child_scope?, depth + 1, min_y)?;
-            num_children += 1;
+            if let Record::Scope(child_scope) = &child_scope? {
+                paint_scope(
+                    info,
+                    options,
+                    stream,
+                    scope_detais,
+                    child_scope,
+                    depth + 1,
+                    min_y,
+                )?;
+                num_children += 1;
+            }
         }
 
         if result == PaintResult::Hovered {
-            egui::show_tooltip_at_pointer(&info.ctx, Id::new("puffin_profiler_tooltip"), |ui| {
-                ui.monospace(format!("id:       {}", scope.record.id));
-                if !scope.record.location.is_empty() {
-                    ui.monospace(format!("location: {}", scope.record.location));
-                }
-                if !scope.record.data.is_empty() {
-                    ui.monospace(format!("data:     {}", scope.record.data));
-                }
-                ui.monospace(format!(
-                    "duration: {:7.3} ms",
-                    to_ms(scope.record.duration_ns)
-                ));
-                ui.monospace(format!("children: {num_children}"));
+            scope_detais.read_by_id(&scope.scope_id, |scope_details| {
+                egui::show_tooltip_at_pointer(
+                    &info.ctx,
+                    Id::new("puffin_profiler_tooltip"),
+                    |ui| {
+                        ui.monospace(format!("id:       {}", scope_details.cleaned_scope_name));
+                        if !scope_details.cleaned_file_path.is_empty() {
+                            ui.monospace(format!(
+                                "location: {}:{}",
+                                scope_details.cleaned_file_path, scope_details.line_nr
+                            ));
+                        }
+                        if !scope.scope_dynamic_data.data.is_empty() {
+                            ui.monospace(format!("data:     {}", scope.scope_dynamic_data.data));
+                        }
+                        ui.monospace(format!(
+                            "duration: {:7.3} ms",
+                            to_ms(scope.scope_dynamic_data.duration_ns)
+                        ));
+                        ui.monospace(format!("children: {num_children}"));
+                    },
+                );
             });
         }
     }
@@ -756,6 +813,7 @@ fn paint_merge_scope(
     options: &mut Options,
     ns_offset: NanoSecond,
     merge: &MergeScope<'_>,
+    scope_details: &ScopeDetails,
     depth: usize,
     min_y: f32,
 ) -> Result<PaintResult> {
@@ -782,19 +840,34 @@ fn paint_merge_scope(
         "per frame"
     };
 
-    let record = Record {
+    let record = ScopeDynamicData {
         start_ns: ns_offset + merge.relative_start_ns,
         duration_ns: merge.duration_per_frame_ns,
-        id: &merge.id,
-        location: &merge.location,
         data: &merge.data,
     };
 
-    let result = paint_record(info, options, &prefix, suffix, &record, top_y);
+    let result = paint_record(
+        info,
+        options,
+        &prefix,
+        suffix,
+        merge.id,
+        &record,
+        scope_details,
+        top_y,
+    );
 
     if result != PaintResult::Culled {
         for child in &merge.children {
-            paint_merge_scope(info, options, record.start_ns, child, depth + 1, min_y)?;
+            paint_merge_scope(
+                info,
+                options,
+                record.start_ns,
+                child,
+                scope_details,
+                depth + 1,
+                min_y,
+            )?;
         }
 
         if result == PaintResult::Hovered {
@@ -810,10 +883,10 @@ fn paint_merge_scope(
 fn merge_scope_tooltip(ui: &mut egui::Ui, merge: &MergeScope<'_>, num_frames: usize) {
     #![allow(clippy::collapsible_else_if)]
 
-    ui.monospace(format!("id:       {}", merge.id));
-    if !merge.location.is_empty() {
-        ui.monospace(format!("location: {}", merge.location));
-    }
+    ui.monospace(format!("id:       {:?}", merge.id));
+    // if !merge.location.is_empty() {
+    //     ui.monospace(format!("location: {}", merge.location));
+    // }
     if !merge.data.is_empty() {
         ui.monospace(format!("data:     {}", merge.data));
     }

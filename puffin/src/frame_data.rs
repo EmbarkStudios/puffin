@@ -39,13 +39,14 @@ impl UnpackedFrameData {
     pub fn new(
         frame_index: FrameIndex,
         thread_streams: BTreeMap<ThreadInfo, StreamInfo>,
+        scope_details_bytes: usize,
     ) -> Result<Self> {
         let thread_streams: BTreeMap<_, _> = thread_streams
             .into_iter()
             .map(|(info, stream_info)| (info, Arc::new(stream_info)))
             .collect();
 
-        let mut num_bytes = 0;
+        let mut num_bytes = scope_details_bytes;
         let mut num_scopes = 0;
 
         let mut min_ns = NanoSecond::MAX;
@@ -105,10 +106,12 @@ impl FrameData {
     pub fn new(
         frame_index: FrameIndex,
         thread_streams: BTreeMap<ThreadInfo, StreamInfo>,
+        scope_details_bytes: usize,
     ) -> Result<Self> {
         Ok(Self::from_unpacked(Arc::new(UnpackedFrameData::new(
             frame_index,
             thread_streams,
+            scope_details_bytes,
         )?)))
     }
 
@@ -297,10 +300,12 @@ impl FrameData {
     pub fn new(
         frame_index: FrameIndex,
         thread_streams: BTreeMap<ThreadInfo, StreamInfo>,
+        scope_details_bytes: usize,
     ) -> Result<Self> {
         Ok(Self::from_unpacked(Arc::new(UnpackedFrameData::new(
             frame_index,
             thread_streams,
+            scope_details_bytes,
         )?)))
     }
 

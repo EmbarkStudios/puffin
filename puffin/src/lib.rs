@@ -109,6 +109,7 @@ mod profile_view;
 pub use data::*;
 pub use frame_data::{FrameData, FrameMeta, UnpackedFrameData};
 pub use merge::*;
+use parking_lot::RwLock;
 pub use profile_view::{select_slowest, FrameView, GlobalFrameView};
 
 use std::collections::BTreeMap;
@@ -170,29 +171,25 @@ impl From<Vec<u8>> for Stream {
     }
 }
 
+impl<'a> From<&'a [u8]> for Stream {
+    fn from(v: &'a [u8]) -> Self {
+        let mut bytes = Vec::with_capacity(v.len());
+        bytes.extend_from_slice(v);
+        Self(bytes)
+    }
+}
+
 // ----------------------------------------------------------------------------
 
 /// Used when parsing a Stream.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct Record<'s> {
+pub struct ScopeDynamicData<'s> {
     pub start_ns: NanoSecond,
     pub duration_ns: NanoSecond,
-
-    /// e.g. function name. Mandatory. Used to identify records.
-    /// Does not need to be globally unique, just unique in the parent scope.
-    /// Example: "load_image"
-    pub id: &'s str,
-
-    /// e.g. file name. Optional. Used for finding the location of the profiler scope.
-    /// Example: "my_library/image_loader.rs:52"
-    pub location: &'s str,
-
-    /// e.g. function argument, like a mesh name. Optional.
-    /// Example: "image.png".
     pub data: &'s str,
 }
 
-impl<'s> Record<'s> {
+impl<'s> ScopeDynamicData<'s> {
     #[inline]
     pub fn stop_ns(&self) -> NanoSecond {
         self.start_ns + self.duration_ns
@@ -202,7 +199,10 @@ impl<'s> Record<'s> {
 /// Used when parsing a Stream.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Scope<'s> {
-    pub record: Record<'s>,
+    // Identifier for the scope
+    pub scope_id: ScopeId,
+    // Some dynamic data
+    pub scope_dynamic_data: ScopeDynamicData<'s>,
     /// Stream offset for first child.
     pub child_begin_position: u64,
     /// Stream offset after last child.
@@ -271,8 +271,8 @@ impl StreamInfo {
             })
         } else {
             let (num_scopes, depth) = Reader::count_scope_and_depth(&stream)?;
-            let min_ns = top_scopes.first().unwrap().record.start_ns;
-            let max_ns = top_scopes.last().unwrap().record.stop_ns();
+            let min_ns = top_scopes.first().unwrap().scope_dynamic_data.start_ns;
+            let max_ns = top_scopes.last().unwrap().scope_dynamic_data.stop_ns();
 
             Ok(StreamInfo {
                 stream,
@@ -336,16 +336,24 @@ pub struct StreamInfoRef<'a> {
 // ----------------------------------------------------------------------------
 
 type NsSource = fn() -> NanoSecond;
-type ThreadReporter = fn(ThreadInfo, &StreamInfoRef<'_>);
+
+// If there are new scopes the first stream will contain scope details like file name, function name, line nmr etc...
+// The second stream always contains the scope time information.
+type ThreadReporter = fn(ThreadInfo, &[u8], &StreamInfoRef<'_>);
 
 /// Report a stream of profile data from a thread to the [`GlobalProfiler`] singleton.
-pub fn global_reporter(info: ThreadInfo, stream_info: &StreamInfoRef<'_>) {
-    GlobalProfiler::lock().report(info, stream_info);
+pub fn global_reporter(
+    info: ThreadInfo,
+    stream_scope_details: &[u8],
+    stream_scope_times: &StreamInfoRef<'_>,
+) {
+    GlobalProfiler::lock().report(info, stream_scope_details, stream_scope_times);
 }
 
 /// Collects profiling data for one thread
 pub struct ThreadProfiler {
     stream_info: StreamInfo,
+    scope_details_raw: Stream,
     /// Current depth.
     depth: usize,
     now_ns: NsSource,
@@ -357,6 +365,7 @@ impl Default for ThreadProfiler {
     fn default() -> Self {
         Self {
             stream_info: Default::default(),
+            scope_details_raw: Default::default(),
             depth: 0,
             now_ns: crate::now_ns,
             reporter: global_reporter,
@@ -380,18 +389,29 @@ impl ThreadProfiler {
         });
     }
 
+    #[must_use]
+    pub fn send_scope_info(
+        &mut self,
+        raw_scope_name: &str,
+        file_name: &str,
+        line_nr: u32,
+    ) -> ScopeId {
+        let new_id = fetch_add_scope_id();
+        self.scope_details_raw
+            .write_scope_info(new_id, raw_scope_name, file_name, line_nr);
+        new_id
+    }
+
     /// Returns position where to write scope size once the scope is closed.
     #[must_use]
-    pub fn begin_scope(&mut self, id: &str, location: &str, data: &str) -> usize {
+    pub fn begin_scope(&mut self, scope_id: ScopeId, data: &str) -> usize {
         let now_ns = (self.now_ns)();
         self.start_time_ns = Some(self.start_time_ns.unwrap_or(now_ns));
 
         self.depth += 1;
 
         self.stream_info.range_ns.0 = self.stream_info.range_ns.0.min(now_ns);
-        self.stream_info
-            .stream
-            .begin_scope(now_ns, id, location, data)
+        self.stream_info.stream.begin_scope(now_ns, scope_id, data)
     }
 
     pub fn end_scope(&mut self, start_offset: usize) {
@@ -415,7 +435,13 @@ impl ThreadProfiler {
                 start_time_ns: self.start_time_ns,
                 name: std::thread::current().name().unwrap_or_default().to_owned(),
             };
-            (self.reporter)(info, &self.stream_info.as_stream_into_ref());
+            (self.reporter)(
+                info,
+                self.scope_details_raw.bytes(),
+                &self.stream_info.as_stream_into_ref(),
+            );
+
+            self.scope_details_raw.clear();
             self.stream_info.clear();
         }
     }
@@ -428,6 +454,14 @@ impl ThreadProfiler {
         }
         THREAD_PROFILER.with(|p| f(&mut p.borrow_mut()))
     }
+}
+
+/// Incremental monolithic counter to identify scopes.
+static SCOPE_ID_TRACKER: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+
+fn fetch_add_scope_id() -> ScopeId {
+    let new_id = SCOPE_ID_TRACKER.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+    ScopeId(new_id)
 }
 
 // ----------------------------------------------------------------------------
@@ -443,19 +477,25 @@ pub struct FrameSinkId(u64);
 /// and passes them on to different [`FrameSink`]s.
 pub struct GlobalProfiler {
     current_frame_index: FrameIndex,
-    current_frame: BTreeMap<ThreadInfo, StreamInfo>,
+    current_stream_scope_times: BTreeMap<ThreadInfo, StreamInfo>,
+    current_stream_scope_details: Vec<Stream>,
 
     next_sink_id: FrameSinkId,
     sinks: std::collections::HashMap<FrameSinkId, FrameSink>,
+    // Contains detailed information of every registered scope.
+    // This data structure can be cloned for fast read access.
+    scope_details: ScopeDetails,
 }
 
 impl Default for GlobalProfiler {
     fn default() -> Self {
         Self {
             current_frame_index: 0,
-            current_frame: Default::default(),
+            current_stream_scope_times: Default::default(),
+            current_stream_scope_details: Default::default(),
             next_sink_id: FrameSinkId(1),
             sinks: Default::default(),
+            scope_details: Default::default(),
         }
     }
 }
@@ -489,17 +529,38 @@ impl GlobalProfiler {
         let current_frame_index = self.current_frame_index;
         self.current_frame_index += 1;
 
-        let new_frame =
-            match FrameData::new(current_frame_index, std::mem::take(&mut self.current_frame)) {
-                Ok(new_frame) => Arc::new(new_frame),
-                Err(Error::Empty) => {
-                    return; // don't warn about empty frames, just ignore them
+        let mut scope_details_bytes = 0;
+        // Scope details are read before the frame is propagated to sinks. Because:
+        // 1. Scopes are only registered once, and we don't need every sink to parse them.
+        // 2. Sinks should be able to read scope details
+        if !self.current_stream_scope_details.is_empty() {
+            for stream_info in self.current_stream_scope_details.drain(..) {
+                scope_details_bytes += stream_info.len();
+
+                let new_scopes = Reader::from_start(&stream_info).read_new_scopes().unwrap();
+                for (scope_id, scope_detail) in new_scopes {
+                    self.scope_details
+                        .insert(scope_id, ScopeDetailsOwned::from(scope_detail));
                 }
-                Err(err) => {
-                    eprintln!("puffin ERROR: Bad frame: {err:?}");
-                    return;
-                }
-            };
+            }
+        }
+
+        let current_frame_scope = std::mem::take(&mut self.current_stream_scope_times);
+
+        let new_frame = match FrameData::new(
+            current_frame_index,
+            current_frame_scope,
+            scope_details_bytes,
+        ) {
+            Ok(new_frame) => Arc::new(new_frame),
+            Err(Error::Empty) => {
+                return; // don't warn about empty frames, just ignore them
+            }
+            Err(err) => {
+                eprintln!("puffin ERROR: Bad frame: {err:?}");
+                return;
+            }
+        };
 
         self.add_frame(new_frame);
     }
@@ -512,11 +573,21 @@ impl GlobalProfiler {
     }
 
     /// Report some profiling data. Called from [`ThreadProfiler`].
-    pub fn report(&mut self, info: ThreadInfo, stream_info: &StreamInfoRef<'_>) {
-        self.current_frame
+    pub fn report(
+        &mut self,
+        info: ThreadInfo,
+        stream_scope_details: &[u8],
+        stream_scope_times: &StreamInfoRef<'_>,
+    ) {
+        if !stream_scope_details.is_empty() {
+            self.current_stream_scope_details
+                .push(Stream::from(stream_scope_details))
+        }
+
+        self.current_stream_scope_times
             .entry(info)
             .or_default()
-            .extend(stream_info);
+            .extend(stream_scope_times);
     }
 
     /// Tells [`GlobalProfiler`] to call this function with each new finished frame.
@@ -531,6 +602,11 @@ impl GlobalProfiler {
 
     pub fn remove_sink(&mut self, id: FrameSinkId) -> Option<FrameSink> {
         self.sinks.remove(&id)
+    }
+
+    pub fn scope_details() -> ScopeDetails {
+        let lock = Self::lock();
+        lock.scope_details.clone()
     }
 }
 
@@ -595,11 +671,9 @@ impl ProfilerScope {
     /// and this is a good way to enforce it.
     /// `data` can be changing, i.e. a name of a mesh or a texture.
     #[inline]
-    pub fn new(id: &'static str, location: &str, data: impl AsRef<str>) -> Self {
+    pub fn new(scope_id: ScopeId, data: impl AsRef<str>) -> Self {
         Self {
-            start_stream_offset: ThreadProfiler::call(|tp| {
-                tp.begin_scope(id, location, data.as_ref())
-            }),
+            start_stream_offset: ThreadProfiler::call(|tp| tp.begin_scope(scope_id, data.as_ref())),
             _dont_send_me: Default::default(),
         }
     }
@@ -612,6 +686,121 @@ impl Drop for ProfilerScope {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Hash, PartialOrd, Ord, Eq)]
+pub struct ScopeDetailsRef<'s> {
+    /// Scope name, or function name (previously called "id")
+    pub scope_name: &'s str,
+    /// Path to the file containing the profiling macro
+    pub file: &'s str,
+    /// The line number containing the profiling
+    pub line_nr: u32,
+}
+
+#[derive(Debug, Clone, PartialEq, Hash, PartialOrd, Ord, Eq)]
+pub struct ScopeDetailsOwned {
+    /// Shorter variant of the raw function name.
+    /// This is more descriptive and shorter.
+    pub cleaned_scope_name: String,
+    /// Raw function name with the entire type path.
+    pub raw_scope_name: String,
+    /// Shorter variant of the raw file path.
+    /// This is cleaned up and made consistent across platforms.
+    pub cleaned_file_path: String,
+    /// The full raw file path to the file in which the scope was located
+    pub raw_file_path: String,
+    /// The line number containing the profiling
+    pub line_nr: u32,
+}
+
+impl<'a> From<ScopeDetailsRef<'a>> for ScopeDetailsOwned {
+    fn from(value: ScopeDetailsRef<'a>) -> Self {
+        ScopeDetailsOwned {
+            raw_scope_name: value.scope_name.to_owned(),
+            cleaned_scope_name: clean_function_name(value.scope_name),
+            raw_file_path: short_file_name(value.file),
+            cleaned_file_path: value.file.to_owned(),
+            line_nr: value.line_nr,
+        }
+    }
+}
+
+/// A unique id for each scope and `ScopeInfo`.
+#[derive(Default, Copy, Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct ScopeId(pub u32);
+
+/// Provides read access to scope details.
+#[derive(Default, Clone)]
+pub struct ScopeDetails(
+    Arc<
+        RwLock<(
+            std::collections::HashMap<ScopeId, ScopeDetailsOwned>,
+            std::collections::HashMap<String, ScopeId>,
+        )>,
+    >,
+);
+
+impl ScopeDetails {
+    /// Provides read to the given closure for some scope details.
+    pub fn read_by_id<F: FnMut(&ScopeDetailsOwned)>(&self, scope_id: &ScopeId, mut cb: F) {
+        if let Some(read) = self.0.read().0.get(scope_id) {
+            cb(read)
+        }
+    }
+
+    pub fn read_by_name<F: FnMut(&ScopeId)>(&self, scope_name: &str, mut cb: F) {
+        if let Some(read) = self.0.read().1.get(scope_name) {
+            cb(read)
+        }
+    }
+
+    /// Function is hidden as only puffin library will insert entries.
+    pub(crate) fn insert(&self, scope_id: ScopeId, scope_details: ScopeDetailsOwned) {
+        // Scope details are collected before scope events are propagated.
+        // It is safe to unwrap as every scope
+        self.0
+            .write()
+            .1
+            .insert(scope_details.raw_scope_name.clone(), scope_id);
+        self.0.write().0.insert(scope_id, scope_details);
+    }
+
+    /// Manually insert scope details. After a scope is inserted it can be reported to puffin.
+    pub fn insert_scopes(&self, scopes: &[ScopeDetailsRef<'_>]) {
+        for scope_detail in scopes {
+            let new_scope_id = fetch_add_scope_id();
+
+            // Scope details are collected before scope events are propagated.
+            // It is safe to unwrap as every scope
+            self.0
+                .write()
+                .1
+                .insert(scope_detail.scope_name.to_owned(), new_scope_id);
+            self.0
+                .write()
+                .0
+                .insert(new_scope_id, (*scope_detail).into());
+        }
+    }
+
+    /// Fetches all registered scopes and their ids.
+    /// Useful for fetching scope id by a static scope name.
+    pub fn scopes_by_name(
+        &self,
+        mut existing_scopes: impl FnMut(&std::collections::HashMap<String, ScopeId>),
+    ) {
+        existing_scopes(&self.0.read().1);
+    }
+
+    /// Fetches all registered scopes.
+    /// Useful for fetching scope details by a scope id.
+    pub fn scopes_by_id(
+        &self,
+        mut existing_scopes: impl FnMut(&std::collections::HashMap<ScopeId, ScopeDetailsOwned>),
+    ) {
+        existing_scopes(&self.0.read().0);
+    }
+}
+
 #[doc(hidden)]
 #[inline(always)]
 pub fn type_name_of<T>(_: T) -> &'static str {
@@ -619,21 +808,22 @@ pub fn type_name_of<T>(_: T) -> &'static str {
 }
 
 /// Returns the name of the calling function without a long module path prefix.
-#[doc(hidden)]
 #[macro_export]
 macro_rules! current_function_name {
     () => {{
         fn f() {}
-        let name = $crate::type_name_of(f);
-        // Remove "::f" from the name:
-        let name = &name.get(..name.len() - 3).unwrap();
-        $crate::clean_function_name(name)
+        $crate::type_name_of(f)
     }};
 }
 
 #[doc(hidden)]
 #[inline(never)]
-pub fn clean_function_name(name: &'static str) -> String {
+pub fn clean_function_name<'a>(name: &'a str) -> String {
+    let Some(name) = name.strip_suffix(USELESS_SCOPE_NAME_POSTFIX) else {
+        // Probably the user registered a custom scope name.
+        return name.to_owned();
+    };
+
     // "foo::bar::baz" -> "baz"
     fn last_part(name: &str) -> &str {
         if let Some(colon) = name.rfind("::") {
@@ -680,25 +870,32 @@ pub fn clean_function_name(name: &'static str) -> String {
 #[test]
 fn test_clean_function_name() {
     assert_eq!(clean_function_name(""), "");
-    assert_eq!(clean_function_name("foo"), "foo");
-    assert_eq!(clean_function_name("foo::bar"), "foo::bar");
-    assert_eq!(clean_function_name("foo::bar::baz"), "bar::baz");
     assert_eq!(
-        clean_function_name("some::GenericThing<_, _>::function_name"),
+        clean_function_name(&format!("foo{}", USELESS_SCOPE_NAME_POSTFIX)),
+        "foo"
+    );
+    assert_eq!(
+        clean_function_name(&format!("foo::bar{}", USELESS_SCOPE_NAME_POSTFIX)),
+        "foo::bar"
+    );
+    assert_eq!(
+        clean_function_name(&format!("foo::bar::baz{}", USELESS_SCOPE_NAME_POSTFIX)),
+        "bar::baz"
+    );
+    assert_eq!(
+        clean_function_name(&format!(
+            "some::GenericThing<_, _>::function_name{}",
+            USELESS_SCOPE_NAME_POSTFIX
+        )),
         "GenericThing<_, _>::function_name"
     );
     assert_eq!(
-        clean_function_name("<some::ConcreteType as some::bloody::Trait>::function_name"),
+        clean_function_name(&format!(
+            "<some::ConcreteType as some::bloody::Trait>::function_name{}",
+            USELESS_SCOPE_NAME_POSTFIX
+        )),
         "<ConcreteType as Trait>::function_name"
     );
-}
-
-/// Returns a shortened path to the current file.
-#[macro_export]
-macro_rules! current_file_name {
-    () => {
-        $crate::short_file_name(file!())
-    };
 }
 
 /// Shortens a long `file!()` path to the essentials.
@@ -706,7 +903,11 @@ macro_rules! current_file_name {
 /// We want to keep it short for two reasons: readability, and bandwidth
 #[doc(hidden)]
 #[inline(never)]
-pub fn short_file_name(path: &'static str) -> String {
+pub fn short_file_name<'a>(path: &'a str) -> String {
+    if path.is_empty() {
+        return "".to_string();
+    }
+
     let path = path.replace('\\', "/"); // Handle Windows
     let components: Vec<&str> = path.split('/').collect();
     if components.len() <= 2 {
@@ -782,6 +983,71 @@ fn test_short_file_name() {
     }
 }
 
+#[test]
+fn profile_macros_test() {
+    set_scopes_on(true);
+
+    GlobalProfiler::lock().add_sink(Box::new(|data| {
+        if data.frame_index() == 0 {
+            assert_eq!(data.frame_index(), 0);
+            assert_eq!(data.meta().num_scopes, 2);
+            assert_eq!(data.meta().num_bytes, 238);
+        } else if data.frame_index() == 1 {
+            assert_eq!(data.frame_index(), 1);
+            assert_eq!(data.meta().num_scopes, 2);
+            assert_eq!(data.meta().num_bytes, 62);
+        } else {
+            panic!("Only two frames in this test");
+        }
+    }));
+
+    fn a() {
+        profile_function!();
+        {
+            profile_scope!("my-scope");
+        }
+    }
+
+    a();
+
+    // First frame
+    GlobalProfiler::lock().new_frame();
+
+    let details = GlobalProfiler::scope_details();
+    details.read_by_id(&ScopeId(0), |scope| {
+        assert_eq!(scope.raw_file_path, "puffin/src/lib.rs");
+        assert_eq!(scope.cleaned_file_path, "puffin/src/lib.rs");
+        assert_eq!(
+            scope.raw_scope_name,
+            "puffin::profile_macros_test::a::{{closure}}::{{closure}}::f"
+        );
+        assert_eq!(scope.cleaned_scope_name, "profile_macros_test::a");
+        assert_eq!(scope.line_nr, 1005);
+    });
+    details.read_by_id(&ScopeId(1), |scope| {
+        assert_eq!(scope.raw_file_path, "puffin/src/lib.rs");
+        assert_eq!(scope.cleaned_file_path, "puffin/src/lib.rs");
+        assert_eq!(
+            scope.raw_scope_name,
+            "puffin::profile_macros_test::a::{{closure}}::{{closure}}::f"
+        );
+        assert_eq!(scope.cleaned_scope_name, "profile_macros_test::a");
+        assert_eq!(scope.line_nr, 1007);
+    });
+    details.read_by_name("profile_macros_test::a", |id| assert_eq!(*id, ScopeId(0)));
+    details.read_by_name("profile_macros_test::a", |id| assert_eq!(*id, ScopeId(1)));
+
+    // Second frame
+    a();
+
+    GlobalProfiler::lock().new_frame();
+}
+
+// The macro defines 'f()' at the place where macro is called.
+// This code is located at the place of call and two closures deep.
+// Strip away this useless postfix.
+static USELESS_SCOPE_NAME_POSTFIX: &'static str = "::{{closure}}::{{closure}}::f";
+
 #[allow(clippy::doc_markdown)] // clippy wants to put "MacBook" in ticks 🙄
 /// Automatically name the profiling scope based on function name.
 ///
@@ -818,29 +1084,18 @@ macro_rules! profile_function {
     };
     ($data:expr) => {
         let _profiler_scope = if $crate::are_scopes_on() {
-            static mut _FUNCTION_NAME: &'static str = "";
-            static mut _LOCATION: &'static str = "";
-            static _INITITIALIZED: ::std::sync::Once = ::std::sync::Once::new();
+            static SCOPE_ID: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+            static SEND_INFO: std::sync::Once = std::sync::Once::new();
+            SEND_INFO.call_once(|| {
+                $crate::ThreadProfiler::call(|tp| {
+                    let id = tp.send_scope_info($crate::current_function_name!(), file!(), line!());
 
-            #[allow(unsafe_code)]
-            // SAFETY: accessing the statics is safe because it is done in cojunction with `std::sync::Once``
-            let (function_name, location) = unsafe {
-                _INITITIALIZED.call_once(|| {
-                    let function_name = $crate::current_function_name!();
-
-                    // We call `current_function_name` from a closure, so we need to strip that from the output.
-                    // We only strip it once though, because if the user calls `profile_function!` from within a closure, they probably want to know it.
-                    let function_name = function_name.strip_suffix("::{{closure}}").unwrap_or(function_name.as_ref());
-
-                    _FUNCTION_NAME = function_name.to_owned().leak();
-                    _LOCATION = format!("{}:{}", $crate::current_file_name!(), line!()).leak();
+                    SCOPE_ID.store(id.0, std::sync::atomic::Ordering::SeqCst);
                 });
-                (_FUNCTION_NAME, _LOCATION)
-            };
+            });
 
             Some($crate::ProfilerScope::new(
-                function_name,
-                location,
+                $crate::ScopeId(SCOPE_ID.load(std::sync::atomic::Ordering::SeqCst)),
                 $data,
             ))
         } else {
@@ -867,21 +1122,17 @@ macro_rules! profile_scope {
     };
     ($id:expr, $data:expr) => {
         let _profiler_scope = if $crate::are_scopes_on() {
-            static mut _LOCATION: &'static str = "";
-            static _INITITIALIZED: ::std::sync::Once = ::std::sync::Once::new();
-
-            #[allow(unsafe_code)]
-            // SAFETY: accessing the statics is safe because it is done in cojunction with `std::sync::Once``
-            let location = unsafe {
-                _INITITIALIZED.call_once(|| {
-                    _LOCATION = format!("{}:{}", $crate::current_file_name!(), line!()).leak();
+            static SCOPE_ID: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+            static SEND_INFO: std::sync::Once = std::sync::Once::new();
+            SEND_INFO.call_once(|| {
+                $crate::ThreadProfiler::call(|tp| {
+                    let id = tp.send_scope_info($crate::current_function_name!(), file!(), line!());
+                    SCOPE_ID.store(id.0, std::sync::atomic::Ordering::SeqCst);
                 });
-                _LOCATION
-            };
+            });
 
             Some($crate::ProfilerScope::new(
-                $id,
-                location,
+                $crate::ScopeId(SCOPE_ID.load(std::sync::atomic::Ordering::SeqCst)),
                 $data,
             ))
         } else {
