@@ -631,18 +631,48 @@ macro_rules! current_function_name {
 }
 
 #[doc(hidden)]
-#[inline]
-pub fn clean_function_name(name: &str) -> &str {
+#[inline(never)]
+pub fn clean_function_name(name: &'static str) -> String {
+    // "foo::bar::baz" -> "baz"
+    fn last_part(name: &str) -> &str {
+        if let Some(colon) = name.rfind("::") {
+            &name[colon + 2..]
+        } else {
+            name
+        }
+    }
+
+    // look for:  <some::ConcreteType as some::Trait>::function_name
+    if let Some(end_caret) = name.rfind('>') {
+        if let Some(trait_as) = name.rfind(" as ") {
+            if trait_as < end_caret {
+                let concrete_name = if let Some(start_caret) = name[..trait_as].rfind('<') {
+                    &name[start_caret + 1..trait_as]
+                } else {
+                    name
+                };
+
+                let trait_name = &name[trait_as + 4..end_caret];
+
+                let concrete_name = last_part(concrete_name);
+                let trait_name = last_part(trait_name);
+
+                let dubcolon_function_name = &name[end_caret + 1..];
+                return format!("<{concrete_name} as {trait_name}>{dubcolon_function_name}");
+            }
+        }
+    }
+
     if let Some(colon) = name.rfind("::") {
         if let Some(colon) = name[..colon].rfind("::") {
             // "foo::bar::baz::function_name" -> "baz::function_name"
-            &name[colon + 2..]
+            name[colon + 2..].to_owned()
         } else {
             // "foo::function_name" -> "foo::function_name"
-            name
+            name.to_owned()
         }
     } else {
-        name
+        name.to_owned()
     }
 }
 
@@ -652,6 +682,14 @@ fn test_clean_function_name() {
     assert_eq!(clean_function_name("foo"), "foo");
     assert_eq!(clean_function_name("foo::bar"), "foo::bar");
     assert_eq!(clean_function_name("foo::bar::baz"), "bar::baz");
+    assert_eq!(
+        clean_function_name("some::GenericThing<_, _>::function_name"),
+        "GenericThing<_, _>::function_name"
+    );
+    assert_eq!(
+        clean_function_name("<some::ConcreteType as some::bloody::Trait>::function_name"),
+        "<ConcreteType as Trait>::function_name"
+    );
 }
 
 /// Returns a shortened path to the current file.
@@ -662,27 +700,85 @@ macro_rules! current_file_name {
     };
 }
 
-/// Removes long path prefix to focus on the last parts of the path (and the file name).
+/// Shortens a long `file!()` path to the essentials.
+///
+/// We want to keep it short for two reasons: readability, and bandwidth
 #[doc(hidden)]
-#[inline]
-pub fn short_file_name(name: &str) -> &str {
-    // TODO: "foo/bar/src/lib.rs" -> "bar/src/lib.rs"
+#[inline(never)]
+pub fn short_file_name(path: &'static str) -> String {
+    let path = path.replace('\\', "/"); // Handle Windows
+    let components: Vec<&str> = path.split('/').collect();
+    if components.len() <= 2 {
+        return path;
+    }
 
-    if let Some(separator) = name.rfind(&['/', '\\'][..]) {
-        // "foo/bar/baz.rs" -> "baz.rs"
-        &name[separator + 1..]
+    // Look for `src` folder:
+
+    let mut src_idx = None;
+    for (i, c) in components.iter().enumerate() {
+        if *c == "src" {
+            src_idx = Some(i);
+        }
+    }
+
+    if let Some(src_idx) = src_idx {
+        // Before `src` comes the name of the crate - let's include that:
+        let crate_index = src_idx.saturating_sub(1);
+        let file_index = components.len() - 1;
+
+        if crate_index + 2 == file_index {
+            // Probably "crate/src/lib.rs" - include it all
+            format!(
+                "{}/{}/{}",
+                components[crate_index],
+                components[crate_index + 1],
+                components[file_index]
+            )
+        } else if components[file_index] == "lib.rs" {
+            // "lib.rs" is very unhelpful - include folder name:
+            let folder_index = file_index - 1;
+
+            if crate_index + 1 == folder_index {
+                format!(
+                    "{}/{}/{}",
+                    components[crate_index], components[folder_index], components[file_index]
+                )
+            } else {
+                // Ellide for brevity:
+                format!(
+                    "{}/…/{}/{}",
+                    components[crate_index], components[folder_index], components[file_index]
+                )
+            }
+        } else {
+            // Ellide for brevity:
+            format!("{}/…/{}", components[crate_index], components[file_index])
+        }
     } else {
-        name
+        // No `src` directory found - could be an example (`examples/hello_world.rs`).
+        // Include the folder and file name.
+        let n = components.len();
+        // NOTE: we've already checked that n > 1 easily in the function
+        format!("{}/{}", components[n - 2], components[n - 1])
     }
 }
 
 #[test]
 fn test_short_file_name() {
-    assert_eq!(short_file_name(""), "");
-    assert_eq!(short_file_name("foo.rs"), "foo.rs");
-    assert_eq!(short_file_name("foo/bar.rs"), "bar.rs");
-    assert_eq!(short_file_name("foo/bar/baz.rs"), "baz.rs");
-    assert_eq!(short_file_name(r"C:\\windows\is\weird\src.rs"), "src.rs");
+    for (before, after) in [
+        ("", ""),
+        ("foo.rs", "foo.rs"),
+        ("foo/bar.rs", "foo/bar.rs"),
+        ("foo/bar/baz.rs", "bar/baz.rs"),
+        ("crates/cratename/src/main.rs", "cratename/src/main.rs"),
+        ("crates/cratename/src/module/lib.rs", "cratename/…/module/lib.rs"),
+        ("workspace/cratename/examples/hello_world.rs", "examples/hello_world.rs"),
+        ("/rustc/d5a82bbd26e1ad8b7401f6a718a9c57c96905483/library/core/src/ops/function.rs", "core/…/function.rs"),
+        ("/Users/emilk/.cargo/registry/src/github.com-1ecc6299db9ec823/tokio-1.24.1/src/runtime/runtime.rs", "tokio-1.24.1/…/runtime.rs"),
+        ]
+        {
+        assert_eq!(short_file_name(before), after);
+    }
 }
 
 #[allow(clippy::doc_markdown)] // clippy wants to put "MacBook" in ticks 🙄
@@ -721,9 +817,23 @@ macro_rules! profile_function {
     };
     ($data:expr) => {
         let _profiler_scope = if $crate::are_scopes_on() {
+            static mut _FUNCTION_NAME: &'static str = "";
+            static mut _LOCATION: &'static str = "";
+            static _INITITIALIZED: ::std::sync::Once = ::std::sync::Once::new();
+
+            #[allow(unsafe_code)]
+            // SAFETY: accessing the statics is safe because it is done in cojunction with `std::sync::Once``
+            let (function_name, location) = unsafe {
+                _INITITIALIZED.call_once(|| {
+                    _FUNCTION_NAME = $crate::current_function_name!().leak();
+                    _LOCATION = format!("{}:{}", $crate::current_file_name!(), line!()).leak();
+                });
+                (_FUNCTION_NAME, _LOCATION)
+            };
+
             Some($crate::ProfilerScope::new(
-                $crate::current_function_name!(),
-                $crate::current_file_name!(),
+                function_name,
+                location,
                 $data,
             ))
         } else {
@@ -750,9 +860,21 @@ macro_rules! profile_scope {
     };
     ($id:expr, $data:expr) => {
         let _profiler_scope = if $crate::are_scopes_on() {
+            static mut _LOCATION: &'static str = "";
+            static _INITITIALIZED: ::std::sync::Once = ::std::sync::Once::new();
+
+            #[allow(unsafe_code)]
+            // SAFETY: accessing the statics is safe because it is done in cojunction with `std::sync::Once``
+            let location = unsafe {
+                _INITITIALIZED.call_once(|| {
+                    _LOCATION = format!("{}:{}", $crate::current_file_name!(), line!()).leak();
+                });
+                _LOCATION
+            };
+
             Some($crate::ProfilerScope::new(
                 $id,
-                $crate::current_file_name!(),
+                location,
                 $data,
             ))
         } else {

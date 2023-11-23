@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <!-- next-header -->
 ## [Unreleased] - ReleaseDate
+## [0.18.0] - 2023-11-21
+## [0.17.1] - 2023-11-20
+
+- [PR#165](https://github.com/EmbarkStudios/puffin/issues/165) Faster profiling, add line numbers, better paths, and better function names
+
 ## [0.17.0] - 2023-09-28
 
 - [PR#140](https://github.com/EmbarkStudios/puffin/issues/140) Remove imgui support for
@@ -28,7 +33,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.14.2] - 2023-01-30
 
-- [PR#123](https://github.com/EmbarkStudios/puffin/pull/123) Fix `puffin` build for non-web wasm environments. 
+- [PR#123](https://github.com/EmbarkStudios/puffin/pull/123) Fix `puffin` build for non-web wasm environments.
 
 ## [0.14.1] - 2022-12-13
 
@@ -118,7 +123,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * `GlobalProfiler` now store recent history and the slowest frames.
 
 <!-- next-url -->
-[Unreleased]: https://github.com/EmbarkStudios/puffin/compare/0.17.0...HEAD
+[Unreleased]: https://github.com/EmbarkStudios/puffin/compare/0.18.0...HEAD
+[0.18.0]: https://github.com/EmbarkStudios/puffin/compare/0.17.1...0.18.0
+[0.17.1]: https://github.com/EmbarkStudios/puffin/compare/0.17.0...0.17.1
 [0.17.0]: https://github.com/EmbarkStudios/puffin/compare/0.16.0...0.17.0
 [0.16.0]: https://github.com/EmbarkStudios/puffin/compare/0.15.0...0.16.0
 [0.15.0]: https://github.com/EmbarkStudios/puffin/compare/0.14.3...0.15.0

@@ -1,6 +1,6 @@
 [package]
 name = "puffin"
-version = "0.17.0"
+version = "0.18.0"
 authors = ["Embark <opensource@embark-studios.com>"]
 license = "MIT OR Apache-2.0"
 description = "Simple instrumentation profiler for games"
@@ -10,7 +10,7 @@ repository = "https://github.com/EmbarkStudios/puffin"
 readme = "README.md"
 categories = ["development-tools::profiling"]
 keywords = ["profiler", "instrumentation", "gamedev"]
-include = ["**/*.rs", "Cargo.toml", "README.md"]
+include = ["**/*.rs", "Cargo.toml", "README.md", "../puffin.jpg"]
 
 [package.metadata.docs.rs]
 all-features = true

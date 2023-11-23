@@ -1707,7 +1707,7 @@ dependencies = [
 
 [[package]]
 name = "puffin"
-version = "0.17.0"
+version = "0.18.0"
 dependencies = [
  "anyhow",
  "bincode",
@@ -1742,7 +1742,7 @@ dependencies = [
 
 [[package]]
 name = "puffin_http"
-version = "0.14.0"
+version = "0.15.0"
 dependencies = [
  "anyhow",
  "crossbeam-channel",
