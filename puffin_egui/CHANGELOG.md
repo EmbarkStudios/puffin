@@ -6,9 +6,12 @@ All notable changes to the egui crate will be documented in this file.
 
 <!-- next-header -->
 ## [Unreleased] - ReleaseDate
+
+- [PR#166](https://github.com/EmbarkStudios/puffin/pull/166) Add `show_viewport_if_enabled` method, which will show the profiler UI in a separate viewport, if possible.
+
 ## [0.23.0] - 2023-09-28
 
-- [PR#161](https://github.com/EmbarkStudios/puffin/pull/161) Update to egui `0.23` 
+- [PR#161](https://github.com/EmbarkStudios/puffin/pull/161) Update to egui `0.23`
 
 ## [0.22.0] - 2023-05-24
 

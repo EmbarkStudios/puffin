@@ -482,6 +482,9 @@ impl GlobalProfiler {
     /// You need to call this once at the start of every frame.
     ///
     /// It is fine to call this from within a profile scope.
+    ///
+    /// This takes all completed profiling scopes from all threads,
+    /// and sends it to the sinks.
     pub fn new_frame(&mut self) {
         let current_frame_index = self.current_frame_index;
         self.current_frame_index += 1;

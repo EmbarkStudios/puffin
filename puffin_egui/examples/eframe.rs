@@ -1,9 +1,10 @@
 use eframe::egui;
 
 fn main() -> eframe::Result<()> {
-    puffin::set_scopes_on(true); // Remember to call this, or puffin will be disabled!
-
-    let native_options = Default::default();
+    let native_options = eframe::NativeOptions {
+        viewport: egui::ViewportBuilder::default().with_inner_size([320.0, 240.0]),
+        ..Default::default()
+    };
     eframe::run_native(
         "puffin egui eframe",
         native_options,
@@ -14,23 +15,38 @@ fn main() -> eframe::Result<()> {
 #[derive(Default)]
 pub struct ExampleApp {
     frame_counter: u64,
+    keep_repainting: bool,
 }
 
 impl eframe::App for ExampleApp {
-    fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
+    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         puffin::profile_function!();
-        puffin::GlobalProfiler::lock().new_frame(); // call once per frame!
+        puffin::GlobalProfiler::lock().new_frame(); // If you use the `puffin` feature of `eframe` you don't need to call this
 
         egui::CentralPanel::default().show(ctx, |ui| {
+            let mut profile = puffin::are_scopes_on();
+            ui.checkbox(&mut profile, "Show profiler window");
+            puffin::set_scopes_on(profile); // controls both the profile capturing, and the displaying of it
+
+            ui.horizontal(|ui| {
+                ui.checkbox(&mut self.keep_repainting, "Keep repainting this window");
+                if self.keep_repainting {
+                    ui.spinner();
+                    ui.ctx().request_repaint();
+                }
+            });
+
             if ui.button("Quit").clicked() {
-                frame.close()
+                ui.ctx().send_viewport_cmd(egui::ViewportCommand::Close);
             }
         });
 
-        puffin_egui::profiler_window(ctx);
+        // This call does nothing if profiling is disabled
+        puffin_egui::show_viewport_if_enabled(ctx);
+
+        // ----------------------------------------------------------------
 
         // Give us something to inspect:
-
         std::thread::Builder::new()
             .name("Other thread".to_owned())
             .spawn(|| {
