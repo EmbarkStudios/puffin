@@ -1742,7 +1742,7 @@ dependencies = [
 
 [[package]]
 name = "puffin_egui"
-version = "0.23.0"
+version = "0.24.0"
 dependencies = [
  "eframe",
  "egui",
@@ -1769,7 +1769,7 @@ dependencies = [
 
 [[package]]
 name = "puffin_viewer"
-version = "0.17.0"
+version = "0.18.0"
 dependencies = [
  "argh",
  "eframe",

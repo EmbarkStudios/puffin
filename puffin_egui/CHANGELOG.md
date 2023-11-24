@@ -6,8 +6,10 @@ All notable changes to the egui crate will be documented in this file.
 
 <!-- next-header -->
 ## [Unreleased] - ReleaseDate
+## [0.24.0] - 2023-11-24
 
 - [PR#166](https://github.com/EmbarkStudios/puffin/pull/166) Add `show_viewport_if_enabled` method, which will show the profiler UI in a separate viewport, if possible.
+- [PR#161](https://github.com/EmbarkStudios/puffin/pull/166) Update to egui `0.24`
 
 ## [0.23.0] - 2023-09-28
 
@@ -159,7 +161,8 @@ All notable changes to the egui crate will be documented in this file.
 - The view supports viewing merged sibling scopes.
 
 <!-- next-url -->
-[Unreleased]: https://github.com/EmbarkStudios/puffin/compare/puffin_egui-0.23.0...HEAD
+[Unreleased]: https://github.com/EmbarkStudios/puffin/compare/puffin_egui-0.24.0...HEAD
+[0.24.0]: https://github.com/EmbarkStudios/puffin/compare/puffin_egui-0.23.0...puffin_egui-0.24.0
 [0.23.0]: https://github.com/EmbarkStudios/puffin/compare/puffin_egui-0.22.0...puffin_egui-0.23.0
 [0.22.0]: https://github.com/EmbarkStudios/puffin/compare/puffin_egui-0.21.0...puffin_egui-0.22.0
 [0.21.0]: https://github.com/EmbarkStudios/puffin/compare/puffin_egui-0.20.0...puffin_egui-0.21.0
