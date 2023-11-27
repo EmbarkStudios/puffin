@@ -112,7 +112,8 @@ pub use merge::*;
 use parking_lot::RwLock;
 pub use profile_view::{select_slowest, FrameView, GlobalFrameView};
 
-use std::collections::BTreeMap;
+use std::borrow::Cow;
+use std::collections::{BTreeMap, HashSet};
 use std::sync::{
     atomic::{AtomicBool, Ordering},
     Arc,
@@ -171,14 +172,6 @@ impl From<Vec<u8>> for Stream {
     }
 }
 
-impl<'a> From<&'a [u8]> for Stream {
-    fn from(v: &'a [u8]) -> Self {
-        let mut bytes = Vec::with_capacity(v.len());
-        bytes.extend_from_slice(v);
-        Self(bytes)
-    }
-}
-
 // ----------------------------------------------------------------------------
 
 /// Used when parsing a Stream.
@@ -200,9 +193,10 @@ impl<'s> ScopeDynamicData<'s> {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Scope<'s> {
     // Identifier for the scope
-    pub scope_id: ScopeId,
-    // Some dynamic data
-    pub scope_dynamic_data: ScopeDynamicData<'s>,
+    // To fetch more details about this scope use `GlobalProfiler::scope_details()`.
+    pub id: ScopeId,
+    // Some dynamic data that is passed into the profiler scope.
+    pub dynamic_data: ScopeDynamicData<'s>,
     /// Stream offset for first child.
     pub child_begin_position: u64,
     /// Stream offset after last child.
@@ -271,8 +265,8 @@ impl StreamInfo {
             })
         } else {
             let (num_scopes, depth) = Reader::count_scope_and_depth(&stream)?;
-            let min_ns = top_scopes.first().unwrap().scope_dynamic_data.start_ns;
-            let max_ns = top_scopes.last().unwrap().scope_dynamic_data.stop_ns();
+            let min_ns = top_scopes.first().unwrap().dynamic_data.start_ns;
+            let max_ns = top_scopes.last().unwrap().dynamic_data.stop_ns();
 
             Ok(StreamInfo {
                 stream,
@@ -337,14 +331,16 @@ pub struct StreamInfoRef<'a> {
 
 type NsSource = fn() -> NanoSecond;
 
-// If there are new scopes the first stream will contain scope details like file name, function name, line nmr etc...
-// The second stream always contains the scope time information.
-type ThreadReporter = fn(ThreadInfo, &[u8], &StreamInfoRef<'_>);
+// Function interface for reporting thread local scope details. 
+// If there are new scopes the scope details array will contain information contain scope details for this scope.
+// The stream will always contain the scope timing details.
+type ThreadReporter = fn(ThreadInfo, &[ScopeDetailsRef], &StreamInfoRef<'_>);
 
 /// Report a stream of profile data from a thread to the [`GlobalProfiler`] singleton.
-pub fn global_reporter(
+/// This is used for internal purposes only
+pub(crate) fn internal_profile_reporter(
     info: ThreadInfo,
-    stream_scope_details: &[u8],
+    stream_scope_details: &[ScopeDetailsRef],
     stream_scope_times: &StreamInfoRef<'_>,
 ) {
     GlobalProfiler::lock().report(info, stream_scope_details, stream_scope_times);
@@ -353,7 +349,7 @@ pub fn global_reporter(
 /// Collects profiling data for one thread
 pub struct ThreadProfiler {
     stream_info: StreamInfo,
-    scope_details_raw: Stream,
+    scope_details_raw: Vec<ScopeDetailsRef>,
     /// Current depth.
     depth: usize,
     now_ns: NsSource,
@@ -368,7 +364,7 @@ impl Default for ThreadProfiler {
             scope_details_raw: Default::default(),
             depth: 0,
             now_ns: crate::now_ns,
-            reporter: global_reporter,
+            reporter: internal_profile_reporter,
             start_time_ns: None,
         }
     }
@@ -390,15 +386,19 @@ impl ThreadProfiler {
     }
 
     #[must_use]
-    pub fn send_scope_info(
+    pub fn register_new_scope(
         &mut self,
-        raw_scope_name: &str,
-        file_name: &str,
+        raw_scope_name: &'static str,
+        file_name: &'static str,
         line_nr: u32,
     ) -> ScopeId {
         let new_id = fetch_add_scope_id();
-        self.scope_details_raw
-            .write_scope_info(new_id, raw_scope_name, file_name, line_nr);
+        self.scope_details_raw.push(ScopeDetailsRef {
+            scope_id: new_id,
+            scope_name: raw_scope_name,
+            file: file_name,
+            line_nr: line_nr,
+        });
         new_id
     }
 
@@ -437,7 +437,7 @@ impl ThreadProfiler {
             };
             (self.reporter)(
                 info,
-                self.scope_details_raw.bytes(),
+                &self.scope_details_raw,
                 &self.stream_info.as_stream_into_ref(),
             );
 
@@ -478,13 +478,15 @@ pub struct FrameSinkId(u64);
 pub struct GlobalProfiler {
     current_frame_index: FrameIndex,
     current_stream_scope_times: BTreeMap<ThreadInfo, StreamInfo>,
-    current_stream_scope_details: Vec<Stream>,
+    new_scope_details: Vec<ScopeDetailsRef>,
 
     next_sink_id: FrameSinkId,
     sinks: std::collections::HashMap<FrameSinkId, FrameSink>,
+    
     // Contains detailed information of every registered scope.
     // This data structure can be cloned for fast read access.
     scope_details: ScopeDetails,
+    scope_delta: HashSet<ScopeId>
 }
 
 impl Default for GlobalProfiler {
@@ -492,10 +494,11 @@ impl Default for GlobalProfiler {
         Self {
             current_frame_index: 0,
             current_stream_scope_times: Default::default(),
-            current_stream_scope_details: Default::default(),
+            new_scope_details: Default::default(),
             next_sink_id: FrameSinkId(1),
             sinks: Default::default(),
             scope_details: Default::default(),
+            scope_delta: Default::default()
         }
     }
 }
@@ -529,29 +532,21 @@ impl GlobalProfiler {
         let current_frame_index = self.current_frame_index;
         self.current_frame_index += 1;
 
-        let mut scope_details_bytes = 0;
         // Scope details are read before the frame is propagated to sinks. Because:
-        // 1. Scopes are only registered once, and we don't need every sink to parse them.
+        // 1. Scopes are only registered once, and we don't want every sink to have to parse them.
         // 2. Sinks should be able to read scope details
-        if !self.current_stream_scope_details.is_empty() {
-            for stream_info in self.current_stream_scope_details.drain(..) {
-                scope_details_bytes += stream_info.len();
-
-                let new_scopes = Reader::from_start(&stream_info).read_new_scopes().unwrap();
-                for (scope_id, scope_detail) in new_scopes {
-                    self.scope_details
-                        .insert(scope_id, ScopeDetailsOwned::from(scope_detail));
-                }
+        // 3. This logic doesn't run within the profile macros so we have more CPU resources here.
+        if !self.new_scope_details.is_empty() {
+            for scope_detail in self.new_scope_details.drain(..) {
+                self.scope_delta.insert(scope_detail.scope_id);
+                self.scope_details
+                    .insert(scope_detail.scope_id, ScopeDetailsOwned::from(scope_detail));
             }
         }
 
         let current_frame_scope = std::mem::take(&mut self.current_stream_scope_times);
 
-        let new_frame = match FrameData::new(
-            current_frame_index,
-            current_frame_scope,
-            scope_details_bytes,
-        ) {
+        let new_frame = match FrameData::new(current_frame_index, current_frame_scope) {
             Ok(new_frame) => Arc::new(new_frame),
             Err(Error::Empty) => {
                 return; // don't warn about empty frames, just ignore them
@@ -573,17 +568,30 @@ impl GlobalProfiler {
     }
 
     /// Report some profiling data. Called from [`ThreadProfiler`].
-    pub fn report(
+    pub(crate) fn report(
         &mut self,
         info: ThreadInfo,
-        stream_scope_details: &[u8],
+        stream_scope_details: &[ScopeDetailsRef],
         stream_scope_times: &StreamInfoRef<'_>,
     ) {
         if !stream_scope_details.is_empty() {
-            self.current_stream_scope_details
-                .push(Stream::from(stream_scope_details))
+            // Here we can run slightly heavy logic as its only ran once for each scope.
+            // If this ever needs non static data one can deep clone the structure.
+            self.new_scope_details
+                .extend_from_slice(stream_scope_details)
         }
 
+        self.current_stream_scope_times
+            .entry(info)
+            .or_default()
+            .extend(stream_scope_times);
+    }
+
+    pub fn report_custom_scopes(
+        &mut self,
+        info: ThreadInfo,
+        stream_scope_times: &StreamInfoRef<'_>,
+    ) {        
         self.current_stream_scope_times
             .entry(info)
             .or_default()
@@ -602,6 +610,22 @@ impl GlobalProfiler {
 
     pub fn remove_sink(&mut self, id: FrameSinkId) -> Option<FrameSink> {
         self.sinks.remove(&id)
+    }
+
+    /// Insert custom scopes into puffin. 
+    /// Scopes details should only be provided once for each scope and need be inserted before being reported to puffin.
+    /// This is only relevant when your not using puffin through the profiler macros.
+    pub fn insert_custom_scopes(scopes: &[CustomScopeDetails]){
+        let mut lock = Self::lock();
+        let new_scopes = lock.scope_details.insert_custom_scopes(scopes);
+        lock.scope_delta.extend(&new_scopes);
+    }
+
+    /// Fetches and drains the delta of newly registered scopes if any. 
+    /// Useful for knowing which scopes were registered since last time the function was called.
+    pub fn scope_delta() -> HashSet<ScopeId> {
+        let mut lock = Self::lock();
+        std::mem::take(&mut lock.scope_delta)
     }
 
     pub fn scope_details() -> ScopeDetails {
@@ -686,40 +710,105 @@ impl Drop for ProfilerScope {
     }
 }
 
+/// Scope details that are registered by the macros.
+/// This is only used internally and should not be exposed.
 #[derive(Debug, Clone, Copy, PartialEq, Hash, PartialOrd, Ord, Eq)]
-pub struct ScopeDetailsRef<'s> {
+pub struct ScopeDetailsRef {
+    /// Identifier for the scope being registered.
+    pub scope_id: ScopeId,
     /// Scope name, or function name (previously called "id")
-    pub scope_name: &'s str,
+    pub scope_name: &'static str,
     /// Path to the file containing the profiling macro
-    pub file: &'s str,
+    pub file: &'static str,
     /// The line number containing the profiling
     pub line_nr: u32,
 }
 
-#[derive(Debug, Clone, PartialEq, Hash, PartialOrd, Ord, Eq)]
+/// Custom scope details that can be registered by external users. 
+/// Instantiate this type once for each custom scope that you record manually. 
+/// Custom scopes can be registered via `GlobalProfiler::scope_details().insert_scopes()`.
+// This type provides slightly more convenient api for external users.
+#[derive(Debug, Default, Clone, PartialEq, Hash, PartialOrd, Ord, Eq)]
+pub struct CustomScopeDetails {
+    /// Scope name, or function name (previously called "id")
+    pub scope_name: Cow<'static, str>,
+    /// Path to the file containing the profiling macro
+    /// Can be empty if unused.
+    pub file: Cow<'static, str>,
+    /// The line number containing the profiling.
+    /// Can be 0 if unused.
+    pub line_nr: u32,
+}
+
+impl CustomScopeDetails {
+    pub fn with_name(mut self, name: impl Into<Cow<'static, str>>) -> Self {
+        self.scope_name = name.into();
+        self
+    }
+
+    pub fn with_file(mut self, file: Cow<'static, str>) -> Self {
+        self.file = file;
+        self
+    }
+
+    pub fn with_line_nr(mut self, line_nr: u32) -> Self {
+        self.line_nr = line_nr;
+        self
+    }
+}
+
+#[derive(Debug, Default, Clone, PartialEq, Hash, PartialOrd, Ord, Eq)]
+/// This struct contains scope details and can be read by external libraries.
 pub struct ScopeDetailsOwned {
     /// Shorter variant of the raw function name.
     /// This is more descriptive and shorter.
-    pub cleaned_scope_name: String,
+    /// In the case of custom scopes provided scopes this contains the `scope name`.
+    pub dynamic_scope_name: Cow<'static, str>,
     /// Raw function name with the entire type path.
-    pub raw_scope_name: String,
+    /// This is empty for custom scopes.
+    pub raw_scope_name: &'static str,
     /// Shorter variant of the raw file path.
     /// This is cleaned up and made consistent across platforms.
-    pub cleaned_file_path: String,
-    /// The full raw file path to the file in which the scope was located
-    pub raw_file_path: String,
+    /// In the case of custom scopes provided scopes this contains the `file name`.
+    pub dynamic_file_path: Cow<'static, str>,
+    /// The full raw file path to the file in which the scope was located.
+    /// This is empty for custom scopes.
+    pub raw_file_path: &'static str,
     /// The line number containing the profiling
     pub line_nr: u32,
+    /// File name plus line number: path:number
+    pub location: String,
 }
 
-impl<'a> From<ScopeDetailsRef<'a>> for ScopeDetailsOwned {
-    fn from(value: ScopeDetailsRef<'a>) -> Self {
+impl From<ScopeDetailsRef> for ScopeDetailsOwned {
+    fn from(value: ScopeDetailsRef) -> Self {
+        let cleaned_scope_name = clean_function_name(value.scope_name);
         ScopeDetailsOwned {
-            raw_scope_name: value.scope_name.to_owned(),
-            cleaned_scope_name: clean_function_name(value.scope_name),
-            raw_file_path: short_file_name(value.file),
-            cleaned_file_path: value.file.to_owned(),
+            raw_scope_name: value.scope_name,
+            location: format!("{cleaned_scope_name}:{}", value.line_nr),
+            dynamic_scope_name: Cow::Owned(cleaned_scope_name),
+            raw_file_path: value.file,
+            dynamic_file_path: Cow::Owned(short_file_name(value.file)),
             line_nr: value.line_nr,
+        }
+    }
+}
+
+impl From<&CustomScopeDetails> for ScopeDetailsOwned {
+    fn from(value: &CustomScopeDetails) -> Self {
+        let mut location = String::new();
+
+        if !value.file.is_empty() {
+            location = format!("{}:{}", value.file, value.line_nr);
+        }
+
+        ScopeDetailsOwned {
+            dynamic_scope_name: value.scope_name.clone(),
+            raw_scope_name: "-", // user provided scopes are non-static
+            dynamic_file_path: value.file.clone(),
+            raw_file_path: "-", // user provided scopes are non-static
+            line_nr: 0,
+            location,
         }
     }
 }
@@ -731,6 +820,7 @@ pub struct ScopeId(pub u32);
 /// Provides read access to scope details.
 #[derive(Default, Clone)]
 pub struct ScopeDetails(
+    // Store a both-way map, memory wise this can be a bit redundant but allows for faster access of information.
     Arc<
         RwLock<(
             std::collections::HashMap<ScopeId, ScopeDetailsOwned>,
@@ -755,31 +845,33 @@ impl ScopeDetails {
 
     /// Function is hidden as only puffin library will insert entries.
     pub(crate) fn insert(&self, scope_id: ScopeId, scope_details: ScopeDetailsOwned) {
-        // Scope details are collected before scope events are propagated.
-        // It is safe to unwrap as every scope
         self.0
             .write()
             .1
-            .insert(scope_details.raw_scope_name.clone(), scope_id);
+            .insert(scope_details.raw_scope_name.to_string(), scope_id);
         self.0.write().0.insert(scope_id, scope_details);
     }
 
     /// Manually insert scope details. After a scope is inserted it can be reported to puffin.
-    pub fn insert_scopes(&self, scopes: &[ScopeDetailsRef<'_>]) {
+    pub fn insert_custom_scopes(&self, scopes: &[CustomScopeDetails]) -> HashSet<ScopeId> {
+        let mut new_scopes = HashSet::new();
         for scope_detail in scopes {
             let new_scope_id = fetch_add_scope_id();
 
             // Scope details are collected before scope events are propagated.
-            // It is safe to unwrap as every scope
             self.0
                 .write()
                 .1
-                .insert(scope_detail.scope_name.to_owned(), new_scope_id);
+                .insert(scope_detail.scope_name.to_string(), new_scope_id);
             self.0
                 .write()
                 .0
-                .insert(new_scope_id, (*scope_detail).into());
+                .insert(new_scope_id, ScopeDetailsOwned::from(scope_detail));
+
+            new_scopes.insert(new_scope_id);
         }
+
+        new_scopes
     }
 
     /// Fetches all registered scopes and their ids.
@@ -991,7 +1083,7 @@ fn profile_macros_test() {
         if data.frame_index() == 0 {
             assert_eq!(data.frame_index(), 0);
             assert_eq!(data.meta().num_scopes, 2);
-            assert_eq!(data.meta().num_bytes, 238);
+            assert_eq!(data.meta().num_bytes, 62);
         } else if data.frame_index() == 1 {
             assert_eq!(data.frame_index(), 1);
             assert_eq!(data.meta().num_scopes, 2);
@@ -1016,23 +1108,31 @@ fn profile_macros_test() {
     let details = GlobalProfiler::scope_details();
     details.read_by_id(&ScopeId(0), |scope| {
         assert_eq!(scope.raw_file_path, "puffin/src/lib.rs");
-        assert_eq!(scope.cleaned_file_path, "puffin/src/lib.rs");
+
+        #[cfg(unix)]
+        assert_eq!(scope.dynamic_file_path, "puffin/src/lib.rs");
+        #[cfg(windows)]
+        assert_eq!(scope.cleaned_file_path, "puffin\\src\\lib.rs");
+
         assert_eq!(
             scope.raw_scope_name,
             "puffin::profile_macros_test::a::{{closure}}::{{closure}}::f"
         );
-        assert_eq!(scope.cleaned_scope_name, "profile_macros_test::a");
-        assert_eq!(scope.line_nr, 1005);
+        assert_eq!(scope.dynamic_scope_name, "profile_macros_test::a");
+        assert_eq!(scope.line_nr, 1050);
     });
     details.read_by_id(&ScopeId(1), |scope| {
+        #[cfg(unix)]
         assert_eq!(scope.raw_file_path, "puffin/src/lib.rs");
-        assert_eq!(scope.cleaned_file_path, "puffin/src/lib.rs");
+        #[cfg(windows)]
+        assert_eq!(scope.cleaned_file_path, "puffin\\src\\lib.rs");
+
         assert_eq!(
             scope.raw_scope_name,
             "puffin::profile_macros_test::a::{{closure}}::{{closure}}::f"
         );
-        assert_eq!(scope.cleaned_scope_name, "profile_macros_test::a");
-        assert_eq!(scope.line_nr, 1007);
+        assert_eq!(scope.dynamic_scope_name, "profile_macros_test::a");
+        assert_eq!(scope.line_nr, 1052);
     });
     details.read_by_name("profile_macros_test::a", |id| assert_eq!(*id, ScopeId(0)));
     details.read_by_name("profile_macros_test::a", |id| assert_eq!(*id, ScopeId(1)));
@@ -1076,7 +1176,7 @@ static USELESS_SCOPE_NAME_POSTFIX: &'static str = "::{{closure}}::{{closure}}::f
 /// }
 /// ```
 ///
-/// Overhead: around 210 ns on 2020 Intel MacBook Pro.
+/// Overhead: around 54 ns on Macbook Pro with Apple M1 Max.
 #[macro_export]
 macro_rules! profile_function {
     () => {
@@ -1088,8 +1188,7 @@ macro_rules! profile_function {
             static SEND_INFO: std::sync::Once = std::sync::Once::new();
             SEND_INFO.call_once(|| {
                 $crate::ThreadProfiler::call(|tp| {
-                    let id = tp.send_scope_info($crate::current_function_name!(), file!(), line!());
-
+                    let id = tp.register_new_scope($crate::current_function_name!(), file!(), line!());
                     SCOPE_ID.store(id.0, std::sync::atomic::Ordering::SeqCst);
                 });
             });
@@ -1114,7 +1213,7 @@ macro_rules! profile_function {
 /// An optional second argument can be a string (e.g. a mesh name) to help diagnose what was slow.
 /// Example: `profile_scope!("load_mesh", mesh_name);`
 ///
-/// Overhead: around 140 ns on 2020 Intel MacBook Pro.
+/// Overhead: around 54 ns on Macbook Pro with Apple M1 Max.
 #[macro_export]
 macro_rules! profile_scope {
     ($id:expr) => {
@@ -1126,7 +1225,7 @@ macro_rules! profile_scope {
             static SEND_INFO: std::sync::Once = std::sync::Once::new();
             SEND_INFO.call_once(|| {
                 $crate::ThreadProfiler::call(|tp| {
-                    let id = tp.send_scope_info($crate::current_function_name!(), file!(), line!());
+                    let id = tp.register_new_scope($crate::current_function_name!(), file!(), line!());
                     SCOPE_ID.store(id.0, std::sync::atomic::Ordering::SeqCst);
                 });
             });

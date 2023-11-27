@@ -54,6 +54,9 @@ impl Server {
                     if let Err(err) = server_impl.accept_new_clients() {
                         log::warn!("puffin server failure: {}", err);
                     }
+
+                    let new_scope_details 
+
                     if let Err(err) = server_impl.send(&frame) {
                         log::warn!("puffin server failure: {}", err);
                     }
@@ -162,12 +165,24 @@ impl PuffinServerImpl {
         puffin::profile_function!();
 
         let mut packet = vec![];
+
+        let new_scopes = GlobalProfiler::scope_delta();
+                
         packet
             .write_all(&crate::PROTOCOL_VERSION.to_le_bytes())
             .unwrap();
         frame
             .write_into(&mut packet)
             .context("Encode puffin frame")?;
+
+        let scope_details = GlobalProfiler::scope_details();
+        for new_scope in new_scopes {
+            scope_details.scopes_by_id(|details| { 
+                if let Some(details) = details.get(&new_scope) {
+                    
+                }
+            });
+        }
 
         let packet: Packet = packet.into();
 

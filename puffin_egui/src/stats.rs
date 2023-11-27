@@ -71,16 +71,16 @@ pub fn ui(
 
                 for (key, stats) in &scopes {
                     scope_infos.read_by_id(&key.id, |scope_details| {
-                        if !options.filter.include(&scope_details.raw_scope_name) {
+                        if !options.filter.include(&scope_details.dynamic_scope_name) {
                             return;
                         }
 
                         ui.label(&key.thread_name);
                         ui.label(format!(
                             "{}:{}",
-                            scope_details.cleaned_file_path, scope_details.line_nr
+                            scope_details.dynamic_file_path, scope_details.line_nr
                         ));
-                        ui.label(format!("{:?}", scope_details.cleaned_scope_name));
+                        ui.label(format!("{:?}", scope_details.dynamic_scope_name));
                         ui.monospace(format!("{:>5}", stats.count));
                         ui.monospace(format!("{:>6.1} kB", stats.bytes as f32 * 1e-3));
                         ui.monospace(format!("{:>8.1} µs", stats.total_self_ns as f32 * 1e-3));
@@ -125,9 +125,7 @@ fn collect_stream(
     stream: &puffin::Stream,
 ) -> puffin::Result<()> {
     for scope in puffin::Reader::from_start(stream) {
-        if let Record::Scope(scope) = scope? {
-            collect_scope(stats, thread_name, stream, &scope)?;
-        }
+        collect_scope(stats, thread_name, stream, &scope?)?;
     }
     Ok(())
 }
@@ -140,19 +138,18 @@ fn collect_scope<'s>(
 ) -> puffin::Result<()> {
     let mut ns_used_by_children = 0;
     for child_scope in Reader::with_offset(stream, scope.child_begin_position)? {
-        if let Record::Scope(child_scope) = child_scope? {
-            collect_scope(stats, thread_name, stream, &child_scope)?;
-            ns_used_by_children += child_scope.scope_dynamic_data.duration_ns;
-        }
+        let child_scope = &child_scope?;
+        collect_scope(stats, thread_name, stream, &child_scope)?;
+        ns_used_by_children += child_scope.dynamic_data.duration_ns;
     }
 
     let self_time = scope
-        .scope_dynamic_data
+        .dynamic_data
         .duration_ns
         .saturating_sub(ns_used_by_children);
 
     let key = Key {
-        id: scope.scope_id,
+        id: scope.id,
         thread_name: thread_name.to_owned(),
     };
     let scope_stats = stats.scopes.entry(key).or_default();
@@ -168,7 +165,7 @@ fn scope_byte_size(scope: &puffin::Scope<'_>) -> usize {
     1 + // `(` sentinel
     8 + // start time
     8 + // scope id
-    1 + scope.scope_dynamic_data.data.len() + // scope name/id
+    1 + scope.dynamic_data.data.len() + // scope name/id
     8 + // scope size
     1 + // `)` sentinel
     8 // stop time

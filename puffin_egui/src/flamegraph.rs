@@ -639,7 +639,7 @@ fn paint_record(
                 scope_details.read_by_id(&scope_id, |scope_details| {
                     options
                         .filter
-                        .set_filter(scope_details.raw_scope_name.clone());
+                        .set_filter(scope_details.dynamic_scope_name.to_string());
                 });
             }
         }
@@ -663,7 +663,7 @@ fn paint_record(
 
     if !options.filter.is_empty() {
         scope_details.read_by_id(&scope_id, |scope_details| {
-            if options.filter.include(&scope_details.raw_scope_name) {
+            if options.filter.include(&scope_details.dynamic_scope_name) {
                 // keep full opacity
                 min_width *= 2.0; // make it more visible even when thin
             } else {
@@ -689,7 +689,7 @@ fn paint_record(
 
         let mut name = String::new();
         scope_details.read_by_id(&scope_id, |scope_details| {
-            name = scope_details.cleaned_scope_name.clone()
+            name = scope_details.dynamic_scope_name.to_string()
         });
 
         let duration_ms = to_ms(record.duration_ns);
@@ -755,8 +755,8 @@ fn paint_scope(
         options,
         "",
         "",
-        scope.scope_id,
-        &scope.scope_dynamic_data,
+        scope.id,
+        &scope.dynamic_data,
         scope_detais,
         top_y,
     );
@@ -764,39 +764,37 @@ fn paint_scope(
     if result != PaintResult::Culled {
         let mut num_children = 0;
         for child_scope in Reader::with_offset(stream, scope.child_begin_position)? {
-            if let Record::Scope(child_scope) = &child_scope? {
-                paint_scope(
-                    info,
-                    options,
-                    stream,
-                    scope_detais,
-                    child_scope,
-                    depth + 1,
-                    min_y,
-                )?;
-                num_children += 1;
-            }
+            paint_scope(
+                info,
+                options,
+                stream,
+                scope_detais,
+                &child_scope?,
+                depth + 1,
+                min_y,
+            )?;
+            num_children += 1;
         }
 
         if result == PaintResult::Hovered {
-            scope_detais.read_by_id(&scope.scope_id, |scope_details| {
+            scope_detais.read_by_id(&scope.id, |scope_details| {
                 egui::show_tooltip_at_pointer(
                     &info.ctx,
                     Id::new("puffin_profiler_tooltip"),
                     |ui| {
-                        ui.monospace(format!("id:       {}", scope_details.cleaned_scope_name));
-                        if !scope_details.cleaned_file_path.is_empty() {
+                        ui.monospace(format!("id:       {}", scope_details.dynamic_scope_name));
+                        if !scope_details.dynamic_file_path.is_empty() {
                             ui.monospace(format!(
                                 "location: {}:{}",
-                                scope_details.cleaned_file_path, scope_details.line_nr
+                                scope_details.dynamic_file_path, scope_details.line_nr
                             ));
                         }
-                        if !scope.scope_dynamic_data.data.is_empty() {
-                            ui.monospace(format!("data:     {}", scope.scope_dynamic_data.data));
+                        if !scope.dynamic_data.data.is_empty() {
+                            ui.monospace(format!("data:     {}", scope.dynamic_data.data));
                         }
                         ui.monospace(format!(
                             "duration: {:7.3} ms",
-                            to_ms(scope.scope_dynamic_data.duration_ns)
+                            to_ms(scope.dynamic_data.duration_ns)
                         ));
                         ui.monospace(format!("children: {num_children}"));
                     },
@@ -872,7 +870,7 @@ fn paint_merge_scope(
 
         if result == PaintResult::Hovered {
             egui::show_tooltip_at_pointer(&info.ctx, Id::new("puffin_profiler_tooltip"), |ui| {
-                merge_scope_tooltip(ui, merge, info.num_frames);
+                merge_scope_tooltip(ui, &GlobalProfiler::scope_details(), merge, info.num_frames);
             });
         }
     }
@@ -880,13 +878,20 @@ fn paint_merge_scope(
     Ok(result)
 }
 
-fn merge_scope_tooltip(ui: &mut egui::Ui, merge: &MergeScope<'_>, num_frames: usize) {
+fn merge_scope_tooltip(
+    ui: &mut egui::Ui,
+    scope_details: &ScopeDetails,
+    merge: &MergeScope<'_>,
+    num_frames: usize,
+) {
     #![allow(clippy::collapsible_else_if)]
 
     ui.monospace(format!("id:       {:?}", merge.id));
-    // if !merge.location.is_empty() {
-    //     ui.monospace(format!("location: {}", merge.location));
-    // }
+    scope_details.read_by_id(&merge.id, |scope| {
+        if !scope.dynamic_scope_name.is_empty() {
+            ui.monospace(format!("location: {}", scope.dynamic_file_path));
+        }
+    });
     if !merge.data.is_empty() {
         ui.monospace(format!("data:     {}", merge.data));
     }
