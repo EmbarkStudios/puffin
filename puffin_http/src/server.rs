@@ -48,7 +48,7 @@ impl Server {
                     tcp_listener,
                     clients: Default::default(),
                     num_clients: num_clients_cloned,
-                    scope_details: GlobalProfiler::scope_details()
+                    scope_details: GlobalProfiler::scope_details(),
                 };
 
                 while let Ok(frame) = rx.recv() {

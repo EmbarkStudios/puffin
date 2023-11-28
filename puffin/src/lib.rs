@@ -855,9 +855,7 @@ struct InnerDetails {
 #[derive(Default, Clone)]
 pub struct ScopeDetails(
     // Store a both-way map, memory wise this can be a bit redundant but allows for faster access of information.
-    Arc<
-        RwLock<InnerDetails>,
-    >,
+    Arc<RwLock<InnerDetails>>,
 );
 
 impl ScopeDetails {
@@ -868,7 +866,7 @@ impl ScopeDetails {
         }
     }
 
-     /// Provides read to the given closure for some scope details.
+    /// Provides read to the given closure for some scope details.
     pub fn read_by_name<F: FnMut(&ScopeId)>(&self, scope_name: &str, mut cb: F) {
         if let Some(read) = self.0.read().string_to_scope_id.get(scope_name) {
             cb(read);
@@ -881,7 +879,10 @@ impl ScopeDetails {
             .write()
             .string_to_scope_id
             .insert(scope_details.raw_scope_name.to_string(), scope_id);
-        self.0.write().scope_id_to_details.insert(scope_id, scope_details);
+        self.0
+            .write()
+            .scope_id_to_details
+            .insert(scope_id, scope_details);
     }
 
     /// Manually insert scope details. After a scope is inserted it can be reported to puffin.
@@ -889,7 +890,7 @@ impl ScopeDetails {
         let mut new_scopes = HashSet::new();
         for scope_detail in scopes {
             let new_scope_id = fetch_add_scope_id();
-           
+
             self.insert(new_scope_id, ScopeDetailsOwned::from(scope_detail));
             new_scopes.insert(new_scope_id);
         }

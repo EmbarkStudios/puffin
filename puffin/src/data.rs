@@ -15,8 +15,8 @@
 //! containing any child scopes. The scope is then closed by:
 //!
 //! ```ignore
-//!    ')'          byte       Sentinel   
-//!    time_ns      i64        Time stamp of when scope finished//!     
+//!    ')'          byte       Sentinel
+//!    time_ns      i64        Time stamp of when scope finished
 //! ```
 //!
 //! Integers are encoded in little endian.
@@ -103,9 +103,7 @@ impl Stream {
     #[inline]
     fn write_scope_id(&mut self, scope_id: ScopeId) {
         // Could potentially use varint encoding.
-        self.0
-            .write_u32::<LE>(scope_id.0)
-            .expect("can't fail");
+        self.0.write_u32::<LE>(scope_id.0).expect("can't fail");
     }
 
     #[inline]

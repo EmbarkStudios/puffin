@@ -53,11 +53,11 @@ impl Client {
                         let scope_details = GlobalProfiler::scope_details();
                         connected.store(true, SeqCst);
                         while alive.load(SeqCst) {
-                            match consume_message(&scope_details,&mut stream) {
+                            match consume_message(&scope_details, &mut stream) {
                                 Ok(frame_data) => {
                                     frame_view
-                                    .lock()
-                                    .unwrap()
+                                        .lock()
+                                        .unwrap()
                                         .add_frame(std::sync::Arc::new(frame_data));
                                 }
                                 Err(err) => {
@@ -99,7 +99,10 @@ impl Client {
 }
 
 /// Read a `puffin_http` message from a stream.
-pub fn consume_message(scope_details: &ScopeDetails, stream: &mut impl std::io::Read) -> anyhow::Result<puffin::FrameData> {
+pub fn consume_message(
+    scope_details: &ScopeDetails,
+    stream: &mut impl std::io::Read,
+) -> anyhow::Result<puffin::FrameData> {
     let mut server_version = [0_u8; 2];
     stream.read_exact(&mut server_version)?;
     let server_version = u16::from_le_bytes(server_version);
