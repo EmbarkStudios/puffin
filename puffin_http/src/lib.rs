@@ -95,7 +95,7 @@
 #![deny(missing_docs)]
 
 /// Bumped on protocol breakage.
-pub const PROTOCOL_VERSION: u16 = 1;
+pub const PROTOCOL_VERSION: u16 = 2;
 
 /// The default TCP port used.
 pub const DEFAULT_PORT: u16 = 8585;

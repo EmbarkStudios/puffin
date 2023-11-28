@@ -139,7 +139,7 @@ fn collect_scope<'s>(
     let mut ns_used_by_children = 0;
     for child_scope in Reader::with_offset(stream, scope.child_begin_position)? {
         let child_scope = &child_scope?;
-        collect_scope(stats, thread_name, stream, &child_scope)?;
+        collect_scope(stats, thread_name, stream, child_scope)?;
         ns_used_by_children += child_scope.dynamic_data.duration_ns;
     }
 

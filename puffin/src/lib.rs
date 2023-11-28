@@ -331,7 +331,7 @@ pub struct StreamInfoRef<'a> {
 
 type NsSource = fn() -> NanoSecond;
 
-// Function interface for reporting thread local scope details. 
+// Function interface for reporting thread local scope details.
 // If there are new scopes the scope details array will contain information contain scope details for this scope.
 // The stream will always contain the scope timing details.
 type ThreadReporter = fn(ThreadInfo, &[ScopeDetailsRef], &StreamInfoRef<'_>);
@@ -345,7 +345,6 @@ pub(crate) fn internal_profile_reporter(
 ) {
     GlobalProfiler::lock().report(info, stream_scope_details, stream_scope_times);
 }
-
 /// Collects profiling data for one thread
 pub struct ThreadProfiler {
     stream_info: StreamInfo,
@@ -374,10 +373,10 @@ impl ThreadProfiler {
     /// Explicit initialize with custom callbacks.
     ///
     /// If not called, each thread will use the default nanosecond source ([`now_ns()`])
-    /// and report scopes to the global profiler ([`global_reporter()`]).
+    /// and report scopes to the global profiler ([`internal_reporter()`]).
     ///
     /// For instance, when compiling for WASM the default timing function ([`now_ns()`]) won't work,
-    /// so you'll want to call `puffin::ThreadProfiler::initialize(my_timing_function, puffin::global_reporter);`.
+    /// so you'll want to call `puffin::ThreadProfiler::initialize(my_timing_function, puffin::internal_reporter);`.
     pub fn initialize(now_ns: NsSource, reporter: ThreadReporter) {
         ThreadProfiler::call(|tp| {
             tp.now_ns = now_ns;
@@ -397,7 +396,7 @@ impl ThreadProfiler {
             scope_id: new_id,
             scope_name: raw_scope_name,
             file: file_name,
-            line_nr: line_nr,
+            line_nr,
         });
         new_id
     }
@@ -482,11 +481,11 @@ pub struct GlobalProfiler {
 
     next_sink_id: FrameSinkId,
     sinks: std::collections::HashMap<FrameSinkId, FrameSink>,
-    
+
     // Contains detailed information of every registered scope.
     // This data structure can be cloned for fast read access.
     scope_details: ScopeDetails,
-    scope_delta: HashSet<ScopeId>
+    scope_delta: HashSet<ScopeId>,
 }
 
 impl Default for GlobalProfiler {
@@ -498,7 +497,7 @@ impl Default for GlobalProfiler {
             next_sink_id: FrameSinkId(1),
             sinks: Default::default(),
             scope_details: Default::default(),
-            scope_delta: Default::default()
+            scope_delta: Default::default(),
         }
     }
 }
@@ -546,7 +545,11 @@ impl GlobalProfiler {
 
         let current_frame_scope = std::mem::take(&mut self.current_stream_scope_times);
 
-        let new_frame = match FrameData::new(current_frame_index, current_frame_scope) {
+        let new_frame = match FrameData::new(
+            current_frame_index,
+            current_frame_scope,
+            self.take_scope_delta(),
+        ) {
             Ok(new_frame) => Arc::new(new_frame),
             Err(Error::Empty) => {
                 return; // don't warn about empty frames, just ignore them
@@ -562,6 +565,12 @@ impl GlobalProfiler {
 
     /// Manually add frame data.
     pub fn add_frame(&mut self, new_frame: Arc<FrameData>) {
+        // for new_scope in new_frame.registered_scopes {
+        //     self.scope_details.read_by_id(&new_scope, |details| {
+
+        //     })
+        // }
+
         for sink in self.sinks.values() {
             sink(new_frame.clone());
         }
@@ -578,7 +587,7 @@ impl GlobalProfiler {
             // Here we can run slightly heavy logic as its only ran once for each scope.
             // If this ever needs non static data one can deep clone the structure.
             self.new_scope_details
-                .extend_from_slice(stream_scope_details)
+                .extend_from_slice(stream_scope_details);
         }
 
         self.current_stream_scope_times
@@ -587,11 +596,12 @@ impl GlobalProfiler {
             .extend(stream_scope_times);
     }
 
+    /// Report custom scopes to puffin profiler.
     pub fn report_custom_scopes(
         &mut self,
         info: ThreadInfo,
         stream_scope_times: &StreamInfoRef<'_>,
-    ) {        
+    ) {
         self.current_stream_scope_times
             .entry(info)
             .or_default()
@@ -612,26 +622,36 @@ impl GlobalProfiler {
         self.sinks.remove(&id)
     }
 
-    /// Insert custom scopes into puffin. 
+    /// Insert custom scopes into puffin.
     /// Scopes details should only be provided once for each scope and need be inserted before being reported to puffin.
     /// This is only relevant when your not using puffin through the profiler macros.
-    pub fn insert_custom_scopes(scopes: &[CustomScopeDetails]){
+    pub fn insert_custom_scopes(scopes: &[CustomScopeDetails]) {
         let mut lock = Self::lock();
         let new_scopes = lock.scope_details.insert_custom_scopes(scopes);
         lock.scope_delta.extend(&new_scopes);
     }
 
-    /// Fetches and drains the delta of newly registered scopes if any. 
+    /// Fetches and drains the delta of newly registered scopes if any.
     /// Useful for knowing which scopes were registered since last time the function was called.
-    pub fn scope_delta() -> HashSet<ScopeId> {
-        let mut lock = Self::lock();
-        std::mem::take(&mut lock.scope_delta)
+    fn take_scope_delta(&mut self) -> HashSet<ScopeId> {
+        std::mem::take(&mut self.scope_delta)
     }
 
     pub fn scope_details() -> ScopeDetails {
         let lock = Self::lock();
         lock.scope_details.clone()
     }
+}
+
+#[cfg_attr(
+    feature = "serialization",
+    derive(serde::Serialize, serde::Deserialize)
+)]
+struct SerdeScopeDetails {
+    pub scope_id: ScopeId,
+    pub scope_name: String,
+    pub file_path: String,
+    pub line_nmr: u32,
 }
 
 // ----------------------------------------------------------------------------
@@ -724,8 +744,8 @@ pub struct ScopeDetailsRef {
     pub line_nr: u32,
 }
 
-/// Custom scope details that can be registered by external users. 
-/// Instantiate this type once for each custom scope that you record manually. 
+/// Custom scope details that can be registered by external users.
+/// Instantiate this type once for each custom scope that you record manually.
 /// Custom scopes can be registered via `GlobalProfiler::scope_details().insert_scopes()`.
 // This type provides slightly more convenient api for external users.
 #[derive(Debug, Default, Clone, PartialEq, Hash, PartialOrd, Ord, Eq)]
@@ -758,6 +778,10 @@ impl CustomScopeDetails {
 }
 
 #[derive(Debug, Default, Clone, PartialEq, Hash, PartialOrd, Ord, Eq)]
+#[cfg_attr(
+    feature = "serialization",
+    derive(serde::Serialize, serde::Deserialize)
+)]
 /// This struct contains scope details and can be read by external libraries.
 pub struct ScopeDetailsOwned {
     /// Shorter variant of the raw function name.
@@ -815,31 +839,39 @@ impl From<&CustomScopeDetails> for ScopeDetailsOwned {
 
 /// A unique id for each scope and `ScopeInfo`.
 #[derive(Default, Copy, Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[cfg_attr(
+    feature = "serialization",
+    derive(serde::Serialize, serde::Deserialize)
+)]
 pub struct ScopeId(pub u32);
+
+#[derive(Default, Clone)]
+struct InnerDetails {
+    scope_id_to_details: std::collections::HashMap<ScopeId, ScopeDetailsOwned>,
+    string_to_scope_id: std::collections::HashMap<String, ScopeId>,
+}
 
 /// Provides read access to scope details.
 #[derive(Default, Clone)]
 pub struct ScopeDetails(
     // Store a both-way map, memory wise this can be a bit redundant but allows for faster access of information.
     Arc<
-        RwLock<(
-            std::collections::HashMap<ScopeId, ScopeDetailsOwned>,
-            std::collections::HashMap<String, ScopeId>,
-        )>,
+        RwLock<InnerDetails>,
     >,
 );
 
 impl ScopeDetails {
     /// Provides read to the given closure for some scope details.
     pub fn read_by_id<F: FnMut(&ScopeDetailsOwned)>(&self, scope_id: &ScopeId, mut cb: F) {
-        if let Some(read) = self.0.read().0.get(scope_id) {
-            cb(read)
+        if let Some(read) = self.0.read().scope_id_to_details.get(scope_id) {
+            cb(read);
         }
     }
 
+     /// Provides read to the given closure for some scope details.
     pub fn read_by_name<F: FnMut(&ScopeId)>(&self, scope_name: &str, mut cb: F) {
-        if let Some(read) = self.0.read().1.get(scope_name) {
-            cb(read)
+        if let Some(read) = self.0.read().string_to_scope_id.get(scope_name) {
+            cb(read);
         }
     }
 
@@ -847,9 +879,9 @@ impl ScopeDetails {
     pub(crate) fn insert(&self, scope_id: ScopeId, scope_details: ScopeDetailsOwned) {
         self.0
             .write()
-            .1
+            .string_to_scope_id
             .insert(scope_details.raw_scope_name.to_string(), scope_id);
-        self.0.write().0.insert(scope_id, scope_details);
+        self.0.write().scope_id_to_details.insert(scope_id, scope_details);
     }
 
     /// Manually insert scope details. After a scope is inserted it can be reported to puffin.
@@ -857,17 +889,8 @@ impl ScopeDetails {
         let mut new_scopes = HashSet::new();
         for scope_detail in scopes {
             let new_scope_id = fetch_add_scope_id();
-
-            // Scope details are collected before scope events are propagated.
-            self.0
-                .write()
-                .1
-                .insert(scope_detail.scope_name.to_string(), new_scope_id);
-            self.0
-                .write()
-                .0
-                .insert(new_scope_id, ScopeDetailsOwned::from(scope_detail));
-
+           
+            self.insert(new_scope_id, ScopeDetailsOwned::from(scope_detail));
             new_scopes.insert(new_scope_id);
         }
 
@@ -880,7 +903,7 @@ impl ScopeDetails {
         &self,
         mut existing_scopes: impl FnMut(&std::collections::HashMap<String, ScopeId>),
     ) {
-        existing_scopes(&self.0.read().1);
+        existing_scopes(&self.0.read().string_to_scope_id);
     }
 
     /// Fetches all registered scopes.
@@ -889,7 +912,7 @@ impl ScopeDetails {
         &self,
         mut existing_scopes: impl FnMut(&std::collections::HashMap<ScopeId, ScopeDetailsOwned>),
     ) {
-        existing_scopes(&self.0.read().0);
+        existing_scopes(&self.0.read().scope_id_to_details);
     }
 }
 
@@ -910,7 +933,7 @@ macro_rules! current_function_name {
 
 #[doc(hidden)]
 #[inline(never)]
-pub fn clean_function_name<'a>(name: &'a str) -> String {
+pub fn clean_function_name(name: &str) -> String {
     let Some(name) = name.strip_suffix(USELESS_SCOPE_NAME_POSTFIX) else {
         // Probably the user registered a custom scope name.
         return name.to_owned();
@@ -995,7 +1018,7 @@ fn test_clean_function_name() {
 /// We want to keep it short for two reasons: readability, and bandwidth
 #[doc(hidden)]
 #[inline(never)]
-pub fn short_file_name<'a>(path: &'a str) -> String {
+pub fn short_file_name(path: &str) -> String {
     if path.is_empty() {
         return "".to_string();
     }
@@ -1146,7 +1169,7 @@ fn profile_macros_test() {
 // The macro defines 'f()' at the place where macro is called.
 // This code is located at the place of call and two closures deep.
 // Strip away this useless postfix.
-static USELESS_SCOPE_NAME_POSTFIX: &'static str = "::{{closure}}::{{closure}}::f";
+static USELESS_SCOPE_NAME_POSTFIX: &str = "::{{closure}}::{{closure}}::f";
 
 #[allow(clippy::doc_markdown)] // clippy wants to put "MacBook" in ticks 🙄
 /// Automatically name the profiling scope based on function name.
@@ -1188,7 +1211,8 @@ macro_rules! profile_function {
             static SEND_INFO: std::sync::Once = std::sync::Once::new();
             SEND_INFO.call_once(|| {
                 $crate::ThreadProfiler::call(|tp| {
-                    let id = tp.register_new_scope($crate::current_function_name!(), file!(), line!());
+                    let id =
+                        tp.register_new_scope($crate::current_function_name!(), file!(), line!());
                     SCOPE_ID.store(id.0, std::sync::atomic::Ordering::SeqCst);
                 });
             });
@@ -1225,7 +1249,8 @@ macro_rules! profile_scope {
             static SEND_INFO: std::sync::Once = std::sync::Once::new();
             SEND_INFO.call_once(|| {
                 $crate::ThreadProfiler::call(|tp| {
-                    let id = tp.register_new_scope($crate::current_function_name!(), file!(), line!());
+                    let id =
+                        tp.register_new_scope($crate::current_function_name!(), file!(), line!());
                     SCOPE_ID.store(id.0, std::sync::atomic::Ordering::SeqCst);
                 });
             });

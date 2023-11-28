@@ -604,6 +604,7 @@ fn grid_text(grid_ns: NanoSecond) -> String {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn paint_record(
     info: &Info,
     options: &mut Options,
@@ -689,7 +690,7 @@ fn paint_record(
 
         let mut name = String::new();
         scope_details.read_by_id(&scope_id, |scope_details| {
-            name = scope_details.dynamic_scope_name.to_string()
+            name = scope_details.dynamic_scope_name.to_string();
         });
 
         let duration_ms = to_ms(record.duration_ns);

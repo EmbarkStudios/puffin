@@ -1,5 +1,5 @@
 use anyhow::Context as _;
-use puffin::GlobalProfiler;
+use puffin::{GlobalProfiler, ScopeDetails};
 use std::{
     io::Write,
     net::{SocketAddr, TcpListener, TcpStream},
@@ -48,14 +48,13 @@ impl Server {
                     tcp_listener,
                     clients: Default::default(),
                     num_clients: num_clients_cloned,
+                    scope_details: GlobalProfiler::scope_details()
                 };
 
                 while let Ok(frame) = rx.recv() {
                     if let Err(err) = server_impl.accept_new_clients() {
                         log::warn!("puffin server failure: {}", err);
                     }
-
-                    let new_scope_details 
 
                     if let Err(err) = server_impl.send(&frame) {
                         log::warn!("puffin server failure: {}", err);
@@ -120,6 +119,7 @@ struct PuffinServerImpl {
     tcp_listener: TcpListener,
     clients: Vec<Client>,
     num_clients: Arc<AtomicUsize>,
+    scope_details: ScopeDetails,
 }
 
 impl PuffinServerImpl {
@@ -166,23 +166,13 @@ impl PuffinServerImpl {
 
         let mut packet = vec![];
 
-        let new_scopes = GlobalProfiler::scope_delta();
-                
         packet
             .write_all(&crate::PROTOCOL_VERSION.to_le_bytes())
             .unwrap();
-        frame
-            .write_into(&mut packet)
-            .context("Encode puffin frame")?;
 
-        let scope_details = GlobalProfiler::scope_details();
-        for new_scope in new_scopes {
-            scope_details.scopes_by_id(|details| { 
-                if let Some(details) = details.get(&new_scope) {
-                    
-                }
-            });
-        }
+        frame
+            .write_into(&self.scope_details, &mut packet)
+            .context("Encode puffin frame")?;
 
         let packet: Packet = packet.into();
 

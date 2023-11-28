@@ -104,7 +104,7 @@ impl Stream {
     fn write_scope_id(&mut self, scope_id: ScopeId) {
         // Could potentially use varint encoding.
         self.0
-            .write_u32::<LE>(scope_id.0 as u32)
+            .write_u32::<LE>(scope_id.0)
             .expect("can't fail");
     }
 
@@ -205,7 +205,7 @@ impl<'s> Reader<'s> {
     fn parse_scope_id(&mut self) -> Result<ScopeId> {
         self.0
             .read_u32::<LE>()
-            .map(|x| ScopeId(x))
+            .map(ScopeId)
             .map_err(|_err| Error::PrematureEnd)
     }
 

@@ -163,7 +163,7 @@ impl FrameView {
         frames.dedup_by_key(|frame| frame.frame_index());
 
         for frame in frames {
-            frame.write_into(write)?;
+            frame.write_into(&GlobalProfiler::scope_details(), write)?;
         }
         Ok(())
     }
@@ -181,7 +181,7 @@ impl FrameView {
             max_recent: usize::MAX,
             ..Default::default()
         };
-        while let Some(frame) = FrameData::read_next(read)? {
+        while let Some(frame) = FrameData::read_next(&slf.scope_details, read)? {
             slf.add_frame(frame.into());
         }
 

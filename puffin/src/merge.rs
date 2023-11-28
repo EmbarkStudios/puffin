@@ -102,7 +102,7 @@ impl<'s> MergeNode<'s> {
         let id = self.pieces[0].scope.id;
         let mut data = self.pieces[0].scope.dynamic_data.data;
         let mut location = String::new();
-        scope_details.read_by_id(&id, |scope| location = scope.location.to_string());
+        scope_details.read_by_id(&id, |scope| location = scope.location.clone());
 
         for piece in &self.pieces {
             // Merged scope should start at the earliest piece:
@@ -116,7 +116,7 @@ impl<'s> MergeNode<'s> {
             }
             scope_details.read_by_id(&piece.scope.id, |scope| {
                 if location != scope.location {
-                    location = String::new()
+                    location = String::new();
                 }
             });
         }
@@ -170,9 +170,9 @@ pub fn merge_scopes_for_thread<'s>(
         if let Some(stream_info) = frame.thread_streams.get(thread_info) {
             let offset_ns = frame.meta.range_ns.0 - frames[0].meta.range_ns.0; // make everything relative to first frame
 
-            let top_scopes: Vec<Scope<'_>> = Reader::from_start(&stream_info.stream)
-                .read_top_scopes()
-                .expect("AKJh");
+            let top_scopes: Vec<Scope<'_>> =
+                Reader::from_start(&stream_info.stream).read_top_scopes()?;
+
             for scope in top_scopes {
                 top_nodes
                     .entry(MergeId {

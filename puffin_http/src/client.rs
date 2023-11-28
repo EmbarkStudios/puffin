@@ -3,7 +3,7 @@ use std::sync::{
     Arc, Mutex,
 };
 
-use puffin::{FrameData, FrameView};
+use puffin::{FrameData, FrameView, GlobalProfiler, ScopeDetails};
 
 /// Connect to a [`crate::Server`], reading profile data
 /// and feeding it to a [`puffin::FrameView`].
@@ -50,13 +50,14 @@ impl Client {
                 match std::net::TcpStream::connect(&addr) {
                     Ok(mut stream) => {
                         log::info!("Connected to {}", addr);
+                        let scope_details = GlobalProfiler::scope_details();
                         connected.store(true, SeqCst);
                         while alive.load(SeqCst) {
-                            match consume_message(&mut stream) {
+                            match consume_message(&scope_details,&mut stream) {
                                 Ok(frame_data) => {
                                     frame_view
-                                        .lock()
-                                        .unwrap()
+                                    .lock()
+                                    .unwrap()
                                         .add_frame(std::sync::Arc::new(frame_data));
                                 }
                                 Err(err) => {
@@ -98,7 +99,7 @@ impl Client {
 }
 
 /// Read a `puffin_http` message from a stream.
-pub fn consume_message(stream: &mut impl std::io::Read) -> anyhow::Result<puffin::FrameData> {
+pub fn consume_message(scope_details: &ScopeDetails, stream: &mut impl std::io::Read) -> anyhow::Result<puffin::FrameData> {
     let mut server_version = [0_u8; 2];
     stream.read_exact(&mut server_version)?;
     let server_version = u16::from_le_bytes(server_version);
@@ -122,7 +123,8 @@ pub fn consume_message(stream: &mut impl std::io::Read) -> anyhow::Result<puffin
     }
 
     use anyhow::Context as _;
-    FrameData::read_next(stream)
+
+    FrameData::read_next(scope_details, stream)
         .context("Failed to parse FrameData")?
         .ok_or_else(|| anyhow::format_err!("End of stream"))
 }
