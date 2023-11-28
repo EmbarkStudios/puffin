@@ -165,7 +165,7 @@ fn scope_byte_size(scope: &puffin::Scope<'_>) -> usize {
     1 + // `(` sentinel
     8 + // start time
     8 + // scope id
-    1 + scope.dynamic_data.data.len() + // scope name/id
+    1 + scope.dynamic_data.data.len() + // dynamic data len
     8 + // scope size
     1 + // `)` sentinel
     8 // stop time

@@ -98,6 +98,7 @@ impl UnpackedFrameData {
 #[cfg(not(feature = "packing"))]
 pub struct FrameData {
     unpacked_frame: Arc<UnpackedFrameData>,
+    registered_scopes: HashSet<ScopeId>,
 }
 
 #[cfg(not(feature = "packing"))]
@@ -108,15 +109,16 @@ impl FrameData {
     pub fn new(
         frame_index: FrameIndex,
         thread_streams: BTreeMap<ThreadInfo, StreamInfo>,
+        registered_scopes: HashSet<ScopeId>,
     ) -> Result<Self> {
         Ok(Self::from_unpacked(Arc::new(UnpackedFrameData::new(
             frame_index,
             thread_streams,
-        )?)))
+        )?),registered_scopes))
     }
 
-    fn from_unpacked(unpacked_frame: Arc<UnpackedFrameData>) -> Self {
-        Self { unpacked_frame }
+    fn from_unpacked(unpacked_frame: Arc<UnpackedFrameData>,registered_scopes: HashSet<ScopeId>,) -> Self {
+        Self { unpacked_frame,registered_scopes }
     }
 
     #[inline]

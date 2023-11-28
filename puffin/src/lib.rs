@@ -878,7 +878,7 @@ impl ScopeDetails {
         self.0
             .write()
             .string_to_scope_id
-            .insert(scope_details.raw_scope_name.to_string(), scope_id);
+            .insert(scope_details.dynamic_scope_name.to_string(), scope_id);
         self.0
             .write()
             .scope_id_to_details
@@ -892,6 +892,7 @@ impl ScopeDetails {
             let new_scope_id = fetch_add_scope_id();
 
             self.insert(new_scope_id, ScopeDetailsOwned::from(scope_detail));
+
             new_scopes.insert(new_scope_id);
         }
 
@@ -900,20 +901,20 @@ impl ScopeDetails {
 
     /// Fetches all registered scopes and their ids.
     /// Useful for fetching scope id by a static scope name.
-    pub fn scopes_by_name(
+    pub fn scopes_by_name<T>(
         &self,
-        mut existing_scopes: impl FnMut(&std::collections::HashMap<String, ScopeId>),
-    ) {
-        existing_scopes(&self.0.read().string_to_scope_id);
+        mut existing_scopes: impl FnMut(&std::collections::HashMap<String, ScopeId>) -> T,
+    ) -> T {
+        existing_scopes(&self.0.read().string_to_scope_id)
     }
 
     /// Fetches all registered scopes.
     /// Useful for fetching scope details by a scope id.
-    pub fn scopes_by_id(
+    pub fn scopes_by_id<T>(
         &self,
-        mut existing_scopes: impl FnMut(&std::collections::HashMap<ScopeId, ScopeDetailsOwned>),
-    ) {
-        existing_scopes(&self.0.read().scope_id_to_details);
+        mut existing_scopes: impl FnMut(&std::collections::HashMap<ScopeId, ScopeDetailsOwned>) -> T,
+    ) -> T {
+        existing_scopes(&self.0.read().scope_id_to_details)
     }
 }
 
@@ -1131,34 +1132,36 @@ fn profile_macros_test() {
 
     let details = GlobalProfiler::scope_details();
     details.read_by_id(&ScopeId(0), |scope| {
-        assert_eq!(scope.raw_file_path, "puffin/src/lib.rs");
-
         #[cfg(unix)]
-        assert_eq!(scope.dynamic_file_path, "puffin/src/lib.rs");
+        assert_eq!(scope.raw_file_path, "puffin/src/lib.rs");
         #[cfg(windows)]
-        assert_eq!(scope.cleaned_file_path, "puffin\\src\\lib.rs");
+        assert_eq!(scope.raw_file_path, "puffin\\src\\lib.rs");
+
+        assert_eq!(scope.dynamic_file_path, "puffin/src/lib.rs");
 
         assert_eq!(
             scope.raw_scope_name,
             "puffin::profile_macros_test::a::{{closure}}::{{closure}}::f"
         );
         assert_eq!(scope.dynamic_scope_name, "profile_macros_test::a");
-        assert_eq!(scope.line_nr, 1050);
+        assert_eq!(scope.line_nr, 1122);
     });
     details.read_by_id(&ScopeId(1), |scope| {
         #[cfg(unix)]
         assert_eq!(scope.raw_file_path, "puffin/src/lib.rs");
         #[cfg(windows)]
-        assert_eq!(scope.cleaned_file_path, "puffin\\src\\lib.rs");
+        assert_eq!(scope.raw_file_path, "puffin\\src\\lib.rs");
+
+        assert_eq!(scope.dynamic_file_path, "puffin/src/lib.rs");
 
         assert_eq!(
             scope.raw_scope_name,
             "puffin::profile_macros_test::a::{{closure}}::{{closure}}::f"
         );
         assert_eq!(scope.dynamic_scope_name, "profile_macros_test::a");
-        assert_eq!(scope.line_nr, 1052);
+        assert_eq!(scope.line_nr, 1124);
     });
-    details.read_by_name("profile_macros_test::a", |id| assert_eq!(*id, ScopeId(0)));
+
     details.read_by_name("profile_macros_test::a", |id| assert_eq!(*id, ScopeId(1)));
 
     // Second frame
@@ -1208,25 +1211,22 @@ macro_rules! profile_function {
     };
     ($data:expr) => {
         let _profiler_scope = if $crate::are_scopes_on() {
-            static SCOPE_ID: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
-            static SEND_INFO: std::sync::Once = std::sync::Once::new();
-            SEND_INFO.call_once(|| {
+            let cell = std::sync::OnceLock::new();
+            let scope_id = cell.get_or_init(|| {
                 $crate::ThreadProfiler::call(|tp| {
                     let id =
                         tp.register_new_scope($crate::current_function_name!(), file!(), line!());
-                    SCOPE_ID.store(id.0, std::sync::atomic::Ordering::SeqCst);
-                });
+                    id
+                })
             });
 
-            Some($crate::ProfilerScope::new(
-                $crate::ScopeId(SCOPE_ID.load(std::sync::atomic::Ordering::SeqCst)),
-                $data,
-            ))
+            Some($crate::ProfilerScope::new(*scope_id, $data))
         } else {
             None
         };
     };
 }
+
 
 #[allow(clippy::doc_markdown)] // clippy wants to put "MacBook" in ticks 🙄
 /// Profile the current scope with the given name (unique in the parent scope).
@@ -1246,22 +1246,32 @@ macro_rules! profile_scope {
     };
     ($id:expr, $data:expr) => {
         let _profiler_scope = if $crate::are_scopes_on() {
-            static SCOPE_ID: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
-            static SEND_INFO: std::sync::Once = std::sync::Once::new();
-            SEND_INFO.call_once(|| {
+            let cell = std::sync::OnceLock::new();
+            let scope_id = cell.get_or_init(|| {
                 $crate::ThreadProfiler::call(|tp| {
                     let id =
                         tp.register_new_scope($crate::current_function_name!(), file!(), line!());
-                    SCOPE_ID.store(id.0, std::sync::atomic::Ordering::SeqCst);
-                });
+                    id
+                })
             });
-
-            Some($crate::ProfilerScope::new(
-                $crate::ScopeId(SCOPE_ID.load(std::sync::atomic::Ordering::SeqCst)),
-                $data,
-            ))
+            Some($crate::ProfilerScope::new(*scope_id, $data))
         } else {
             None
         };
     };
+}
+
+#[test]
+fn a() {
+    for i in 0..30 {
+        let cell = std::cell::OnceCell::new();
+        let scope_id = cell.get_or_init(|| {
+            crate::ThreadProfiler::call(|tp| {
+                let id =
+                    tp.register_new_scope(crate::current_function_name!(), file!(), line!());
+                id
+            })
+        });
+        let a = Some(crate::ProfilerScope::new(*scope_id, ""));
+    }
 }
