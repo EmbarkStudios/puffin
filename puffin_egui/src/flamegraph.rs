@@ -690,7 +690,7 @@ fn paint_record(
 
         let mut name = String::new();
         scope_details.read_by_id(&scope_id, |scope_details| {
-            name = scope_details.dynamic_function_name.to_string();
+            name = format!("{}", scope_details.scope_name);
         });
 
         let duration_ms = to_ms(record.duration_ns);

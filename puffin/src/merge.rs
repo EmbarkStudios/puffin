@@ -278,7 +278,6 @@ fn test_merge() {
             max_duration_ns: 100,
             num_pieces: 2,
             id: ScopeId(0),
-            location: "".to_string(),
             data: "".into(),
             children: vec![],
         },
@@ -289,7 +288,6 @@ fn test_merge() {
             max_duration_ns: 700,
             num_pieces: 2,
             id: ScopeId(1),
-            location: "".to_string(),
             data: "".into(),
             children: vec![
                 MergeScope {
@@ -299,7 +297,6 @@ fn test_merge() {
                     max_duration_ns: 200,
                     num_pieces: 2,
                     id: ScopeId(2),
-                    location: "".to_string(),
                     data: "".into(),
                     children: vec![],
                 },
@@ -310,7 +307,6 @@ fn test_merge() {
                     max_duration_ns: 200,
                     num_pieces: 2,
                     id: ScopeId(3),
-                    location: "".to_string(),
                     data: "".into(),
                     children: vec![MergeScope {
                         relative_start_ns: 0,
@@ -319,7 +315,6 @@ fn test_merge() {
                         max_duration_ns: 100,
                         num_pieces: 2,
                         id: ScopeId(4),
-                        location: "".to_string(),
                         data: "".into(),
                         children: vec![],
                     }],

@@ -396,7 +396,7 @@ impl ThreadProfiler {
         //println!("AFTER FETCh");
         self.scope_details_raw.push(ScopeDetailsRef {
             scope_id: new_id,
-            scope_identifier,
+            scope_name: scope_identifier,
             raw_function_name,
             file: file_name,
             line_nr,
@@ -735,7 +735,7 @@ pub struct ScopeDetailsRef {
     /// Identifier for the scope being registered.
     pub scope_id: ScopeId,
     // Custom provided static id that identifiers a scope in a function.
-    pub scope_identifier: &'static str,
+    pub scope_name: &'static str,
     /// Scope name, or function name (previously called "id")
     pub raw_function_name: &'static str,
     /// Path to the file containing the profiling macro
@@ -748,9 +748,10 @@ pub struct ScopeDetailsRef {
 /// Instantiate this type once for each custom scope that you record manually.
 /// Custom scopes can be registered via `GlobalProfiler::scope_details().insert_scopes()`.
 // This type provides slightly more convenient api for external users.
-#[derive(Debug, Default, Clone, PartialEq, Hash, PartialOrd, Ord, Eq)]
+#[derive(Debug, Clone, PartialEq, Hash, PartialOrd, Ord, Eq)]
 pub struct CustomScopeDetails {
-    pub scope_identifier: &'static str,
+    /// Unique identifier for this scope.
+    pub scope_name: Cow<'static, str>,
     /// Scope name, or function name (previously called "id")
     pub function_name: Cow<'static, str>,
     /// Path to the file containing the profiling macro
@@ -762,7 +763,17 @@ pub struct CustomScopeDetails {
 }
 
 impl CustomScopeDetails {
-    pub fn with_name(mut self, name: impl Into<Cow<'static, str>>) -> Self {
+    /// Create a new custom scope with a unique name.
+    pub fn new(scope_name: impl Into<Cow<'static, str>>) -> Self {
+        Self {
+            scope_name: scope_name.into(),
+            function_name: Default::default(),
+            file_name: Default::default(),
+            line_nr: Default::default(),
+        }
+    }
+
+    pub fn with_function_name(mut self, name: impl Into<Cow<'static, str>>) -> Self {
         self.function_name = name.into();
         self
     }
@@ -808,12 +819,13 @@ pub struct ScopeDetailsOwned {
 
 impl From<ScopeDetailsRef> for ScopeDetailsOwned {
     fn from(value: ScopeDetailsRef) -> Self {
-        let cleaned_scope_name = clean_function_name(value.raw_function_name);
+        let cleaned_function_name = clean_function_name(value.raw_function_name);
+
         ScopeDetailsOwned {
-            scope_name: value.scope_identifier.into(),
-            location: format!("{cleaned_scope_name}:{}", value.line_nr),
+            scope_name: format!("{cleaned_function_name}:{}", value.line_nr).into(),
+            location: format!("{cleaned_function_name}:{}", value.line_nr),
             raw_function_name: value.raw_function_name,
-            dynamic_function_name: Cow::Owned(cleaned_scope_name),
+            dynamic_function_name: Cow::Owned(cleaned_function_name),
             raw_file_path: value.file,
             dynamic_file_path: Cow::Owned(short_file_name(value.file)),
             line_nr: value.line_nr,
@@ -830,7 +842,7 @@ impl From<&CustomScopeDetails> for ScopeDetailsOwned {
         }
 
         ScopeDetailsOwned {
-            scope_name: value.scope_identifier.into(),
+            scope_name: value.scope_name.clone(),
             dynamic_function_name: value.function_name.clone(),
             raw_function_name: "-", // user provided scopes are non-static
             dynamic_file_path: value.file_name.clone(),
@@ -882,7 +894,7 @@ impl ScopeDetails {
         self.0
             .write()
             .string_to_scope_id
-            .insert(scope_details.dynamic_function_name.to_string(), scope_id);
+            .insert(scope_details.scope_name.to_string(), scope_id);
         self.0
             .write()
             .scope_id_to_details
@@ -1148,7 +1160,7 @@ fn profile_macros_test() {
             "puffin::profile_macros_test::a::{{closure}}::{{closure}}::f"
         );
         assert_eq!(scope.dynamic_function_name, "profile_macros_test::a");
-        assert_eq!(scope.line_nr, 1122);
+        assert_eq!(scope.line_nr, 1138);
     });
     details.read_by_id(&ScopeId(1), |scope| {
         #[cfg(unix)]
@@ -1163,7 +1175,7 @@ fn profile_macros_test() {
             "puffin::profile_macros_test::a::{{closure}}::{{closure}}::f"
         );
         assert_eq!(scope.dynamic_function_name, "profile_macros_test::a");
-        assert_eq!(scope.line_nr, 1124);
+        assert_eq!(scope.line_nr, 1140);
     });
 
     details.read_by_name("profile_macros_test::a", |id| assert_eq!(*id, ScopeId(1)));
@@ -1219,7 +1231,7 @@ macro_rules! profile_function {
             let scope_id = SCOPE_ID.get_or_init(|| {
                 $crate::ThreadProfiler::call(|tp| {
                     let id = tp.register_new_scope(
-                        "function",
+                        $crate::current_function_name!(), // the id for a function is just the function name.
                         $crate::current_function_name!(),
                         file!(),
                         line!(),
