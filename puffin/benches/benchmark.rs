@@ -1,7 +1,51 @@
 use criterion::{criterion_group, criterion_main, Criterion};
+pub fn custom_benchark<F: Fn()>(name: &str, cb: F) {
+    const RUNS: usize = 5000;
+    const SCOPES: usize = 500;
+
+    let mut timings = vec![];
+    let mut averages = vec![];
+
+    puffin::profile_function!();
+
+    let mut run_benchmark = || {
+        puffin::GlobalProfiler::lock().new_frame();
+
+        for _i in 0..SCOPES {
+            let start_time = std::time::Instant::now();
+
+            // Run three times as firt time
+            cb();
+
+            timings.push(start_time.elapsed());
+        }
+    };
+
+    for _i in 0..RUNS {
+        run_benchmark();
+    }
+
+    for chunk in timings.chunks(20) {
+        let nanos: u128 = chunk.iter().map(|x|x.as_nanos()).sum::<u128>() / chunk.len() as u128;
+        averages.push(nanos);
+    }
+
+    let average_avergage: u128 = averages.iter().sum::<u128>() / averages.len() as u128;
+
+    println!("[{name}]: Ran {RUNS} of {SCOPES} scopes. Average of {} calls is {}ns per call", RUNS * SCOPES, average_avergage);
+}
+
+fn run_custom_benchark() {
+    custom_benchark("profile_function! macro", || {puffin::profile_function!();});
+    custom_benchark("profile_scope! macro", || {puffin::profile_scope!("scope");});
+    custom_benchark("`profile_function!` with data macro", || {puffin::profile_function!("data");});
+    custom_benchark("`profile_scope!` with data macro", || {puffin::profile_scope!("scope", "data");});
+}
 
 pub fn criterion_benchmark(c: &mut Criterion) {
     puffin::set_scopes_on(true);
+
+    run_custom_benchark();
 
     c.bench_function("profile_function", |b| {
         puffin::GlobalProfiler::lock().new_frame();
