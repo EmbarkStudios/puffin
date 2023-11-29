@@ -387,14 +387,17 @@ impl ThreadProfiler {
     #[must_use]
     pub fn register_new_scope(
         &mut self,
-        raw_scope_name: &'static str,
+        scope_identifier: &'static str,
+        raw_function_name: &'static str,
         file_name: &'static str,
         line_nr: u32,
     ) -> ScopeId {
         let new_id = fetch_add_scope_id();
+        //println!("AFTER FETCh");
         self.scope_details_raw.push(ScopeDetailsRef {
             scope_id: new_id,
-            scope_name: raw_scope_name,
+            scope_identifier,
+            raw_function_name,
             file: file_name,
             line_nr,
         });
@@ -565,12 +568,6 @@ impl GlobalProfiler {
 
     /// Manually add frame data.
     pub fn add_frame(&mut self, new_frame: Arc<FrameData>) {
-        // for new_scope in new_frame.registered_scopes {
-        //     self.scope_details.read_by_id(&new_scope, |details| {
-
-        //     })
-        // }
-
         for sink in self.sinks.values() {
             sink(new_frame.clone());
         }
@@ -650,6 +647,7 @@ impl GlobalProfiler {
 struct SerdeScopeDetails {
     pub scope_id: ScopeId,
     pub scope_name: String,
+    pub function_name: String,
     pub file_path: String,
     pub line_nmr: u32,
 }
@@ -736,8 +734,10 @@ impl Drop for ProfilerScope {
 pub struct ScopeDetailsRef {
     /// Identifier for the scope being registered.
     pub scope_id: ScopeId,
+    // Custom provided static id that identifiers a scope in a function.
+    pub scope_identifier: &'static str,
     /// Scope name, or function name (previously called "id")
-    pub scope_name: &'static str,
+    pub raw_function_name: &'static str,
     /// Path to the file containing the profiling macro
     pub file: &'static str,
     /// The line number containing the profiling
@@ -750,11 +750,12 @@ pub struct ScopeDetailsRef {
 // This type provides slightly more convenient api for external users.
 #[derive(Debug, Default, Clone, PartialEq, Hash, PartialOrd, Ord, Eq)]
 pub struct CustomScopeDetails {
+    pub scope_identifier: &'static str,
     /// Scope name, or function name (previously called "id")
-    pub scope_name: Cow<'static, str>,
+    pub function_name: Cow<'static, str>,
     /// Path to the file containing the profiling macro
     /// Can be empty if unused.
-    pub file: Cow<'static, str>,
+    pub file_name: Cow<'static, str>,
     /// The line number containing the profiling.
     /// Can be 0 if unused.
     pub line_nr: u32,
@@ -762,12 +763,12 @@ pub struct CustomScopeDetails {
 
 impl CustomScopeDetails {
     pub fn with_name(mut self, name: impl Into<Cow<'static, str>>) -> Self {
-        self.scope_name = name.into();
+        self.function_name = name.into();
         self
     }
 
     pub fn with_file(mut self, file: Cow<'static, str>) -> Self {
-        self.file = file;
+        self.file_name = file;
         self
     }
 
@@ -784,13 +785,14 @@ impl CustomScopeDetails {
 )]
 /// This struct contains scope details and can be read by external libraries.
 pub struct ScopeDetailsOwned {
+    pub scope_name: Cow<'static, str>,
     /// Shorter variant of the raw function name.
     /// This is more descriptive and shorter.
     /// In the case of custom scopes provided scopes this contains the `scope name`.
-    pub dynamic_scope_name: Cow<'static, str>,
+    pub dynamic_function_name: Cow<'static, str>,
     /// Raw function name with the entire type path.
     /// This is empty for custom scopes.
-    pub raw_scope_name: &'static str,
+    pub raw_function_name: &'static str,
     /// Shorter variant of the raw file path.
     /// This is cleaned up and made consistent across platforms.
     /// In the case of custom scopes provided scopes this contains the `file name`.
@@ -806,11 +808,12 @@ pub struct ScopeDetailsOwned {
 
 impl From<ScopeDetailsRef> for ScopeDetailsOwned {
     fn from(value: ScopeDetailsRef) -> Self {
-        let cleaned_scope_name = clean_function_name(value.scope_name);
+        let cleaned_scope_name = clean_function_name(value.raw_function_name);
         ScopeDetailsOwned {
-            raw_scope_name: value.scope_name,
+            scope_name: value.scope_identifier.into(),
             location: format!("{cleaned_scope_name}:{}", value.line_nr),
-            dynamic_scope_name: Cow::Owned(cleaned_scope_name),
+            raw_function_name: value.raw_function_name,
+            dynamic_function_name: Cow::Owned(cleaned_scope_name),
             raw_file_path: value.file,
             dynamic_file_path: Cow::Owned(short_file_name(value.file)),
             line_nr: value.line_nr,
@@ -822,14 +825,15 @@ impl From<&CustomScopeDetails> for ScopeDetailsOwned {
     fn from(value: &CustomScopeDetails) -> Self {
         let mut location = String::new();
 
-        if !value.file.is_empty() {
-            location = format!("{}:{}", value.file, value.line_nr);
+        if !value.file_name.is_empty() {
+            location = format!("{}:{}", value.file_name, value.line_nr);
         }
 
         ScopeDetailsOwned {
-            dynamic_scope_name: value.scope_name.clone(),
-            raw_scope_name: "-", // user provided scopes are non-static
-            dynamic_file_path: value.file.clone(),
+            scope_name: value.scope_identifier.into(),
+            dynamic_function_name: value.function_name.clone(),
+            raw_function_name: "-", // user provided scopes are non-static
+            dynamic_file_path: value.file_name.clone(),
             raw_file_path: "-", // user provided scopes are non-static
             line_nr: 0,
             location,
@@ -878,7 +882,7 @@ impl ScopeDetails {
         self.0
             .write()
             .string_to_scope_id
-            .insert(scope_details.dynamic_scope_name.to_string(), scope_id);
+            .insert(scope_details.dynamic_function_name.to_string(), scope_id);
         self.0
             .write()
             .scope_id_to_details
@@ -1140,10 +1144,10 @@ fn profile_macros_test() {
         assert_eq!(scope.dynamic_file_path, "puffin/src/lib.rs");
 
         assert_eq!(
-            scope.raw_scope_name,
+            scope.raw_function_name,
             "puffin::profile_macros_test::a::{{closure}}::{{closure}}::f"
         );
-        assert_eq!(scope.dynamic_scope_name, "profile_macros_test::a");
+        assert_eq!(scope.dynamic_function_name, "profile_macros_test::a");
         assert_eq!(scope.line_nr, 1122);
     });
     details.read_by_id(&ScopeId(1), |scope| {
@@ -1155,10 +1159,10 @@ fn profile_macros_test() {
         assert_eq!(scope.dynamic_file_path, "puffin/src/lib.rs");
 
         assert_eq!(
-            scope.raw_scope_name,
+            scope.raw_function_name,
             "puffin::profile_macros_test::a::{{closure}}::{{closure}}::f"
         );
-        assert_eq!(scope.dynamic_scope_name, "profile_macros_test::a");
+        assert_eq!(scope.dynamic_function_name, "profile_macros_test::a");
         assert_eq!(scope.line_nr, 1124);
     });
 
@@ -1211,11 +1215,15 @@ macro_rules! profile_function {
     };
     ($data:expr) => {
         let _profiler_scope = if $crate::are_scopes_on() {
-            let cell = std::sync::OnceLock::new();
-            let scope_id = cell.get_or_init(|| {
+            static SCOPE_ID: std::sync::OnceLock<$crate::ScopeId> = std::sync::OnceLock::new();
+            let scope_id = SCOPE_ID.get_or_init(|| {
                 $crate::ThreadProfiler::call(|tp| {
-                    let id =
-                        tp.register_new_scope($crate::current_function_name!(), file!(), line!());
+                    let id = tp.register_new_scope(
+                        "function",
+                        $crate::current_function_name!(),
+                        file!(),
+                        line!(),
+                    );
                     id
                 })
             });
@@ -1226,7 +1234,6 @@ macro_rules! profile_function {
         };
     };
 }
-
 
 #[allow(clippy::doc_markdown)] // clippy wants to put "MacBook" in ticks 🙄
 /// Profile the current scope with the given name (unique in the parent scope).
@@ -1241,16 +1248,20 @@ macro_rules! profile_function {
 /// Overhead: around 54 ns on Macbook Pro with Apple M1 Max.
 #[macro_export]
 macro_rules! profile_scope {
-    ($id:expr) => {
-        $crate::profile_scope!($id, "");
+    ($name:expr) => {
+        $crate::profile_scope!($name, "");
     };
-    ($id:expr, $data:expr) => {
+    ($name:expr, $data:expr) => {
         let _profiler_scope = if $crate::are_scopes_on() {
-            let cell = std::sync::OnceLock::new();
-            let scope_id = cell.get_or_init(|| {
+            static SCOPE_ID: std::sync::OnceLock<$crate::ScopeId> = std::sync::OnceLock::new();
+            let scope_id = SCOPE_ID.get_or_init(|| {
                 $crate::ThreadProfiler::call(|tp| {
-                    let id =
-                        tp.register_new_scope($crate::current_function_name!(), file!(), line!());
+                    let id = tp.register_new_scope(
+                        $name,
+                        $crate::current_function_name!(),
+                        file!(),
+                        line!(),
+                    );
                     id
                 })
             });
@@ -1259,19 +1270,4 @@ macro_rules! profile_scope {
             None
         };
     };
-}
-
-#[test]
-fn a() {
-    for i in 0..30 {
-        let cell = std::cell::OnceCell::new();
-        let scope_id = cell.get_or_init(|| {
-            crate::ThreadProfiler::call(|tp| {
-                let id =
-                    tp.register_new_scope(crate::current_function_name!(), file!(), line!());
-                id
-            })
-        });
-        let a = Some(crate::ProfilerScope::new(*scope_id, ""));
-    }
 }

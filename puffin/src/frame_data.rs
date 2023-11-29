@@ -111,14 +111,20 @@ impl FrameData {
         thread_streams: BTreeMap<ThreadInfo, StreamInfo>,
         registered_scopes: HashSet<ScopeId>,
     ) -> Result<Self> {
-        Ok(Self::from_unpacked(Arc::new(UnpackedFrameData::new(
-            frame_index,
-            thread_streams,
-        )?),registered_scopes))
+        Ok(Self::from_unpacked(
+            Arc::new(UnpackedFrameData::new(frame_index, thread_streams)?),
+            registered_scopes,
+        ))
     }
 
-    fn from_unpacked(unpacked_frame: Arc<UnpackedFrameData>,registered_scopes: HashSet<ScopeId>,) -> Self {
-        Self { unpacked_frame,registered_scopes }
+    fn from_unpacked(
+        unpacked_frame: Arc<UnpackedFrameData>,
+        registered_scopes: HashSet<ScopeId>,
+    ) -> Self {
+        Self {
+            unpacked_frame,
+            registered_scopes,
+        }
     }
 
     #[inline]
@@ -454,7 +460,8 @@ impl FrameData {
                 if let Some(details) = details.get(new_scope_id) {
                     to_serialize_scopes.push(SerdeScopeDetails {
                         scope_id: *new_scope_id,
-                        scope_name: details.dynamic_scope_name.to_string(),
+                        scope_name: details.scope_name.to_string(),
+                        function_name: details.dynamic_function_name.to_string(),
                         file_path: details.dynamic_file_path.to_string(),
                         line_nmr: details.line_nr,
                     });
@@ -646,8 +653,6 @@ impl FrameData {
                 read.read_exact(&mut serialized_scopes)
                     .context("Can not deserialize scope details")?;
 
-                println!("{}", serialized_scope_len);
-
                 let deserialized_scopes: Vec<SerdeScopeDetails> = bincode::options()
                     .deserialize_from(&serialized_scopes[..]) // Use a slice instead of the whole vector
                     .context("Can not deserialize scope details")?;
@@ -656,10 +661,11 @@ impl FrameData {
                     scope_details.insert(
                         serde_scope_details.scope_id,
                         ScopeDetailsOwned {
-                            dynamic_scope_name: serde_scope_details.scope_name.clone().into(),
+                            scope_name: serde_scope_details.scope_name.clone().into(),
+                            dynamic_function_name: serde_scope_details.function_name.clone().into(),
                             dynamic_file_path: serde_scope_details.file_path.clone().into(),
                             line_nr: serde_scope_details.line_nmr,
-                            raw_scope_name: "empty",
+                            raw_function_name: "empty",
                             raw_file_path: "empty",
                             location: format!(
                                 "{}:{}",
@@ -682,7 +688,6 @@ impl FrameData {
                 anyhow::bail!("Failed to decode: this data is newer than this reader. Please update your puffin version!");
             }
         } else {
-            print!("else");
             // Very old packet without magic header
             let mut bytes = vec![0_u8; u32::from_le_bytes(header) as usize];
             read.read_exact(&mut bytes)?;

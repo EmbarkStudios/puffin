@@ -61,7 +61,8 @@ pub fn ui(
             .show(ui, |ui| {
                 ui.heading("Thread");
                 ui.heading("Location");
-                ui.heading("Short name");
+                ui.heading("Function Name");
+                ui.heading("Scope Name");
                 ui.heading("Count");
                 ui.heading("Size");
                 ui.heading("Total self time");
@@ -71,16 +72,14 @@ pub fn ui(
 
                 for (key, stats) in &scopes {
                     scope_infos.read_by_id(&key.id, |scope_details| {
-                        if !options.filter.include(&scope_details.dynamic_scope_name) {
+                        if !options.filter.include(&scope_details.dynamic_function_name) {
                             return;
                         }
 
                         ui.label(&key.thread_name);
-                        ui.label(format!(
-                            "{}:{}",
-                            scope_details.dynamic_file_path, scope_details.line_nr
-                        ));
-                        ui.label(format!("{:?}", scope_details.dynamic_scope_name));
+                        ui.label(scope_details.location.clone());
+                        ui.label(format!("{:?}", scope_details.dynamic_function_name));
+                        ui.label(format!("{:?}", scope_details.scope_name));
                         ui.monospace(format!("{:>5}", stats.count));
                         ui.monospace(format!("{:>6.1} kB", stats.bytes as f32 * 1e-3));
                         ui.monospace(format!("{:>8.1} µs", stats.total_self_ns as f32 * 1e-3));

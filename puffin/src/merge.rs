@@ -205,7 +205,7 @@ fn test_merge() {
     scope_details.insert(
         ScopeId(0),
         ScopeDetailsOwned {
-            dynamic_scope_name: "a".into(),
+            dynamic_function_name: "a".into(),
             dynamic_file_path: "".into(),
             ..Default::default()
         },
@@ -213,7 +213,7 @@ fn test_merge() {
     scope_details.insert(
         ScopeId(1),
         ScopeDetailsOwned {
-            dynamic_scope_name: "b".into(),
+            dynamic_function_name: "b".into(),
             dynamic_file_path: "".into(),
             ..Default::default()
         },
@@ -223,7 +223,7 @@ fn test_merge() {
     scope_details.insert(
         ScopeId(2),
         ScopeDetailsOwned {
-            dynamic_scope_name: "ba".into(),
+            dynamic_function_name: "ba".into(),
             dynamic_file_path: "".into(),
             ..Default::default()
         },
@@ -231,7 +231,7 @@ fn test_merge() {
     scope_details.insert(
         ScopeId(3),
         ScopeDetailsOwned {
-            dynamic_scope_name: "bb".into(),
+            dynamic_function_name: "bb".into(),
             dynamic_file_path: "".into(),
             ..Default::default()
         },
@@ -239,7 +239,7 @@ fn test_merge() {
     scope_details.insert(
         ScopeId(4),
         ScopeDetailsOwned {
-            dynamic_scope_name: "bba".into(),
+            dynamic_function_name: "bba".into(),
             dynamic_file_path: "".into(),
             ..Default::default()
         },

@@ -640,7 +640,7 @@ fn paint_record(
                 scope_details.read_by_id(&scope_id, |scope_details| {
                     options
                         .filter
-                        .set_filter(scope_details.dynamic_scope_name.to_string());
+                        .set_filter(scope_details.dynamic_function_name.to_string());
                 });
             }
         }
@@ -664,7 +664,7 @@ fn paint_record(
 
     if !options.filter.is_empty() {
         scope_details.read_by_id(&scope_id, |scope_details| {
-            if options.filter.include(&scope_details.dynamic_scope_name) {
+            if options.filter.include(&scope_details.dynamic_function_name) {
                 // keep full opacity
                 min_width *= 2.0; // make it more visible even when thin
             } else {
@@ -690,7 +690,7 @@ fn paint_record(
 
         let mut name = String::new();
         scope_details.read_by_id(&scope_id, |scope_details| {
-            name = scope_details.dynamic_scope_name.to_string();
+            name = scope_details.dynamic_function_name.to_string();
         });
 
         let duration_ms = to_ms(record.duration_ns);
@@ -783,7 +783,7 @@ fn paint_scope(
                     &info.ctx,
                     Id::new("puffin_profiler_tooltip"),
                     |ui| {
-                        ui.monospace(format!("id:       {}", scope_details.dynamic_scope_name));
+                        ui.monospace(format!("id:       {}", scope_details.dynamic_function_name));
                         if !scope_details.dynamic_file_path.is_empty() {
                             ui.monospace(format!(
                                 "location: {}:{}",
@@ -888,8 +888,11 @@ fn merge_scope_tooltip(
     #![allow(clippy::collapsible_else_if)]
 
     ui.monospace(format!("id:       {:?}", merge.id));
+
     scope_details.read_by_id(&merge.id, |scope| {
-        if !scope.dynamic_scope_name.is_empty() {
+        ui.monospace(format!("name:       {:?}", scope.scope_name));
+
+        if !scope.dynamic_function_name.is_empty() {
             ui.monospace(format!("location: {}", scope.dynamic_file_path));
         }
     });
