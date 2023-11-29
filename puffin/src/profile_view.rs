@@ -163,7 +163,7 @@ impl FrameView {
         frames.dedup_by_key(|frame| frame.frame_index());
 
         for frame in frames {
-            frame.write_into(&GlobalProfiler::scope_details(), write)?;
+            frame.write_into(&GlobalProfiler::scope_details(), false, write)?;
         }
         Ok(())
     }

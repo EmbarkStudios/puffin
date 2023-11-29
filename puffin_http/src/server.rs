@@ -49,6 +49,7 @@ impl Server {
                     clients: Default::default(),
                     num_clients: num_clients_cloned,
                     scope_details: GlobalProfiler::scope_details(),
+                    send_all_scopes: false,
                 };
 
                 while let Ok(frame) = rx.recv() {
@@ -119,6 +120,7 @@ struct PuffinServerImpl {
     tcp_listener: TcpListener,
     clients: Vec<Client>,
     num_clients: Arc<AtomicUsize>,
+    send_all_scopes: bool,
     scope_details: ScopeDetails,
 }
 
@@ -140,6 +142,8 @@ impl PuffinServerImpl {
                         .spawn(move || client_loop(packet_rx, client_addr, tcp_stream))
                         .context("Couldn't spawn thread")?;
 
+                    // Send all scopes when new client connects.
+                    self.send_all_scopes = true;
                     self.clients.push(Client {
                         client_addr,
                         packet_tx: Some(packet_tx),
@@ -171,8 +175,9 @@ impl PuffinServerImpl {
             .unwrap();
 
         frame
-            .write_into(&self.scope_details, &mut packet)
+            .write_into(&self.scope_details, self.send_all_scopes, &mut packet)
             .context("Encode puffin frame")?;
+        self.send_all_scopes = false;
 
         let packet: Packet = packet.into();
 

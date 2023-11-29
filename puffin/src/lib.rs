@@ -611,6 +611,7 @@ impl GlobalProfiler {
     pub fn add_sink(&mut self, sink: FrameSink) -> FrameSinkId {
         let id = self.next_sink_id;
         self.next_sink_id.0 += 1;
+
         self.sinks.insert(id, sink);
         id
     }
@@ -850,8 +851,8 @@ pub struct ScopeId(pub u32);
 
 #[derive(Default, Clone)]
 struct InnerDetails {
-    scope_id_to_details: std::collections::HashMap<ScopeId, ScopeDetailsOwned>,
-    string_to_scope_id: std::collections::HashMap<String, ScopeId>,
+    pub(crate) scope_id_to_details: std::collections::HashMap<ScopeId, ScopeDetailsOwned>,
+    pub(crate) string_to_scope_id: std::collections::HashMap<String, ScopeId>,
 }
 
 /// Provides read access to scope details.

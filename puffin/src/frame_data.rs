@@ -433,6 +433,7 @@ impl FrameData {
     pub fn write_into(
         &self,
         scope_details: &ScopeDetails,
+        write_all_scopes: bool,
         write: &mut impl std::io::Write,
     ) -> anyhow::Result<()> {
         use bincode::Options as _;
@@ -455,7 +456,14 @@ impl FrameData {
 
         let mut to_serialize_scopes = Vec::new();
 
-        for new_scope_id in &self.registered_scopes {
+        let scopes = if write_all_scopes {
+            scope_details
+                .scopes_by_id(|all_scopes| all_scopes.keys().cloned().collect::<HashSet<ScopeId>>())
+        } else {
+            self.registered_scopes.clone()
+        };
+
+        for new_scope_id in &scopes {
             scope_details.scopes_by_id(|details| {
                 if let Some(details) = details.get(new_scope_id) {
                     to_serialize_scopes.push(SerdeScopeDetails {
