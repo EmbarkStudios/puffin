@@ -43,8 +43,6 @@ pub struct MergeScope<'s> {
     pub num_pieces: usize,
     /// The common identifier that we merged using.
     pub id: ScopeId,
-    /// The exact file location of the merged scope.
-    pub location: String,
     /// only set if all children had the same
     pub data: std::borrow::Cow<'s, str>,
 
@@ -60,7 +58,6 @@ impl<'s> MergeScope<'s> {
             max_duration_ns: self.max_duration_ns,
             num_pieces: self.num_pieces,
             id: self.id,
-            location: self.location,
             data: std::borrow::Cow::Owned(self.data.into_owned()),
             children: self.children.into_iter().map(Self::into_owned).collect(),
         }
@@ -101,8 +98,6 @@ impl<'s> MergeNode<'s> {
         let num_pieces = self.pieces.len();
         let id = self.pieces[0].scope.id;
         let mut data = self.pieces[0].scope.dynamic_data.data;
-        let mut location = String::new();
-        scope_details.read_by_id(&id, |scope| location = scope.location.clone());
 
         for piece in &self.pieces {
             // Merged scope should start at the earliest piece:
@@ -114,11 +109,6 @@ impl<'s> MergeNode<'s> {
             if data != piece.scope.dynamic_data.data {
                 data = ""; // different in different pieces
             }
-            scope_details.read_by_id(&piece.scope.id, |scope| {
-                if location != scope.location {
-                    location = String::new();
-                }
-            });
         }
 
         MergeScope {
@@ -128,7 +118,6 @@ impl<'s> MergeNode<'s> {
             max_duration_ns: slowest_ns,
             num_pieces,
             id,
-            location,
             data: data.into(),
             children: build(scope_details, self.children, num_frames),
         }

@@ -709,8 +709,7 @@ pub struct ProfilerScope {
 }
 
 impl ProfilerScope {
-    /// The `id` doesn't need to be static, but it should be unchanging,
-    /// and this is a good way to enforce it.
+    /// The scope id identifies which scopes' time is being reported.
     /// `data` can be changing, i.e. a name of a mesh or a texture.
     #[inline]
     pub fn new(scope_id: ScopeId, data: impl AsRef<str>) -> Self {
