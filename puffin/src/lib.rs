@@ -339,10 +339,10 @@ type ThreadReporter = fn(ThreadInfo, &[ScopeDetailsRef], &StreamInfoRef<'_>);
 /// This is used for internal purposes only
 pub(crate) fn internal_profile_reporter(
     info: ThreadInfo,
-    stream_scope_details: &[ScopeDetailsRef],
+    scope_details: &[ScopeDetailsRef],
     stream_scope_times: &StreamInfoRef<'_>,
 ) {
-    GlobalProfiler::lock().report(info, stream_scope_details, stream_scope_times);
+    GlobalProfiler::lock().report(info, scope_details, stream_scope_times);
 }
 /// Collects profiling data for one thread
 pub struct ThreadProfiler {
@@ -386,16 +386,15 @@ impl ThreadProfiler {
     #[must_use]
     pub fn register_new_scope(
         &mut self,
-        scope_identifier: &'static str,
+        scope_name: &'static str,
         raw_function_name: &'static str,
         file_name: &'static str,
         line_nr: u32,
     ) -> ScopeId {
         let new_id = fetch_add_scope_id();
-        //println!("AFTER FETCh");
         self.scope_details_raw.push(ScopeDetailsRef {
             scope_id: new_id,
-            scope_name: scope_identifier,
+            scope_name,
             raw_function_name,
             file: file_name,
             line_nr,
@@ -487,6 +486,7 @@ pub struct GlobalProfiler {
     // Contains detailed information of every registered scope.
     // This data structure can be cloned for fast read access.
     scope_details: ScopeDetails,
+    // Stores the new scopes created since last frame was created.
     scope_delta: HashSet<ScopeId>,
 }
 
@@ -576,14 +576,14 @@ impl GlobalProfiler {
     pub(crate) fn report(
         &mut self,
         info: ThreadInfo,
-        stream_scope_details: &[ScopeDetailsRef],
+        scope_details: &[ScopeDetailsRef],
         stream_scope_times: &StreamInfoRef<'_>,
     ) {
-        if !stream_scope_details.is_empty() {
+        if !scope_details.is_empty() {
             // Here we can run slightly heavy logic as its only ran once for each scope.
             // If this ever needs non static data one can deep clone the structure.
             self.new_scope_details
-                .extend_from_slice(stream_scope_details);
+                .extend_from_slice(scope_details);
         }
 
         self.current_stream_scope_times

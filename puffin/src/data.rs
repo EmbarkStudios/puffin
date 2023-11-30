@@ -6,6 +6,7 @@
 //!
 //! ```ignore
 //!    '('          byte       Sentinel
+//!    scope id     u32        Unique monolithic identifier for a scope
 //!    time_ns      i64        Time stamp of when scope started
 //!    data         str        Resource that is being processed, e.g. name of image being loaded. Could be the empty string.
 //!    scope_size   u64        Number of bytes of child scope
