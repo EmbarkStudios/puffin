@@ -98,7 +98,7 @@ impl UnpackedFrameData {
 #[cfg(not(feature = "packing"))]
 pub struct FrameData {
     unpacked_frame: Arc<UnpackedFrameData>,
-    registered_scopes: HashSet<ScopeId>,
+    new_scopes: HashSet<ScopeId>,
 }
 
 #[cfg(not(feature = "packing"))]
@@ -109,21 +109,18 @@ impl FrameData {
     pub fn new(
         frame_index: FrameIndex,
         thread_streams: BTreeMap<ThreadInfo, StreamInfo>,
-        registered_scopes: HashSet<ScopeId>,
+        new_scopes: HashSet<ScopeId>,
     ) -> Result<Self> {
         Ok(Self::from_unpacked(
             Arc::new(UnpackedFrameData::new(frame_index, thread_streams)?),
-            registered_scopes,
+            new_scopes,
         ))
     }
 
-    fn from_unpacked(
-        unpacked_frame: Arc<UnpackedFrameData>,
-        registered_scopes: HashSet<ScopeId>,
-    ) -> Self {
+    fn from_unpacked(unpacked_frame: Arc<UnpackedFrameData>, new_scopes: HashSet<ScopeId>) -> Self {
         Self {
             unpacked_frame,
-            registered_scopes,
+            new_scopes,
         }
     }
 
@@ -303,7 +300,7 @@ pub struct FrameData {
     packed_streams: RwLock<Option<PackedStreams>>,
 
     /// Scopes that were registered during this frame.
-    pub registered_scopes: HashSet<ScopeId>,
+    pub new_scopes: HashSet<ScopeId>,
 }
 
 #[cfg(feature = "packing")]
@@ -311,23 +308,20 @@ impl FrameData {
     pub fn new(
         frame_index: FrameIndex,
         thread_streams: BTreeMap<ThreadInfo, StreamInfo>,
-        registered_scopes: HashSet<ScopeId>,
+        new_scopes: HashSet<ScopeId>,
     ) -> Result<Self> {
         Ok(Self::from_unpacked(
             Arc::new(UnpackedFrameData::new(frame_index, thread_streams)?),
-            registered_scopes,
+            new_scopes,
         ))
     }
 
-    fn from_unpacked(
-        unpacked_frame: Arc<UnpackedFrameData>,
-        registered_scopes: HashSet<ScopeId>,
-    ) -> Self {
+    fn from_unpacked(unpacked_frame: Arc<UnpackedFrameData>, new_scopes: HashSet<ScopeId>) -> Self {
         Self {
             meta: unpacked_frame.meta.clone(),
             unpacked_frame: RwLock::new(Some(Ok(unpacked_frame))),
             packed_streams: RwLock::new(None),
-            registered_scopes,
+            new_scopes,
         }
     }
 
@@ -439,7 +433,6 @@ impl FrameData {
         use bincode::Options as _;
         use byteorder::{WriteBytesExt as _, LE};
 
-        use crate::SerdeScopeDetails;
         let meta_serialized = bincode::options().serialize(&self.meta)?;
 
         write.write_all(b"PFD4")?;
@@ -460,13 +453,13 @@ impl FrameData {
             scope_details
                 .scopes_by_id(|all_scopes| all_scopes.keys().cloned().collect::<HashSet<ScopeId>>())
         } else {
-            self.registered_scopes.clone()
+            self.new_scopes.clone()
         };
 
         for new_scope_id in &scopes {
             scope_details.scopes_by_id(|details| {
                 if let Some(details) = details.get(new_scope_id) {
-                    to_serialize_scopes.push(SerdeScopeDetails {
+                    to_serialize_scopes.push(crate::scope_details::SerdeScopeDetails {
                         scope_id: *new_scope_id,
                         scope_name: details.scope_name.to_string(),
                         function_name: details.dynamic_function_name.to_string(),
@@ -496,7 +489,7 @@ impl FrameData {
         use bincode::Options as _;
         use byteorder::{ReadBytesExt, LE};
 
-        use crate::{ScopeDetailsOwned, SerdeScopeDetails};
+        use crate::ScopeDetailsOwned;
 
         let mut header = [0_u8; 4];
         if let Err(err) = read.read_exact(&mut header) {
@@ -600,7 +593,7 @@ impl FrameData {
                     meta,
                     unpacked_frame: RwLock::new(None),
                     packed_streams: RwLock::new(Some(packed_streams)),
-                    registered_scopes: Default::default(),
+                    new_scopes: Default::default(),
                 }))
             } else if &header == b"PFD3" {
                 // Added 2023-05-13: CompressionKind field
@@ -631,7 +624,7 @@ impl FrameData {
                     meta,
                     unpacked_frame: RwLock::new(None),
                     packed_streams: RwLock::new(Some(packed_streams)),
-                    registered_scopes: Default::default(),
+                    new_scopes: Default::default(),
                 }))
             } else if &header == b"PFD4" {
                 // Added 2023-11-28: Send scope details separate from scope stream
@@ -661,9 +654,10 @@ impl FrameData {
                 read.read_exact(&mut serialized_scopes)
                     .context("Can not deserialize scope details")?;
 
-                let deserialized_scopes: Vec<SerdeScopeDetails> = bincode::options()
-                    .deserialize_from(&serialized_scopes[..]) // Use a slice instead of the whole vector
-                    .context("Can not deserialize scope details")?;
+                let deserialized_scopes: Vec<crate::scope_details::SerdeScopeDetails> =
+                    bincode::options()
+                        .deserialize_from(&serialized_scopes[..]) // Use a slice instead of the whole vector
+                        .context("Can not deserialize scope details")?;
 
                 for serde_scope_details in &deserialized_scopes {
                     scope_details.insert(
@@ -687,7 +681,7 @@ impl FrameData {
                     meta,
                     unpacked_frame: RwLock::new(None),
                     packed_streams: RwLock::new(Some(packed_streams)),
-                    registered_scopes: deserialized_scopes
+                    new_scopes: deserialized_scopes
                         .into_iter()
                         .map(|x| x.scope_id)
                         .collect(),

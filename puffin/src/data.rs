@@ -1,8 +1,8 @@
-//! The profiler records all scope events into a byte stream.
-//! The first time it observes an scope it will send detailed information over to the `GlobalProfiler`.
-//! Every time record for the scopes will contain an `scope_id` which can be used to fetch this detailed information.
+//! The profiler records all events into a byte stream.
+//! The profiler UI parses this byte stream as needed, on the fly.
+//! The data format is as such:
 //!
-//! Each time a scope starts it is as follows:
+//! Each scope start consists of:
 //!
 //! ```ignore
 //!    '('          byte       Sentinel
