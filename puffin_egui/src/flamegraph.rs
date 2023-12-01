@@ -611,12 +611,12 @@ fn paint_record(
     prefix: &str,
     suffix: &str,
     scope_id: ScopeId,
-    record: &ScopeDynamicData<'_>,
-    scope_details: &ScopeCollection,
+    scope_data: &ScopeDynamicData<'_>,
+    scope_collection: &ScopeCollection,
     top_y: f32,
 ) -> PaintResult {
-    let start_x = info.point_from_ns(options, record.start_ns);
-    let stop_x = info.point_from_ns(options, record.stop_ns());
+    let start_x = info.point_from_ns(options, scope_data.start_ns);
+    let stop_x = info.point_from_ns(options, scope_data.stop_ns());
     if info.canvas.max.x < start_x
         || stop_x < info.canvas.min.x
         || stop_x - start_x < options.cull_width
@@ -637,7 +637,7 @@ fn paint_record(
     if info.response.double_clicked() {
         if let Some(mouse_pos) = info.response.interact_pointer_pos() {
             if rect.contains(mouse_pos) {
-                scope_details.read_by_id(&scope_id, |scope_details| {
+                scope_collection.read_by_id(&scope_id, |scope_details| {
                     options
                         .filter
                         .set_filter(scope_details.function_name.to_string());
@@ -648,8 +648,8 @@ fn paint_record(
         options.zoom_to_relative_ns_range = Some((
             info.ctx.input(|i| i.time),
             (
-                record.start_ns - info.start_ns,
-                record.stop_ns() - info.start_ns,
+                scope_data.start_ns - info.start_ns,
+                scope_data.stop_ns() - info.start_ns,
             ),
         ));
     }
@@ -657,13 +657,13 @@ fn paint_record(
     let mut rect_color = if is_hovered {
         HOVER_COLOR
     } else {
-        color_from_duration(record.duration_ns)
+        color_from_duration(scope_data.duration_ns)
     };
 
     let mut min_width = options.min_width;
 
     if !options.filter.is_empty() {
-        scope_details.read_by_id(&scope_id, |scope_details| {
+        scope_collection.read_by_id(&scope_id, |scope_details| {
             if options.filter.include(&scope_details.function_name) {
                 // keep full opacity
                 min_width *= 2.0; // make it more visible even when thin
@@ -689,17 +689,17 @@ fn paint_record(
         let painter = info.painter.with_clip_rect(rect.intersect(info.canvas));
 
         let mut name = String::new();
-        scope_details.read_by_id(&scope_id, |scope_details| {
+        scope_collection.read_by_id(&scope_id, |scope_details| {
             name = format!("{}", scope_details.scope_name);
         });
 
-        let duration_ms = to_ms(record.duration_ns);
-        let text = if record.data.is_empty() {
+        let duration_ms = to_ms(scope_data.duration_ns);
+        let text = if scope_data.data.is_empty() {
             format!("{}{} {:6.3} ms {}", prefix, name, duration_ms, suffix)
         } else {
             format!(
                 "{}{} {:?} {:6.3} ms {}",
-                prefix, name, record.data, duration_ms, suffix
+                prefix, name, scope_data.data, duration_ms, suffix
             )
         };
         let pos = pos2(
@@ -812,7 +812,7 @@ fn paint_merge_scope(
     options: &mut Options,
     ns_offset: NanoSecond,
     merge: &MergeScope<'_>,
-    scope_details: &ScopeCollection,
+    scope_collection: &ScopeCollection,
     depth: usize,
     min_y: f32,
 ) -> Result<PaintResult> {
@@ -852,7 +852,7 @@ fn paint_merge_scope(
         suffix,
         merge.id,
         &record,
-        scope_details,
+        scope_collection,
         top_y,
     );
 
@@ -863,7 +863,7 @@ fn paint_merge_scope(
                 options,
                 record.start_ns,
                 child,
-                scope_details,
+                scope_collection,
                 depth + 1,
                 min_y,
             )?;
@@ -871,7 +871,12 @@ fn paint_merge_scope(
 
         if result == PaintResult::Hovered {
             egui::show_tooltip_at_pointer(&info.ctx, Id::new("puffin_profiler_tooltip"), |ui| {
-                merge_scope_tooltip(ui, &GlobalProfiler::scope_details(), merge, info.num_frames);
+                merge_scope_tooltip(
+                    ui,
+                    &GlobalProfiler::scope_collection(),
+                    merge,
+                    info.num_frames,
+                );
             });
         }
     }
@@ -881,7 +886,7 @@ fn paint_merge_scope(
 
 fn merge_scope_tooltip(
     ui: &mut egui::Ui,
-    scope_details: &ScopeCollection,
+    scope_collection: &ScopeCollection,
     merge: &MergeScope<'_>,
     num_frames: usize,
 ) {
@@ -889,7 +894,7 @@ fn merge_scope_tooltip(
 
     ui.monospace(format!("id:       {:?}", merge.id));
 
-    scope_details.read_by_id(&merge.id, |scope| {
+    scope_collection.read_by_id(&merge.id, |scope| {
         ui.monospace(format!("name:       {:?}", scope.scope_name));
 
         if !scope.function_name.is_empty() {

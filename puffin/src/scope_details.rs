@@ -11,7 +11,8 @@ struct Inner {
     pub(crate) string_to_scope_id: std::collections::HashMap<String, ScopeId>,
 }
 
-/// Provides read access to scope details.
+/// Provides fast read access to scope details.
+/// This collection can be cloned safely.
 #[derive(Default, Clone)]
 pub struct ScopeCollection(
     // Store a both-way map, memory wise this can be a bit redundant but allows for faster access of information.
@@ -33,8 +34,8 @@ impl ScopeCollection {
         }
     }
 
-    /// Function is hidden as only puffin library will insert entries.
-    pub(crate) fn insert(&self, scope_id: ScopeId, scope_details: ScopeDetails) {
+    /// Only puffin should be allowed to allocate and provide the scope id so this function is private to puffin.
+    pub(crate) fn insert_with_id(&self, scope_id: ScopeId, scope_details: ScopeDetails) {
         self.0
             .write()
             .string_to_scope_id
@@ -45,12 +46,12 @@ impl ScopeCollection {
             .insert(scope_id, scope_details);
     }
 
-    /// Manually insert scope details. After a scope is inserted it can be reported to puffin.
-    pub fn insert_custom_scopes(&self, scopes: &[ScopeDetails]) -> HashSet<ScopeId> {
+    /// Manually register scope details. After a scope is inserted it can be reported to puffin.
+    pub fn register_custom_scopes(&self, scopes: &[ScopeDetails]) -> HashSet<ScopeId> {
         let mut new_scopes = HashSet::new();
         for scope_detail in scopes {
             let new_scope_id = fetch_add_scope_id();
-            self.insert(new_scope_id, scope_detail.clone());
+            self.insert_with_id(new_scope_id, scope_detail.clone());
             new_scopes.insert(new_scope_id);
         }
 

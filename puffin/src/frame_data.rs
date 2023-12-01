@@ -423,7 +423,7 @@ impl FrameData {
     #[cfg(feature = "serialization")]
     pub fn write_into(
         &self,
-        scope_details: &ScopeCollection,
+        scope_collection: &ScopeCollection,
         send_all_scopes: bool,
         write: &mut impl std::io::Write,
     ) -> anyhow::Result<()> {
@@ -447,14 +447,14 @@ impl FrameData {
         let mut to_serialize_scopes = Vec::new();
 
         let scopes = if send_all_scopes {
-            scope_details
+            scope_collection
                 .scopes_by_id(|all_scopes| all_scopes.keys().copied().collect::<Vec<ScopeId>>())
         } else {
             self.new_scopes.clone()
         };
 
         for new_scope_id in &scopes {
-            scope_details.scopes_by_id(|details| {
+            scope_collection.scopes_by_id(|details| {
                 if let Some(details) = details.get(new_scope_id) {
                     to_serialize_scopes.push(details.clone());
                 }
@@ -655,7 +655,7 @@ impl FrameData {
 
                 for serde_scope_details in deserialized_scopes {
                     scope_collection
-                        .insert(serde_scope_details.scope_id.unwrap(), serde_scope_details);
+                        .insert_with_id(serde_scope_details.scope_id.unwrap(), serde_scope_details);
                 }
 
                 Ok(Some(Self {

@@ -18,7 +18,7 @@ pub struct FrameView {
     pack_frames: bool,
 
     /// Contains all the scope details.
-    pub scope_details: ScopeCollection,
+    pub scope_collection: ScopeCollection,
 }
 
 impl Default for FrameView {
@@ -32,7 +32,7 @@ impl Default for FrameView {
             slowest: std::collections::BinaryHeap::with_capacity(max_slow),
             max_slow,
             pack_frames: true,
-            scope_details: GlobalProfiler::scope_details(),
+            scope_collection: GlobalProfiler::scope_collection(),
         }
     }
 }
@@ -163,7 +163,7 @@ impl FrameView {
         frames.dedup_by_key(|frame| frame.frame_index());
 
         for frame in frames {
-            frame.write_into(&GlobalProfiler::scope_details(), false, write)?;
+            frame.write_into(&GlobalProfiler::scope_collection(), false, write)?;
         }
         Ok(())
     }
@@ -181,7 +181,7 @@ impl FrameView {
             max_recent: usize::MAX,
             ..Default::default()
         };
-        while let Some(frame) = FrameData::read_next(&slf.scope_details, read)? {
+        while let Some(frame) = FrameData::read_next(&slf.scope_collection, read)? {
             slf.add_frame(frame.into());
         }
 

@@ -50,10 +50,10 @@ impl Client {
                 match std::net::TcpStream::connect(&addr) {
                     Ok(mut stream) => {
                         log::info!("Connected to {}", addr);
-                        let scope_details = GlobalProfiler::scope_details();
+                        let scope_collection = GlobalProfiler::scope_collection();
                         connected.store(true, SeqCst);
                         while alive.load(SeqCst) {
-                            match consume_message(&scope_details, &mut stream) {
+                            match consume_message(&scope_collection, &mut stream) {
                                 Ok(frame_data) => {
                                     frame_view
                                         .lock()
@@ -100,7 +100,7 @@ impl Client {
 
 /// Read a `puffin_http` message from a stream.
 pub fn consume_message(
-    scope_details: &ScopeCollection,
+    scope_collection: &ScopeCollection,
     stream: &mut impl std::io::Read,
 ) -> anyhow::Result<puffin::FrameData> {
     let mut server_version = [0_u8; 2];
@@ -127,7 +127,7 @@ pub fn consume_message(
 
     use anyhow::Context as _;
 
-    FrameData::read_next(scope_details, stream)
+    FrameData::read_next(scope_collection, stream)
         .context("Failed to parse FrameData")?
         .ok_or_else(|| anyhow::format_err!("End of stream"))
 }

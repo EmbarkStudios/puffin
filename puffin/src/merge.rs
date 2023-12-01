@@ -91,7 +91,7 @@ impl<'s> MergeNode<'s> {
         Ok(())
     }
 
-    fn build(self, scope_details: &ScopeCollection, num_frames: i64) -> MergeScope<'s> {
+    fn build(self, scope_collection: &ScopeCollection, num_frames: i64) -> MergeScope<'s> {
         assert!(!self.pieces.is_empty());
         let mut relative_start_ns = self.pieces[0].relative_start_ns;
         let mut total_duration_ns = 0;
@@ -120,19 +120,19 @@ impl<'s> MergeNode<'s> {
             num_pieces,
             id,
             data: data.into(),
-            children: build(scope_details, self.children, num_frames),
+            children: build(scope_collection, self.children, num_frames),
         }
     }
 }
 
 fn build<'s>(
-    scope_details: &ScopeCollection,
+    scope_collection: &ScopeCollection,
     nodes: BTreeMap<MergeId<'s>, MergeNode<'s>>,
     num_frames: i64,
 ) -> Vec<MergeScope<'s>> {
     let mut scopes: Vec<_> = nodes
         .into_values()
-        .map(|node| node.build(scope_details, num_frames))
+        .map(|node| node.build(scope_collection, num_frames))
         .collect();
 
     // Earliest first:
@@ -150,7 +150,7 @@ fn build<'s>(
 
 /// For the given thread, merge all scopes with the same id+data path.
 pub fn merge_scopes_for_thread<'s>(
-    scope_details: &ScopeCollection,
+    scope_collection: &ScopeCollection,
     frames: &'s [std::sync::Arc<UnpackedFrameData>],
     thread_info: &ThreadInfo,
 ) -> Result<Vec<MergeScope<'s>>> {
@@ -181,7 +181,7 @@ pub fn merge_scopes_for_thread<'s>(
         }
     }
 
-    Ok(build(scope_details, top_nodes, frames.len() as _))
+    Ok(build(scope_collection, top_nodes, frames.len() as _))
 }
 
 // ----------------------------------------------------------------------------
@@ -190,16 +190,16 @@ pub fn merge_scopes_for_thread<'s>(
 fn test_merge() {
     use crate::*;
 
-    let scope_details = ScopeCollection::default();
+    let scope_collection = ScopeCollection::default();
     // top scopes
-    scope_details.insert(
+    scope_collection.insert_with_id(
         ScopeId(0),
         ScopeDetails {
             function_name: "a".into(),
             ..Default::default()
         },
     );
-    scope_details.insert(
+    scope_collection.insert_with_id(
         ScopeId(1),
         ScopeDetails {
             function_name: "b".into(),
@@ -208,21 +208,21 @@ fn test_merge() {
     );
 
     // middle scopes
-    scope_details.insert(
+    scope_collection.insert_with_id(
         ScopeId(2),
         ScopeDetails {
             function_name: "ba".into(),
             ..Default::default()
         },
     );
-    scope_details.insert(
+    scope_collection.insert_with_id(
         ScopeId(3),
         ScopeDetails {
             function_name: "bb".into(),
             ..Default::default()
         },
     );
-    scope_details.insert(
+    scope_collection.insert_with_id(
         ScopeId(4),
         ScopeDetails {
             function_name: "bba".into(),
@@ -264,7 +264,7 @@ fn test_merge() {
     let frame = UnpackedFrameData::new(0, thread_streams).unwrap();
     let frames = [Arc::new(frame)];
 
-    let merged = merge_scopes_for_thread(&scope_details, &frames, &thread_info).unwrap();
+    let merged = merge_scopes_for_thread(&scope_collection, &frames, &thread_info).unwrap();
 
     let expected = vec![
         MergeScope {

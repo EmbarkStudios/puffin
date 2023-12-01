@@ -486,7 +486,7 @@ pub struct GlobalProfiler {
 
     // Contains detailed information of every registered scope.
     // This data structure can be cloned for fast read access.
-    scope_details: ScopeCollection,
+    scope_collection: ScopeCollection,
     // Stores the new scopes created since last frame was created.
     scope_delta: Vec<ScopeId>,
 }
@@ -499,7 +499,7 @@ impl Default for GlobalProfiler {
             new_scope_details: Default::default(),
             next_sink_id: FrameSinkId(1),
             sinks: Default::default(),
-            scope_details: Default::default(),
+            scope_collection: Default::default(),
             scope_delta: Default::default(),
         }
     }
@@ -541,8 +541,8 @@ impl GlobalProfiler {
         if !self.new_scope_details.is_empty() {
             for scope_detail in self.new_scope_details.drain(..) {
                 self.scope_delta.push(scope_detail.scope_id);
-                self.scope_details
-                    .insert(scope_detail.scope_id, ScopeDetails::from(scope_detail));
+                self.scope_collection
+                    .insert_with_id(scope_detail.scope_id, ScopeDetails::from(scope_detail));
             }
         }
 
@@ -624,7 +624,7 @@ impl GlobalProfiler {
     /// This is only relevant when your not using puffin through the profiler macros.
     pub fn insert_custom_scopes(scopes: &[ScopeDetails]) {
         let mut lock = Self::lock();
-        let new_scopes = lock.scope_details.insert_custom_scopes(scopes);
+        let new_scopes = lock.scope_collection.register_custom_scopes(scopes);
         lock.scope_delta.extend(&new_scopes);
     }
 
@@ -634,9 +634,9 @@ impl GlobalProfiler {
         std::mem::take(&mut self.scope_delta)
     }
 
-    pub fn scope_details() -> ScopeCollection {
+    pub fn scope_collection() -> ScopeCollection {
         let lock = Self::lock();
-        lock.scope_details.clone()
+        lock.scope_collection.clone()
     }
 }
 
@@ -935,19 +935,19 @@ fn profile_macros_test() {
     // First frame
     GlobalProfiler::lock().new_frame();
 
-    let details = GlobalProfiler::scope_details();
-    details.read_by_id(&ScopeId(0), |scope| {
+    let collection = GlobalProfiler::scope_collection();
+    collection.read_by_id(&ScopeId(0), |scope| {
         assert_eq!(scope.file_path, "puffin/src/lib.rs");
         assert_eq!(scope.function_name, "profile_macros_test::a");
         assert_eq!(scope.line_nr, 927);
     });
-    details.read_by_id(&ScopeId(1), |scope| {
+    collection.read_by_id(&ScopeId(1), |scope| {
         assert_eq!(scope.file_path, "puffin/src/lib.rs");
         assert_eq!(scope.function_name, "profile_macros_test::a");
         assert_eq!(scope.line_nr, 929);
     });
 
-    details.read_by_name("profile_macros_test::a", |id| assert_eq!(*id, ScopeId(1)));
+    collection.read_by_name("profile_macros_test::a", |id| assert_eq!(*id, ScopeId(1)));
 
     // Second frame
     a();
