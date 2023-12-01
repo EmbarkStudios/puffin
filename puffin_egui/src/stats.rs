@@ -139,13 +139,10 @@ fn collect_scope<'s>(
     for child_scope in Reader::with_offset(stream, scope.child_begin_position)? {
         let child_scope = &child_scope?;
         collect_scope(stats, thread_name, stream, child_scope)?;
-        ns_used_by_children += child_scope.dynamic_data.duration_ns;
+        ns_used_by_children += child_scope.record.duration_ns;
     }
 
-    let self_time = scope
-        .dynamic_data
-        .duration_ns
-        .saturating_sub(ns_used_by_children);
+    let self_time = scope.record.duration_ns.saturating_sub(ns_used_by_children);
 
     let key = Key {
         id: scope.id,
@@ -164,7 +161,7 @@ fn scope_byte_size(scope: &puffin::Scope<'_>) -> usize {
     1 + // `(` sentinel
     8 + // start time
     8 + // scope id
-    1 + scope.dynamic_data.data.len() + // dynamic data len
+    1 + scope.record.data.len() + // dynamic data len
     8 + // scope size
     1 + // `)` sentinel
     8 // stop time

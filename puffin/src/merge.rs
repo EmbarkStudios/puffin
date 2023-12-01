@@ -75,14 +75,13 @@ impl<'s> MergeNode<'s> {
             self.children
                 .entry(MergeId {
                     id: child.id,
-                    data: child.dynamic_data.data,
+                    data: child.record.data,
                 })
                 .or_default()
                 .add(
                     stream,
                     MergePiece {
-                        relative_start_ns: child.dynamic_data.start_ns
-                            - piece.scope.dynamic_data.start_ns,
+                        relative_start_ns: child.record.start_ns - piece.scope.record.start_ns,
                         scope: child,
                     },
                 )?;
@@ -98,16 +97,16 @@ impl<'s> MergeNode<'s> {
         let mut slowest_ns = 0;
         let num_pieces = self.pieces.len();
         let id = self.pieces[0].scope.id;
-        let mut data = self.pieces[0].scope.dynamic_data.data;
+        let mut data = self.pieces[0].scope.record.data;
 
         for piece in &self.pieces {
             // Merged scope should start at the earliest piece:
             relative_start_ns = relative_start_ns.min(piece.relative_start_ns);
-            total_duration_ns += piece.scope.dynamic_data.duration_ns;
-            slowest_ns = slowest_ns.max(piece.scope.dynamic_data.duration_ns);
+            total_duration_ns += piece.scope.record.duration_ns;
+            slowest_ns = slowest_ns.max(piece.scope.record.duration_ns);
 
             assert_eq!(id, piece.scope.id);
-            if data != piece.scope.dynamic_data.data {
+            if data != piece.scope.record.data {
                 data = ""; // different in different pieces
             }
         }
@@ -166,13 +165,13 @@ pub fn merge_scopes_for_thread<'s>(
                 top_nodes
                     .entry(MergeId {
                         id: scope.id,
-                        data: scope.dynamic_data.data,
+                        data: scope.record.data,
                     })
                     .or_default()
                     .add(
                         &stream_info.stream,
                         MergePiece {
-                            relative_start_ns: scope.dynamic_data.start_ns - offset_ns,
+                            relative_start_ns: scope.record.start_ns - offset_ns,
                             scope,
                         },
                     )?;
@@ -192,41 +191,21 @@ fn test_merge() {
     let scope_collection = ScopeCollection::default();
     // top scopes
     scope_collection.insert(
-        ScopeId(0),
-        ScopeDetails {
-            function_name: "a".into(),
-            ..Default::default()
-        },
+        ScopeDetails::from_scope_id(ScopeId(0)).with_function_name("a")
     );
     scope_collection.insert(
-        ScopeId(1),
-        ScopeDetails {
-            function_name: "b".into(),
-            ..Default::default()
-        },
+        ScopeDetails::from_scope_id(ScopeId(1)).with_function_name("b")
     );
 
     // middle scopes
     scope_collection.insert(
-        ScopeId(2),
-        ScopeDetails {
-            function_name: "ba".into(),
-            ..Default::default()
-        },
+        ScopeDetails::from_scope_id(ScopeId(2)).with_function_name("ba")
     );
     scope_collection.insert(
-        ScopeId(3),
-        ScopeDetails {
-            function_name: "bb".into(),
-            ..Default::default()
-        },
+        ScopeDetails::from_scope_id(ScopeId(3)).with_function_name("bb")
     );
     scope_collection.insert(
-        ScopeId(4),
-        ScopeDetails {
-            function_name: "bba".into(),
-            ..Default::default()
-        },
+        ScopeDetails::from_scope_id(ScopeId(4)).with_function_name("bba")
     );
 
     let stream = {

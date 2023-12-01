@@ -176,13 +176,13 @@ impl From<Vec<u8>> for Stream {
 
 /// Used when parsing a Stream.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct ScopeDynamicData<'s> {
+pub struct ScopeRecord<'s> {
     pub start_ns: NanoSecond,
     pub duration_ns: NanoSecond,
     pub data: &'s str,
 }
 
-impl<'s> ScopeDynamicData<'s> {
+impl<'s> ScopeRecord<'s> {
     #[inline]
     pub fn stop_ns(&self) -> NanoSecond {
         self.start_ns + self.duration_ns
@@ -196,7 +196,7 @@ pub struct Scope<'s> {
     // To fetch more details about this scope use `GlobalProfiler::scope_details()`.
     pub id: ScopeId,
     // Some dynamic data that is passed into the profiler scope.
-    pub dynamic_data: ScopeDynamicData<'s>,
+    pub record: ScopeRecord<'s>,
     /// Stream offset for first child.
     pub child_begin_position: u64,
     /// Stream offset after last child.
@@ -265,8 +265,8 @@ impl StreamInfo {
             })
         } else {
             let (num_scopes, depth) = Reader::count_scope_and_depth(&stream)?;
-            let min_ns = top_scopes.first().unwrap().dynamic_data.start_ns;
-            let max_ns = top_scopes.last().unwrap().dynamic_data.stop_ns();
+            let min_ns = top_scopes.first().unwrap().record.start_ns;
+            let max_ns = top_scopes.last().unwrap().record.stop_ns();
 
             Ok(StreamInfo {
                 stream,
@@ -959,12 +959,12 @@ fn profile_macros_test() {
     collection.read_by_id(&ScopeId(0), |scope| {
         assert_eq!(scope.file_path, "puffin/src/lib.rs");
         assert_eq!(scope.function_name, "profile_macros_test::a");
-        assert_eq!(scope.line_nr, 927);
+        assert_eq!(scope.line_nr, 947);
     });
     collection.read_by_id(&ScopeId(1), |scope| {
         assert_eq!(scope.file_path, "puffin/src/lib.rs");
         assert_eq!(scope.function_name, "profile_macros_test::a");
-        assert_eq!(scope.line_nr, 929);
+        assert_eq!(scope.line_nr, 949);
     });
 
     collection.read_by_name("profile_macros_test::a", |id| assert_eq!(*id, ScopeId(1)));

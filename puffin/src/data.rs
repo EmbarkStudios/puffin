@@ -169,7 +169,7 @@ impl<'s> Reader<'s> {
 
         Ok(Some(Scope {
             id: scope_id,
-            dynamic_data: ScopeDynamicData {
+            record: ScopeRecord {
                 start_ns,
                 duration_ns: stop_ns - start_ns,
                 data: dynamic_data,
@@ -295,8 +295,8 @@ fn write_scope() {
     let scopes = Reader::from_start(&stream).read_top_scopes().unwrap();
     assert_eq!(scopes.len(), 1);
     assert_eq!(
-        scopes[0].dynamic_data,
-        ScopeDynamicData {
+        scopes[0].record,
+        ScopeRecord {
             start_ns: 100,
             duration_ns: 200,
             data: "data"
@@ -321,8 +321,8 @@ fn test_profile_data() {
     let top_scopes = Reader::from_start(&stream).read_top_scopes().unwrap();
     assert_eq!(top_scopes.len(), 1);
     assert_eq!(
-        top_scopes[0].dynamic_data,
-        ScopeDynamicData {
+        top_scopes[0].record,
+        ScopeRecord {
             start_ns: 100,
             duration_ns: 300,
             data: "data_top"
@@ -337,16 +337,16 @@ fn test_profile_data() {
     assert_eq!(middle_scopes.len(), 2);
 
     assert_eq!(
-        middle_scopes[0].dynamic_data,
-        ScopeDynamicData {
+        middle_scopes[0].record,
+        ScopeRecord {
             start_ns: 200,
             duration_ns: 100,
             data: "data_middle_0"
         }
     );
     assert_eq!(
-        middle_scopes[1].dynamic_data,
-        ScopeDynamicData {
+        middle_scopes[1].record,
+        ScopeRecord {
             start_ns: 300,
             duration_ns: 100,
             data: "data_middle_1"

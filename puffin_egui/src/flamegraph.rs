@@ -611,7 +611,7 @@ fn paint_record(
     prefix: &str,
     suffix: &str,
     scope_id: ScopeId,
-    scope_data: &ScopeDynamicData<'_>,
+    scope_data: &ScopeRecord<'_>,
     scope_collection: &ScopeCollection,
     top_y: f32,
 ) -> PaintResult {
@@ -757,7 +757,7 @@ fn paint_scope(
         "",
         "",
         scope.id,
-        &scope.dynamic_data,
+        &scope.record,
         scope_detais,
         top_y,
     );
@@ -790,12 +790,12 @@ fn paint_scope(
                                 scope_details.file_path, scope_details.line_nr
                             ));
                         }
-                        if !scope.dynamic_data.data.is_empty() {
-                            ui.monospace(format!("data:     {}", scope.dynamic_data.data));
+                        if !scope.record.data.is_empty() {
+                            ui.monospace(format!("data:     {}", scope.record.data));
                         }
                         ui.monospace(format!(
                             "duration: {:7.3} ms",
-                            to_ms(scope.dynamic_data.duration_ns)
+                            to_ms(scope.record.duration_ns)
                         ));
                         ui.monospace(format!("children: {num_children}"));
                     },
@@ -839,7 +839,7 @@ fn paint_merge_scope(
         "per frame"
     };
 
-    let record = ScopeDynamicData {
+    let record = ScopeRecord {
         start_ns: ns_offset + merge.relative_start_ns,
         duration_ns: merge.duration_per_frame_ns,
         data: &merge.data,
