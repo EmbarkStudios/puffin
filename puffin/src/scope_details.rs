@@ -81,11 +81,11 @@ impl ScopeCollection {
 #[derive(Debug, Default, Clone, PartialEq, Hash, PartialOrd, Ord, Eq)]
 /// This struct contains scope details and can be read by external libraries.
 pub struct ScopeDetails {
-    /// Unique scope Identifier.
+    /// Unique scope identifier.
     // Always initialized once registered.
     // It is `None` when an external library has yet to register this scope.
     pub(crate) scope_id: Option<ScopeId>,
-    /// Identifier for a scope, for a function this is just the raw function name.
+    /// Identifier for a scope, functions do not have an identifier.
     pub scope_name: Option<Cow<'static, str>>,
     /// The function name of the function in which this scope is contained.
     /// The name might be slightly modified to represent a short descriptive name.
@@ -155,6 +155,7 @@ impl ScopeDetails {
             .unwrap_or_else(|| &self.function_name)
     }
 
+    /// Returns the exact location of the profile scope formatted as `file:line_nr`
     #[inline]
     pub fn location(&self) -> String {
         format!("{}:{}", self.file_path, self.line_nr)
@@ -171,12 +172,14 @@ impl ScopeDetails {
         }
     }
 
+    // This function should not be exposed as only puffin should allocate ids.
     #[inline]
     pub(crate) fn with_scope_id(mut self, scope_id: ScopeId) -> Self {
         self.scope_id = Some(scope_id);
         self
     }
 
+    // This function should not be exposed as users are supposed to provide scope name in constructor.
     #[inline]
     pub(crate) fn with_scope_name<T>(mut self, scope_name: T) -> Self
     where
@@ -237,7 +240,7 @@ impl<'de> Deserialize<'de> for ScopeDetails {
                     .ok_or_else(|| serde::de::Error::missing_field("line_nr"))?;
 
                 Ok(ScopeDetails {
-                    scope_id: Some(scope_id),
+                    scope_id,
                     scope_name,
                     function_name,
                     file_path,

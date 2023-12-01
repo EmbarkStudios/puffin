@@ -111,8 +111,8 @@ pub use data::*;
 pub use frame_data::{FrameData, FrameMeta, UnpackedFrameData};
 pub use merge::*;
 pub use profile_view::{select_slowest, FrameView, GlobalFrameView};
-pub use scope_details::ScopeCollection;
-use scope_details::ScopeDetails;
+pub use scope_details::{ScopeCollection, ScopeDetails};
+use std::borrow::Cow;
 use std::collections::BTreeMap;
 use std::sync::{
     atomic::{AtomicBool, Ordering},
@@ -387,8 +387,8 @@ impl ThreadProfiler {
     #[must_use]
     pub fn register_function_scope(
         &mut self,
-        function_name: &'static str,
-        file_path: &'static str,
+        function_name: impl Into<Cow<'static, str>>,
+        file_path: impl Into<Cow<'static, str>>,
         line_nr: u32,
     ) -> ScopeId {
         let new_id = fetch_add_scope_id();
@@ -404,9 +404,9 @@ impl ThreadProfiler {
     #[must_use]
     pub fn register_scope(
         &mut self,
-        scope_name: &'static str,
-        function_name: &'static str,
-        file_path: &'static str,
+        scope_name: impl Into<Cow<'static, str>>,
+        function_name: impl Into<Cow<'static, str>>,
+        file_path: impl Into<Cow<'static, str>>,
         line_nr: u32,
     ) -> ScopeId {
         let new_id = fetch_add_scope_id();

@@ -419,7 +419,7 @@ impl FrameData {
     }
 
     /// Writes one [`FrameData`] into a stream, prefixed by its length ([`u32`] le).
-    // #[cfg(not(target_arch = "wasm32"))] // compression not supported on wasm
+    #[cfg(not(target_arch = "wasm32"))] // compression not supported on wasm
     #[cfg(feature = "serialization")]
     pub fn write_into(
         &self,
@@ -616,51 +616,46 @@ impl FrameData {
                     new_scopes: Default::default(),
                 }))
             } else if &header == b"PFD4" {
-                // Added 2023-11-28: Send scope details separate from scope stream
-                let mut meta_length = [0_u8; 4];
-                read.read_exact(&mut meta_length)?;
-                let meta_length = u32::from_le_bytes(meta_length) as usize;
-                let mut meta = vec![0_u8; meta_length];
-                read.read_exact(&mut meta)?;
+                // Added 2023-12-01: CompressionKind field
+                let meta_length = read.read_u32::<LE>()? as usize;
+                let meta = {
+                    let mut meta = vec![0_u8; meta_length];
+                    read.read_exact(&mut meta)?;
+                    bincode::options()
+                        .deserialize(&meta)
+                        .context("bincode deserialize")?
+                };
 
-                let meta: FrameMeta = bincode::options()
-                    .deserialize(&meta)
-                    .context("bincode deserialize")?;
-
-                let mut streams_compressed_length = [0_u8; 4];
-                read.read_exact(&mut streams_compressed_length)?;
-                let streams_compressed_length =
-                    u32::from_le_bytes(streams_compressed_length) as usize;
-                let compression_kind = read.read_u8()?;
-                let compression_kind = CompressionKind::from_u8(compression_kind)?;
-                let mut streams_compressed = vec![0_u8; streams_compressed_length];
-                read.read_exact(&mut streams_compressed)?;
-
-                let packed_streams = PackedStreams::new(compression_kind, streams_compressed);
+                let streams_compressed_length = read.read_u32::<LE>()? as usize;
+                let compression_kind = CompressionKind::from_u8(read.read_u8()?)?;
+                let streams_compressed = {
+                    let mut streams_compressed = vec![0_u8; streams_compressed_length];
+                    read.read_exact(&mut streams_compressed)?;
+                    PackedStreams::new(compression_kind, streams_compressed)
+                };
 
                 let serialized_scope_len = read.read_u32::<LE>()?;
-                let mut serialized_scopes: Vec<u8> = vec![0; serialized_scope_len as usize];
-                read.read_exact(&mut serialized_scopes)
-                    .context("Can not deserialize scope details")?;
-
-                let deserialized_scopes: Vec<crate::scope_details::ScopeDetails> =
+                let serialized_scopes: Vec<crate::ScopeDetails> = {
+                    let mut serialized_scopes = vec![0; serialized_scope_len as usize];
+                    read.read_exact(&mut serialized_scopes)?;
                     bincode::options()
-                        .deserialize_from(serialized_scopes.as_slice()) // Use a slice instead of the whole vector
-                        .context("Can not deserialize scope details")?;
+                        .deserialize_from(serialized_scopes.as_slice())
+                        .context("Can not deserialize scope details")?
+                };
 
-                let new_scopes = deserialized_scopes
+                let new_scopes: Vec<_> = serialized_scopes
                     .iter()
                     .map(|x| x.scope_id.unwrap())
                     .collect();
 
-                for scope_details in deserialized_scopes {
+                for scope_details in serialized_scopes {
                     scope_collection.insert(scope_details);
                 }
 
                 Ok(Some(Self {
                     meta,
                     unpacked_frame: RwLock::new(None),
-                    packed_streams: RwLock::new(Some(packed_streams)),
+                    packed_streams: RwLock::new(Some(streams_compressed)),
                     new_scopes,
                 }))
             } else {
