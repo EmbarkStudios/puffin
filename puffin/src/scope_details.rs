@@ -7,6 +7,7 @@ use crate::{clean_function_name, fetch_add_scope_id, short_file_name, ScopeId};
 
 #[derive(Default, Clone)]
 struct Inner {
+    // Store a both-way map, memory wise this can be a bit redundant but allows for faster access of information by external libs.
     pub(crate) scope_id_to_details: std::collections::HashMap<ScopeId, ScopeDetails>,
     pub(crate) string_to_scope_id: std::collections::HashMap<String, ScopeId>,
 }
@@ -14,10 +15,7 @@ struct Inner {
 /// Provides fast read access to scope details.
 /// This collection can be cloned safely.
 #[derive(Default, Clone)]
-pub struct ScopeCollection(
-    // Store a both-way map, memory wise this can be a bit redundant but allows for faster access of information.
-    Arc<RwLock<Inner>>,
-);
+pub struct ScopeCollection(Arc<RwLock<Inner>>);
 
 impl ScopeCollection {
     /// Provides read to the given closure for some scope details.
@@ -84,34 +82,34 @@ impl ScopeCollection {
 pub struct ScopeDetailsStatic {
     /// Identifier for the scope being registered.
     pub(crate) scope_id: ScopeId,
-    // Custom provided static id that identifiers a scope in a function.
+    // Custom provided static id that identifies a scope in a function.
+    // For function scopes this is empty.
     pub(crate) scope_name: &'static str,
-    /// Scope name, or function name.
+    /// The function name of the function in which this scope is contained.
     pub(crate) function_name: &'static str,
-    /// Path to the file containing the profiling macro
-    pub(crate) file: &'static str,
-    /// The line number containing the profiling
+    /// The file path in which this scope is contained.
+    pub(crate) file_path: &'static str,
+    /// The exact line number at which this scope is located.
     pub(crate) line_nr: u32,
 }
 #[derive(Debug, Default, Clone, PartialEq, Hash, PartialOrd, Ord, Eq)]
 /// This struct contains scope details and can be read by external libraries.
 pub struct ScopeDetails {
+    /// Unique scope Identifier.
     // Always initialized once registered.
-    // Its only none when a external library has yet to register this scope.
+    // It is `None` when an external library has yet to register this scope.
     pub(crate) scope_id: Option<ScopeId>,
     /// Identifier for a scope, for a function this is just the raw function name.
     pub scope_name: Cow<'static, str>,
-    /// Shorter variant of the raw function name.
-    /// This is more descriptive and shorter.
-    /// In the case of custom scopes provided scopes this contains the `scope name`.
+    /// The function name of the function in which this scope is contained.
+    /// The name might be slightly modified to represent a short descriptive name.
     pub function_name: Cow<'static, str>,
-    /// Shorter variant of the raw file path.
-    /// This is cleaned up and made consistent across platforms.
-    /// In the case of custom scopes provided scopes this contains the `file name`.
+    /// The file path in which this scope is contained.
+    /// The path might be slightly modified to represent a short descriptive name.
     pub file_path: Cow<'static, str>,
-    /// The line number containing the profiling
+    /// The exact line number at which this scope is located.
     pub line_nr: u32,
-    /// File name plus line number: path:number
+    /// File name plus line number formatted as `/path/file.rs:line_nr`
     pub location: String,
 }
 
@@ -128,7 +126,8 @@ impl ScopeDetails {
         }
     }
 
-    /// Create a new custom scope with a unique name.
+    /// Create a new custom scope with a unique id allocated by puffin.
+    /// This function should not be exposed as only puffin should allocate ids.
     fn from_scope_id(scope_id: ScopeId) -> Self {
         Self {
             scope_id: Some(scope_id),
@@ -171,7 +170,7 @@ impl From<ScopeDetailsStatic> for ScopeDetails {
         let cleaned_function_name = clean_function_name(value.function_name);
 
         ScopeDetails::from_scope_id(value.scope_id)
-            .with_file(Cow::Owned(short_file_name(value.file)))
+            .with_file(Cow::Owned(short_file_name(value.file_path)))
             .with_function_name(Cow::Owned(cleaned_function_name))
             .with_line_nr(value.line_nr)
     }

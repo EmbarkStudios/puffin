@@ -397,7 +397,7 @@ impl ThreadProfiler {
             scope_id: new_id,
             scope_name,
             function_name,
-            file: file_name,
+            file_path: file_name,
             line_nr,
         });
         new_id
