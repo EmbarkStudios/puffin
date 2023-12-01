@@ -1,5 +1,5 @@
 use anyhow::Context as _;
-use puffin::{GlobalProfiler, ScopeDetails};
+use puffin::{GlobalProfiler, ScopeCollection};
 use std::{
     io::Write,
     net::{SocketAddr, TcpListener, TcpStream},
@@ -121,7 +121,7 @@ struct PuffinServerImpl {
     clients: Vec<Client>,
     num_clients: Arc<AtomicUsize>,
     send_all_scopes: bool,
-    scope_details: ScopeDetails,
+    scope_details: ScopeCollection,
 }
 
 impl PuffinServerImpl {

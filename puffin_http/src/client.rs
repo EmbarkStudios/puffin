@@ -3,7 +3,7 @@ use std::sync::{
     Arc, Mutex,
 };
 
-use puffin::{FrameData, FrameView, GlobalProfiler, ScopeDetails};
+use puffin::{FrameData, FrameView, GlobalProfiler, ScopeCollection};
 
 /// Connect to a [`crate::Server`], reading profile data
 /// and feeding it to a [`puffin::FrameView`].
@@ -100,7 +100,7 @@ impl Client {
 
 /// Read a `puffin_http` message from a stream.
 pub fn consume_message(
-    scope_details: &ScopeDetails,
+    scope_details: &ScopeCollection,
     stream: &mut impl std::io::Read,
 ) -> anyhow::Result<puffin::FrameData> {
     let mut server_version = [0_u8; 2];

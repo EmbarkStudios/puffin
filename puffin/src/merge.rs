@@ -1,5 +1,6 @@
 use crate::{
-    NanoSecond, Reader, Result, Scope, ScopeDetails, ScopeId, Stream, ThreadInfo, UnpackedFrameData,
+    NanoSecond, Reader, Result, Scope, ScopeCollection, ScopeId, Stream, ThreadInfo,
+    UnpackedFrameData,
 };
 use std::{collections::BTreeMap, hash::Hash};
 
@@ -90,7 +91,7 @@ impl<'s> MergeNode<'s> {
         Ok(())
     }
 
-    fn build(self, scope_details: &ScopeDetails, num_frames: i64) -> MergeScope<'s> {
+    fn build(self, scope_details: &ScopeCollection, num_frames: i64) -> MergeScope<'s> {
         assert!(!self.pieces.is_empty());
         let mut relative_start_ns = self.pieces[0].relative_start_ns;
         let mut total_duration_ns = 0;
@@ -125,7 +126,7 @@ impl<'s> MergeNode<'s> {
 }
 
 fn build<'s>(
-    scope_details: &ScopeDetails,
+    scope_details: &ScopeCollection,
     nodes: BTreeMap<MergeId<'s>, MergeNode<'s>>,
     num_frames: i64,
 ) -> Vec<MergeScope<'s>> {
@@ -149,7 +150,7 @@ fn build<'s>(
 
 /// For the given thread, merge all scopes with the same id+data path.
 pub fn merge_scopes_for_thread<'s>(
-    scope_details: &ScopeDetails,
+    scope_details: &ScopeCollection,
     frames: &'s [std::sync::Arc<UnpackedFrameData>],
     thread_info: &ThreadInfo,
 ) -> Result<Vec<MergeScope<'s>>> {
@@ -189,21 +190,19 @@ pub fn merge_scopes_for_thread<'s>(
 fn test_merge() {
     use crate::*;
 
-    let scope_details = ScopeDetails::default();
+    let scope_details = ScopeCollection::default();
     // top scopes
     scope_details.insert(
         ScopeId(0),
-        ScopeDetailsOwned {
-            dynamic_function_name: "a".into(),
-            dynamic_file_path: "".into(),
+        ScopeDetails {
+            function_name: "a".into(),
             ..Default::default()
         },
     );
     scope_details.insert(
         ScopeId(1),
-        ScopeDetailsOwned {
-            dynamic_function_name: "b".into(),
-            dynamic_file_path: "".into(),
+        ScopeDetails {
+            function_name: "b".into(),
             ..Default::default()
         },
     );
@@ -211,25 +210,22 @@ fn test_merge() {
     // middle scopes
     scope_details.insert(
         ScopeId(2),
-        ScopeDetailsOwned {
-            dynamic_function_name: "ba".into(),
-            dynamic_file_path: "".into(),
+        ScopeDetails {
+            function_name: "ba".into(),
             ..Default::default()
         },
     );
     scope_details.insert(
         ScopeId(3),
-        ScopeDetailsOwned {
-            dynamic_function_name: "bb".into(),
-            dynamic_file_path: "".into(),
+        ScopeDetails {
+            function_name: "bb".into(),
             ..Default::default()
         },
     );
     scope_details.insert(
         ScopeId(4),
-        ScopeDetailsOwned {
-            dynamic_function_name: "bba".into(),
-            dynamic_file_path: "".into(),
+        ScopeDetails {
+            function_name: "bba".into(),
             ..Default::default()
         },
     );

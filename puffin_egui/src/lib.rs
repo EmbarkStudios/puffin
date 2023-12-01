@@ -250,7 +250,7 @@ pub struct Streams {
 
 impl Streams {
     fn new(
-        scope_details: &ScopeDetails,
+        scope_details: &ScopeCollection,
         frames: &[Arc<UnpackedFrameData>],
         thread_info: &ThreadInfo,
     ) -> Self {
@@ -295,7 +295,7 @@ pub struct SelectedFrames {
 
 impl SelectedFrames {
     fn try_from_vec(
-        scope_details: &ScopeDetails,
+        scope_details: &ScopeCollection,
         frames: Vec<Arc<UnpackedFrameData>>,
     ) -> Option<Self> {
         let frames = vec1::Vec1::try_from_vec(frames).ok()?;
@@ -303,7 +303,7 @@ impl SelectedFrames {
     }
 
     fn from_vec1(
-        scope_details: &ScopeDetails,
+        scope_details: &ScopeCollection,
         mut frames: vec1::Vec1<Arc<UnpackedFrameData>>,
     ) -> Self {
         puffin::profile_function!();

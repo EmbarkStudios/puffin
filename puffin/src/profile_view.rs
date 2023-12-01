@@ -1,6 +1,6 @@
 use std::sync::{Arc, Mutex};
 
-use crate::{FrameData, FrameSinkId, GlobalProfiler, ScopeDetails};
+use crate::{FrameData, FrameSinkId, GlobalProfiler, ScopeCollection};
 
 /// A view of recent and slowest frames, used by GUIs.
 #[derive(Clone)]
@@ -18,7 +18,7 @@ pub struct FrameView {
     pack_frames: bool,
 
     /// Contains all the scope details.
-    pub scope_details: ScopeDetails,
+    pub scope_details: ScopeCollection,
 }
 
 impl Default for FrameView {

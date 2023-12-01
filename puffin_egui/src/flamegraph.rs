@@ -199,7 +199,7 @@ impl Info {
 pub fn ui(
     ui: &mut egui::Ui,
     options: &mut Options,
-    scope_infos: &ScopeDetails,
+    scope_infos: &ScopeCollection,
     frames: &SelectedFrames,
 ) {
     puffin::profile_function!();
@@ -329,7 +329,7 @@ fn ui_canvas(
     options: &mut Options,
     info: &Info,
     frames: &SelectedFrames,
-    scope_infos: &ScopeDetails,
+    scope_infos: &ScopeCollection,
     (min_ns, max_ns): (NanoSecond, NanoSecond),
 ) -> f32 {
     puffin::profile_function!();
@@ -612,7 +612,7 @@ fn paint_record(
     suffix: &str,
     scope_id: ScopeId,
     record: &ScopeDynamicData<'_>,
-    scope_details: &ScopeDetails,
+    scope_details: &ScopeCollection,
     top_y: f32,
 ) -> PaintResult {
     let start_x = info.point_from_ns(options, record.start_ns);
@@ -640,7 +640,7 @@ fn paint_record(
                 scope_details.read_by_id(&scope_id, |scope_details| {
                     options
                         .filter
-                        .set_filter(scope_details.dynamic_function_name.to_string());
+                        .set_filter(scope_details.function_name.to_string());
                 });
             }
         }
@@ -664,7 +664,7 @@ fn paint_record(
 
     if !options.filter.is_empty() {
         scope_details.read_by_id(&scope_id, |scope_details| {
-            if options.filter.include(&scope_details.dynamic_function_name) {
+            if options.filter.include(&scope_details.function_name) {
                 // keep full opacity
                 min_width *= 2.0; // make it more visible even when thin
             } else {
@@ -744,7 +744,7 @@ fn paint_scope(
     info: &Info,
     options: &mut Options,
     stream: &Stream,
-    scope_detais: &ScopeDetails,
+    scope_detais: &ScopeCollection,
     scope: &Scope<'_>,
     depth: usize,
     min_y: f32,
@@ -783,11 +783,11 @@ fn paint_scope(
                     &info.ctx,
                     Id::new("puffin_profiler_tooltip"),
                     |ui| {
-                        ui.monospace(format!("id:       {}", scope_details.dynamic_function_name));
-                        if !scope_details.dynamic_file_path.is_empty() {
+                        ui.monospace(format!("id:       {}", scope_details.function_name));
+                        if !scope_details.file_path.is_empty() {
                             ui.monospace(format!(
                                 "location: {}:{}",
-                                scope_details.dynamic_file_path, scope_details.line_nr
+                                scope_details.file_path, scope_details.line_nr
                             ));
                         }
                         if !scope.dynamic_data.data.is_empty() {
@@ -812,7 +812,7 @@ fn paint_merge_scope(
     options: &mut Options,
     ns_offset: NanoSecond,
     merge: &MergeScope<'_>,
-    scope_details: &ScopeDetails,
+    scope_details: &ScopeCollection,
     depth: usize,
     min_y: f32,
 ) -> Result<PaintResult> {
@@ -881,7 +881,7 @@ fn paint_merge_scope(
 
 fn merge_scope_tooltip(
     ui: &mut egui::Ui,
-    scope_details: &ScopeDetails,
+    scope_details: &ScopeCollection,
     merge: &MergeScope<'_>,
     num_frames: usize,
 ) {
@@ -892,8 +892,8 @@ fn merge_scope_tooltip(
     scope_details.read_by_id(&merge.id, |scope| {
         ui.monospace(format!("name:       {:?}", scope.scope_name));
 
-        if !scope.dynamic_function_name.is_empty() {
-            ui.monospace(format!("location: {}", scope.dynamic_file_path));
+        if !scope.function_name.is_empty() {
+            ui.monospace(format!("location: {}", scope.file_path));
         }
     });
     if !merge.data.is_empty() {

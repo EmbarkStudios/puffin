@@ -1,12 +1,9 @@
-use crate::ScopeDetails;
+use crate::ScopeCollection;
 use crate::{Error, FrameIndex, NanoSecond, Result, ScopeId, StreamInfo, ThreadInfo};
 #[cfg(feature = "packing")]
 use parking_lot::RwLock;
 
-use std::{
-    collections::{BTreeMap, HashSet},
-    sync::Arc,
-};
+use std::{collections::BTreeMap, sync::Arc};
 
 // ----------------------------------------------------------------------------
 
@@ -98,7 +95,7 @@ impl UnpackedFrameData {
 #[cfg(not(feature = "packing"))]
 pub struct FrameData {
     unpacked_frame: Arc<UnpackedFrameData>,
-    new_scopes: HashSet<ScopeId>,
+    new_scopes: Vec<ScopeId>,
 }
 
 #[cfg(not(feature = "packing"))]
@@ -109,7 +106,7 @@ impl FrameData {
     pub fn new(
         frame_index: FrameIndex,
         thread_streams: BTreeMap<ThreadInfo, StreamInfo>,
-        new_scopes: HashSet<ScopeId>,
+        new_scopes: Vec<ScopeId>,
     ) -> Result<Self> {
         Ok(Self::from_unpacked(
             Arc::new(UnpackedFrameData::new(frame_index, thread_streams)?),
@@ -117,7 +114,7 @@ impl FrameData {
         ))
     }
 
-    fn from_unpacked(unpacked_frame: Arc<UnpackedFrameData>, new_scopes: HashSet<ScopeId>) -> Self {
+    fn from_unpacked(unpacked_frame: Arc<UnpackedFrameData>, new_scopes: Vec<ScopeId>) -> Self {
         Self {
             unpacked_frame,
             new_scopes,
@@ -300,7 +297,7 @@ pub struct FrameData {
     packed_streams: RwLock<Option<PackedStreams>>,
 
     /// Scopes that were registered during this frame.
-    pub new_scopes: HashSet<ScopeId>,
+    pub new_scopes: Vec<ScopeId>,
 }
 
 #[cfg(feature = "packing")]
@@ -308,7 +305,7 @@ impl FrameData {
     pub fn new(
         frame_index: FrameIndex,
         thread_streams: BTreeMap<ThreadInfo, StreamInfo>,
-        new_scopes: HashSet<ScopeId>,
+        new_scopes: Vec<ScopeId>,
     ) -> Result<Self> {
         Ok(Self::from_unpacked(
             Arc::new(UnpackedFrameData::new(frame_index, thread_streams)?),
@@ -316,7 +313,7 @@ impl FrameData {
         ))
     }
 
-    fn from_unpacked(unpacked_frame: Arc<UnpackedFrameData>, new_scopes: HashSet<ScopeId>) -> Self {
+    fn from_unpacked(unpacked_frame: Arc<UnpackedFrameData>, new_scopes: Vec<ScopeId>) -> Self {
         Self {
             meta: unpacked_frame.meta.clone(),
             unpacked_frame: RwLock::new(Some(Ok(unpacked_frame))),
@@ -422,12 +419,12 @@ impl FrameData {
     }
 
     /// Writes one [`FrameData`] into a stream, prefixed by its length ([`u32`] le).
-    #[cfg(not(target_arch = "wasm32"))] // compression not supported on wasm
+    // #[cfg(not(target_arch = "wasm32"))] // compression not supported on wasm
     #[cfg(feature = "serialization")]
     pub fn write_into(
         &self,
-        scope_details: &ScopeDetails,
-        write_all_scopes: bool,
+        scope_details: &ScopeCollection,
+        send_all_scopes: bool,
         write: &mut impl std::io::Write,
     ) -> anyhow::Result<()> {
         use bincode::Options as _;
@@ -449,9 +446,9 @@ impl FrameData {
 
         let mut to_serialize_scopes = Vec::new();
 
-        let scopes = if write_all_scopes {
+        let scopes = if send_all_scopes {
             scope_details
-                .scopes_by_id(|all_scopes| all_scopes.keys().cloned().collect::<HashSet<ScopeId>>())
+                .scopes_by_id(|all_scopes| all_scopes.keys().copied().collect::<Vec<ScopeId>>())
         } else {
             self.new_scopes.clone()
         };
@@ -459,13 +456,7 @@ impl FrameData {
         for new_scope_id in &scopes {
             scope_details.scopes_by_id(|details| {
                 if let Some(details) = details.get(new_scope_id) {
-                    to_serialize_scopes.push(crate::scope_details::SerdeScopeDetails {
-                        scope_id: *new_scope_id,
-                        scope_name: details.scope_name.to_string(),
-                        function_name: details.dynamic_function_name.to_string(),
-                        file_path: details.dynamic_file_path.to_string(),
-                        line_nmr: details.line_nr,
-                    });
+                    to_serialize_scopes.push(details.clone());
                 }
             });
         }
@@ -482,14 +473,12 @@ impl FrameData {
     /// or an end-of-stream sentinel of `0u32` is read.
     #[cfg(feature = "serialization")]
     pub fn read_next(
-        scope_details: &ScopeDetails,
+        scope_collection: &ScopeCollection,
         read: &mut impl std::io::Read,
     ) -> anyhow::Result<Option<Self>> {
         use anyhow::Context as _;
         use bincode::Options as _;
         use byteorder::{ReadBytesExt, LE};
-
-        use crate::ScopeDetailsOwned;
 
         let mut header = [0_u8; 4];
         if let Err(err) = read.read_exact(&mut header) {
@@ -654,37 +643,26 @@ impl FrameData {
                 read.read_exact(&mut serialized_scopes)
                     .context("Can not deserialize scope details")?;
 
-                let deserialized_scopes: Vec<crate::scope_details::SerdeScopeDetails> =
+                let deserialized_scopes: Vec<crate::scope_details::ScopeDetails> =
                     bincode::options()
-                        .deserialize_from(&serialized_scopes[..]) // Use a slice instead of the whole vector
+                        .deserialize_from(serialized_scopes.as_slice()) // Use a slice instead of the whole vector
                         .context("Can not deserialize scope details")?;
 
-                for serde_scope_details in &deserialized_scopes {
-                    scope_details.insert(
-                        serde_scope_details.scope_id,
-                        ScopeDetailsOwned {
-                            scope_name: serde_scope_details.scope_name.clone().into(),
-                            dynamic_function_name: serde_scope_details.function_name.clone().into(),
-                            dynamic_file_path: serde_scope_details.file_path.clone().into(),
-                            line_nr: serde_scope_details.line_nmr,
-                            raw_function_name: "empty",
-                            raw_file_path: "empty",
-                            location: format!(
-                                "{}:{}",
-                                serde_scope_details.file_path, serde_scope_details.line_nmr
-                            ),
-                        },
-                    );
+                let new_scopes = deserialized_scopes
+                    .iter()
+                    .map(|x| x.scope_id.unwrap())
+                    .collect();
+
+                for serde_scope_details in deserialized_scopes {
+                    scope_collection
+                        .insert(serde_scope_details.scope_id.unwrap(), serde_scope_details);
                 }
 
                 Ok(Some(Self {
                     meta,
                     unpacked_frame: RwLock::new(None),
                     packed_streams: RwLock::new(Some(packed_streams)),
-                    new_scopes: deserialized_scopes
-                        .into_iter()
-                        .map(|x| x.scope_id)
-                        .collect(),
+                    new_scopes,
                 }))
             } else {
                 anyhow::bail!("Failed to decode: this data is newer than this reader. Please update your puffin version!");

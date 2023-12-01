@@ -10,7 +10,7 @@ pub struct Options {
 pub fn ui(
     ui: &mut egui::Ui,
     options: &mut Options,
-    scope_infos: &ScopeDetails,
+    scope_infos: &ScopeCollection,
     frames: &[std::sync::Arc<UnpackedFrameData>],
 ) {
     let mut threads = std::collections::HashSet::<&ThreadInfo>::new();
@@ -72,13 +72,13 @@ pub fn ui(
 
                 for (key, stats) in &scopes {
                     scope_infos.read_by_id(&key.id, |scope_details| {
-                        if !options.filter.include(&scope_details.dynamic_function_name) {
+                        if !options.filter.include(&scope_details.function_name) {
                             return;
                         }
 
                         ui.label(&key.thread_name);
                         ui.label(scope_details.location.clone());
-                        ui.label(format!("{:?}", scope_details.dynamic_function_name));
+                        ui.label(format!("{:?}", scope_details.function_name));
                         ui.label(format!("{:?}", scope_details.scope_name));
                         ui.monospace(format!("{:>5}", stats.count));
                         ui.monospace(format!("{:>6.1} kB", stats.bytes as f32 * 1e-3));
