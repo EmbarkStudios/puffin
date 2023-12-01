@@ -111,8 +111,8 @@ pub use data::*;
 pub use frame_data::{FrameData, FrameMeta, UnpackedFrameData};
 pub use merge::*;
 pub use profile_view::{select_slowest, FrameView, GlobalFrameView};
-use scope_details::ScopeDetailsStatic;
-pub use scope_details::{ScopeCollection, ScopeDetails};
+pub use scope_details::ScopeCollection;
+use scope_details::ScopeDetails;
 use std::collections::BTreeMap;
 use std::sync::{
     atomic::{AtomicBool, Ordering},
@@ -334,13 +334,13 @@ type NsSource = fn() -> NanoSecond;
 // Function interface for reporting thread local scope details.
 // If there are new scopes the scope details array will contain information contain scope details for this scope.
 // The stream will always contain the scope timing details.
-type ThreadReporter = fn(ThreadInfo, &[ScopeDetailsStatic], &StreamInfoRef<'_>);
+type ThreadReporter = fn(ThreadInfo, &[ScopeDetails], &StreamInfoRef<'_>);
 
 /// Report a stream of profile data from a thread to the [`GlobalProfiler`] singleton.
 /// This is used for internal purposes only
 pub(crate) fn internal_profile_reporter(
     info: ThreadInfo,
-    scope_details: &[ScopeDetailsStatic],
+    scope_details: &[ScopeDetails],
     stream_scope_times: &StreamInfoRef<'_>,
 ) {
     GlobalProfiler::lock().report(info, scope_details, stream_scope_times);
@@ -348,7 +348,7 @@ pub(crate) fn internal_profile_reporter(
 /// Collects profiling data for one thread
 pub struct ThreadProfiler {
     stream_info: StreamInfo,
-    scope_details_raw: Vec<ScopeDetailsStatic>,
+    scope_details: Vec<ScopeDetails>,
     /// Current depth.
     depth: usize,
     now_ns: NsSource,
@@ -360,7 +360,7 @@ impl Default for ThreadProfiler {
     fn default() -> Self {
         Self {
             stream_info: Default::default(),
-            scope_details_raw: Default::default(),
+            scope_details: Default::default(),
             depth: 0,
             now_ns: crate::now_ns,
             reporter: internal_profile_reporter,
@@ -385,21 +385,38 @@ impl ThreadProfiler {
     }
 
     #[must_use]
-    pub fn register_new_scope(
+    pub fn register_function_scope(
         &mut self,
-        scope_name: &'static str,
         function_name: &'static str,
-        file_name: &'static str,
+        file_path: &'static str,
         line_nr: u32,
     ) -> ScopeId {
         let new_id = fetch_add_scope_id();
-        self.scope_details_raw.push(ScopeDetailsStatic {
-            scope_id: new_id,
-            scope_name,
-            function_name,
-            file_path: file_name,
-            line_nr,
-        });
+        self.scope_details.push(
+            ScopeDetails::from_scope_id(new_id)
+                .with_function_name(function_name)
+                .with_file(file_path)
+                .with_line_nr(line_nr),
+        );
+        new_id
+    }
+
+    #[must_use]
+    pub fn register_scope(
+        &mut self,
+        scope_name: &'static str,
+        function_name: &'static str,
+        file_path: &'static str,
+        line_nr: u32,
+    ) -> ScopeId {
+        let new_id = fetch_add_scope_id();
+        self.scope_details.push(
+            ScopeDetails::from_scope_id(new_id)
+                .with_scope_name(scope_name)
+                .with_function_name(function_name)
+                .with_file(file_path)
+                .with_line_nr(line_nr),
+        );
         new_id
     }
 
@@ -438,11 +455,11 @@ impl ThreadProfiler {
             };
             (self.reporter)(
                 info,
-                &self.scope_details_raw,
+                &self.scope_details,
                 &self.stream_info.as_stream_into_ref(),
             );
 
-            self.scope_details_raw.clear();
+            self.scope_details.clear();
             self.stream_info.clear();
         }
     }
@@ -479,7 +496,7 @@ pub struct FrameSinkId(u64);
 pub struct GlobalProfiler {
     current_frame_index: FrameIndex,
     current_stream_scope_times: BTreeMap<ThreadInfo, StreamInfo>,
-    new_scope_details: Vec<ScopeDetailsStatic>,
+    new_scope_details: Vec<ScopeDetails>,
 
     next_sink_id: FrameSinkId,
     sinks: std::collections::HashMap<FrameSinkId, FrameSink>,
@@ -540,9 +557,12 @@ impl GlobalProfiler {
         // 3. This logic doesn't run within the profile macros so we have more CPU resources here.
         if !self.new_scope_details.is_empty() {
             for scope_detail in self.new_scope_details.drain(..) {
-                self.scope_delta.push(scope_detail.scope_id);
-                self.scope_collection
-                    .insert_with_id(scope_detail.scope_id, ScopeDetails::from(scope_detail));
+                self.scope_delta.push(
+                    scope_detail
+                        .scope_id
+                        .expect("Puffin should have allocated id"),
+                );
+                self.scope_collection.insert(scope_detail);
             }
         }
 
@@ -577,7 +597,7 @@ impl GlobalProfiler {
     pub(crate) fn report(
         &mut self,
         info: ThreadInfo,
-        scope_details: &[ScopeDetailsStatic],
+        scope_details: &[ScopeDetails],
         stream_scope_times: &StreamInfoRef<'_>,
     ) {
         if !scope_details.is_empty() {
@@ -999,8 +1019,7 @@ macro_rules! profile_function {
             static SCOPE_ID: std::sync::OnceLock<$crate::ScopeId> = std::sync::OnceLock::new();
             let scope_id = SCOPE_ID.get_or_init(|| {
                 $crate::ThreadProfiler::call(|tp| {
-                    let id = tp.register_new_scope(
-                        $crate::current_function_name!(), // the id for a function is just the function name.
+                    let id = tp.register_function_scope(
                         $crate::current_function_name!(),
                         file!(),
                         line!(),
@@ -1037,7 +1056,7 @@ macro_rules! profile_scope {
             static SCOPE_ID: std::sync::OnceLock<$crate::ScopeId> = std::sync::OnceLock::new();
             let scope_id = SCOPE_ID.get_or_init(|| {
                 $crate::ThreadProfiler::call(|tp| {
-                    let id = tp.register_new_scope(
+                    let id = tp.register_scope(
                         $name,
                         $crate::current_function_name!(),
                         file!(),

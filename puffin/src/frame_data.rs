@@ -653,9 +653,8 @@ impl FrameData {
                     .map(|x| x.scope_id.unwrap())
                     .collect();
 
-                for serde_scope_details in deserialized_scopes {
-                    scope_collection
-                        .insert_with_id(serde_scope_details.scope_id.unwrap(), serde_scope_details);
+                for scope_details in deserialized_scopes {
+                    scope_collection.insert(scope_details);
                 }
 
                 Ok(Some(Self {

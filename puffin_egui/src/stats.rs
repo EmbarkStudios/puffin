@@ -77,7 +77,7 @@ pub fn ui(
                         }
 
                         ui.label(&key.thread_name);
-                        ui.label(scope_details.location.clone());
+                        ui.label(scope_details.location());
                         ui.label(format!("{:?}", scope_details.function_name));
                         ui.label(format!("{:?}", scope_details.scope_name));
                         ui.monospace(format!("{:>5}", stats.count));

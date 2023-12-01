@@ -160,8 +160,7 @@ pub fn merge_scopes_for_thread<'s>(
         if let Some(stream_info) = frame.thread_streams.get(thread_info) {
             let offset_ns = frame.meta.range_ns.0 - frames[0].meta.range_ns.0; // make everything relative to first frame
 
-            let top_scopes: Vec<Scope<'_>> =
-                Reader::from_start(&stream_info.stream).read_top_scopes()?;
+            let top_scopes = Reader::from_start(&stream_info.stream).read_top_scopes()?;
 
             for scope in top_scopes {
                 top_nodes
@@ -192,14 +191,14 @@ fn test_merge() {
 
     let scope_collection = ScopeCollection::default();
     // top scopes
-    scope_collection.insert_with_id(
+    scope_collection.insert(
         ScopeId(0),
         ScopeDetails {
             function_name: "a".into(),
             ..Default::default()
         },
     );
-    scope_collection.insert_with_id(
+    scope_collection.insert(
         ScopeId(1),
         ScopeDetails {
             function_name: "b".into(),
@@ -208,21 +207,21 @@ fn test_merge() {
     );
 
     // middle scopes
-    scope_collection.insert_with_id(
+    scope_collection.insert(
         ScopeId(2),
         ScopeDetails {
             function_name: "ba".into(),
             ..Default::default()
         },
     );
-    scope_collection.insert_with_id(
+    scope_collection.insert(
         ScopeId(3),
         ScopeDetails {
             function_name: "bb".into(),
             ..Default::default()
         },
     );
-    scope_collection.insert_with_id(
+    scope_collection.insert(
         ScopeId(4),
         ScopeDetails {
             function_name: "bba".into(),

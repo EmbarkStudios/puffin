@@ -33,15 +33,18 @@ impl ScopeCollection {
     }
 
     /// Only puffin should be allowed to allocate and provide the scope id so this function is private to puffin.
-    pub(crate) fn insert_with_id(&self, scope_id: ScopeId, scope_details: ScopeDetails) {
+    pub(crate) fn insert(&self, scope_details: ScopeDetails) {
+        assert!(scope_details.scope_id.is_some());
+
+        let id = scope_details.identifier();
         self.0
             .write()
             .string_to_scope_id
-            .insert(scope_details.scope_name.to_string(), scope_id);
-        self.0
-            .write()
-            .scope_id_to_details
-            .insert(scope_id, scope_details);
+            .insert(id.to_string(), scope_details.scope_id.unwrap());
+        self.0.write().scope_id_to_details.insert(
+            scope_details.scope_id.unwrap(),
+            scope_details.into_readable(),
+        );
     }
 
     /// Manually register scope details. After a scope is inserted it can be reported to puffin.
@@ -49,7 +52,7 @@ impl ScopeCollection {
         let mut new_scopes = HashSet::new();
         for scope_detail in scopes {
             let new_scope_id = fetch_add_scope_id();
-            self.insert_with_id(new_scope_id, scope_detail.clone());
+            self.insert(scope_detail.clone().with_scope_id(new_scope_id));
             new_scopes.insert(new_scope_id);
         }
 
@@ -75,23 +78,6 @@ impl ScopeCollection {
     }
 }
 
-/// Scope details that are registered by the macros.
-/// This is only used internally and should not be exposed.
-#[derive(Debug, Clone, Copy, PartialEq, Hash, PartialOrd, Ord, Eq)]
-#[doc(hidden)]
-pub struct ScopeDetailsStatic {
-    /// Identifier for the scope being registered.
-    pub(crate) scope_id: ScopeId,
-    // Custom provided static id that identifies a scope in a function.
-    // For function scopes this is empty.
-    pub(crate) scope_name: &'static str,
-    /// The function name of the function in which this scope is contained.
-    pub(crate) function_name: &'static str,
-    /// The file path in which this scope is contained.
-    pub(crate) file_path: &'static str,
-    /// The exact line number at which this scope is located.
-    pub(crate) line_nr: u32,
-}
 #[derive(Debug, Default, Clone, PartialEq, Hash, PartialOrd, Ord, Eq)]
 /// This struct contains scope details and can be read by external libraries.
 pub struct ScopeDetails {
@@ -100,7 +86,7 @@ pub struct ScopeDetails {
     // It is `None` when an external library has yet to register this scope.
     pub(crate) scope_id: Option<ScopeId>,
     /// Identifier for a scope, for a function this is just the raw function name.
-    pub scope_name: Cow<'static, str>,
+    pub scope_name: Option<Cow<'static, str>>,
     /// The function name of the function in which this scope is contained.
     /// The name might be slightly modified to represent a short descriptive name.
     pub function_name: Cow<'static, str>,
@@ -109,70 +95,95 @@ pub struct ScopeDetails {
     pub file_path: Cow<'static, str>,
     /// The exact line number at which this scope is located.
     pub line_nr: u32,
-    /// File name plus line number formatted as `/path/file.rs:line_nr`
-    pub location: String,
 }
 
 impl ScopeDetails {
     /// Create a new custom scope with a unique name.
-    pub fn from_scope_name(scope_name: impl Into<Cow<'static, str>>) -> Self {
+    pub fn from_scope_name<T>(scope_name: T) -> Self
+    where
+        T: Into<Cow<'static, str>>,
+    {
         Self {
             scope_id: None,
-            scope_name: scope_name.into(),
+            scope_name: Some(scope_name.into()),
             function_name: Default::default(),
             file_path: Default::default(),
             line_nr: Default::default(),
-            location: Default::default(),
         }
     }
 
     /// Create a new custom scope with a unique id allocated by puffin.
     /// This function should not be exposed as only puffin should allocate ids.
-    fn from_scope_id(scope_id: ScopeId) -> Self {
+    pub(crate) fn from_scope_id(scope_id: ScopeId) -> Self {
         Self {
             scope_id: Some(scope_id),
-            scope_name: Default::default(),
+            scope_name: None,
             function_name: Default::default(),
             file_path: Default::default(),
             line_nr: Default::default(),
-            location: Default::default(),
         }
     }
 
     #[inline]
-    pub fn with_function_name(mut self, name: impl Into<Cow<'static, str>>) -> Self {
+    pub fn with_function_name<T>(mut self, name: T) -> Self
+    where
+        T: Into<Cow<'static, str>>,
+    {
         self.function_name = name.into();
         self
     }
 
     #[inline]
-    pub fn with_file(mut self, file: Cow<'static, str>) -> Self {
-        self.file_path = file;
-        self.update_location();
+    pub fn with_file<T>(mut self, file: T) -> Self
+    where
+        T: Into<Cow<'static, str>>,
+    {
+        self.file_path = file.into();
         self
     }
 
     #[inline]
     pub fn with_line_nr(mut self, line_nr: u32) -> Self {
         self.line_nr = line_nr;
-        self.update_location();
+        self
+    }
+
+    // Scopes are identified by user-provided name while functions are identified by the function name.
+    pub fn identifier(&self) -> &'_ Cow<'static, str> {
+        self.scope_name
+            .as_ref()
+            .unwrap_or_else(|| &self.function_name)
+    }
+
+    #[inline]
+    pub fn location(&self) -> String {
+        format!("{}:{}", self.file_path, self.line_nr)
+    }
+
+    #[inline]
+    pub(crate) fn into_readable(self) -> Self {
+        Self {
+            scope_id: self.scope_id,
+            scope_name: self.scope_name,
+            function_name: clean_function_name(&self.function_name).into(),
+            file_path: short_file_name(&self.file_path).into(),
+            line_nr: self.line_nr,
+        }
+    }
+
+    #[inline]
+    pub(crate) fn with_scope_id(mut self, scope_id: ScopeId) -> Self {
+        self.scope_id = Some(scope_id);
         self
     }
 
     #[inline]
-    fn update_location(&mut self) {
-        self.location = format!("{}:{}", self.file_path, self.line_nr)
-    }
-}
-
-impl From<ScopeDetailsStatic> for ScopeDetails {
-    fn from(value: ScopeDetailsStatic) -> Self {
-        let cleaned_function_name = clean_function_name(value.function_name);
-
-        ScopeDetails::from_scope_id(value.scope_id)
-            .with_file(Cow::Owned(short_file_name(value.file_path)))
-            .with_function_name(Cow::Owned(cleaned_function_name))
-            .with_line_nr(value.line_nr)
+    pub(crate) fn with_scope_name<T>(mut self, scope_name: T) -> Self
+    where
+        T: Into<Cow<'static, str>>,
+    {
+        self.scope_name = Some(scope_name.into());
+        self
     }
 }
 
@@ -181,13 +192,12 @@ impl Serialize for ScopeDetails {
     where
         S: Serializer,
     {
-        let mut state = serializer.serialize_struct("ScopeDetails", 6)?;
+        let mut state = serializer.serialize_struct(stringify!(ScopeDetails), 5)?;
         state.serialize_field("scope_id", &self.scope_id)?;
         state.serialize_field("scope_name", &self.scope_name)?;
         state.serialize_field("function_name", &self.function_name)?;
         state.serialize_field("file_path", &self.file_path)?;
         state.serialize_field("line_nr", &self.line_nr)?;
-        state.serialize_field("location", &self.location)?;
         state.end()
     }
 }
@@ -197,24 +207,13 @@ impl<'de> Deserialize<'de> for ScopeDetails {
     where
         D: Deserializer<'de>,
     {
-        #[derive(Deserialize)]
-        #[serde(field_identifier, rename_all = "snake_case")]
-        enum Field {
-            ScopeId,
-            ScopeName,
-            DynamicFunctionName,
-            DynamicFilePath,
-            LineNr,
-            Location,
-        }
-
         struct ScopeDetailsOwnedVisitor;
 
         impl<'de> serde::de::Visitor<'de> for ScopeDetailsOwnedVisitor {
             type Value = ScopeDetails;
 
             fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                formatter.write_str("struct ScopeDetailsOwned")
+                formatter.write_str(&format!("struct {}", stringify!(ScopeDetails)))
             }
 
             fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
@@ -236,9 +235,6 @@ impl<'de> Deserialize<'de> for ScopeDetails {
                 let line_nr = seq
                     .next_element()?
                     .ok_or_else(|| serde::de::Error::missing_field("line_nr"))?;
-                let location = seq
-                    .next_element()?
-                    .ok_or_else(|| serde::de::Error::missing_field("location"))?;
 
                 Ok(ScopeDetails {
                     scope_id: Some(scope_id),
@@ -246,7 +242,6 @@ impl<'de> Deserialize<'de> for ScopeDetails {
                     function_name,
                     file_path,
                     line_nr,
-                    location,
                 })
             }
         }
@@ -257,8 +252,7 @@ impl<'de> Deserialize<'de> for ScopeDetails {
             "function_name",
             "file_path",
             "line_nr",
-            "location",
         ];
-        deserializer.deserialize_struct("ScopeDetails", FIELDS, ScopeDetailsOwnedVisitor)
+        deserializer.deserialize_struct(stringify!(ScopeDetails), FIELDS, ScopeDetailsOwnedVisitor)
     }
 }

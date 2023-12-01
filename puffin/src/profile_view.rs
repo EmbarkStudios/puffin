@@ -17,8 +17,7 @@ pub struct FrameView {
     /// Only recommended if you set a large max_recent size.
     pack_frames: bool,
 
-    /// Contains all the scope details.
-    pub scope_collection: ScopeCollection,
+    scope_collection: ScopeCollection,
 }
 
 impl Default for FrameView {
@@ -181,11 +180,15 @@ impl FrameView {
             max_recent: usize::MAX,
             ..Default::default()
         };
-        while let Some(frame) = FrameData::read_next(&slf.scope_collection, read)? {
+        while let Some(frame) = FrameData::read_next(&slf.scope_collection(), read)? {
             slf.add_frame(frame.into());
         }
 
         Ok(slf)
+    }
+
+    pub fn scope_collection(&self) -> &ScopeCollection {
+        &self.scope_collection
     }
 }
 

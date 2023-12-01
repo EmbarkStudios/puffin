@@ -690,7 +690,7 @@ fn paint_record(
 
         let mut name = String::new();
         scope_collection.read_by_id(&scope_id, |scope_details| {
-            name = format!("{}", scope_details.scope_name);
+            name = format!("{:?}", scope_details.identifier());
         });
 
         let duration_ms = to_ms(scope_data.duration_ns);
