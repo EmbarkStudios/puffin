@@ -6,7 +6,9 @@
 //!
 //! ```
 //! let server_addr = format!("127.0.0.1:{}", puffin_http::DEFAULT_PORT);
-//! puffin_http::Server::new(&server_addr).unwrap();
+//! let _puffin_server = puffin_http::Server::new(&server_addr).unwrap();
+//! eprintln!("Serving demo profile data on {server_addr}. Run `puffin_viewer` to view it.");
+//! puffin::set_scopes_on(true);
 //! ```
 
 // BEGIN - Embark standard lints v5 for Rust 1.55+
