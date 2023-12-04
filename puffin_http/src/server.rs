@@ -16,6 +16,7 @@ const MAX_FRAMES_IN_QUEUE: usize = 30;
 /// and streams them puffin profiler data.
 ///
 /// Drop to stop transmitting and listening for new connections.
+#[must_use = "When Server is dropped, the server is closed, so keep it around!"]
 pub struct Server {
     sink_id: puffin::FrameSinkId,
     join_handle: Option<std::thread::JoinHandle<()>>,

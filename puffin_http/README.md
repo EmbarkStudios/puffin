@@ -16,7 +16,11 @@ When the server is started, [`puffin_viewer`](https://crates.io/crates/puffin_vi
 ``` rust
 fn main() {
     let server_addr = format!("0.0.0.0:{}", puffin_http::DEFAULT_PORT);
-    puffin_http::Server::new(&server_addr).unwrap();
+    let _puffin_server = puffin_http::Server::new(&server_addr).unwrap();
+    eprintln!("Serving demo profile data on {server_addr}. Run `puffin_viewer` to view it.");
+    puffin::set_scopes_on(true);
+
+    // …
 }
 ```
 
