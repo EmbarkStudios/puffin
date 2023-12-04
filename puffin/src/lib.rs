@@ -114,6 +114,7 @@ pub use profile_view::{select_slowest, FrameView, GlobalFrameView};
 pub use scope_details::{ScopeCollection, ScopeDetails};
 use std::borrow::Cow;
 use std::collections::BTreeMap;
+use std::num::NonZeroU32;
 use std::sync::{
     atomic::{AtomicBool, Ordering},
     Arc,
@@ -475,11 +476,14 @@ impl ThreadProfiler {
 }
 
 /// Incremental monolithic counter to identify scopes.
-static SCOPE_ID_TRACKER: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+static SCOPE_ID_TRACKER: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(1);
 
 fn fetch_add_scope_id() -> ScopeId {
     let new_id = SCOPE_ID_TRACKER.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
-    ScopeId(new_id)
+    ScopeId(
+        NonZeroU32::new(new_id)
+            .expect("safe because integer is retrieved from fetch-add atomic operation"),
+    )
 }
 
 // ----------------------------------------------------------------------------
@@ -736,12 +740,19 @@ impl Drop for ProfilerScope {
 }
 
 /// A unique id for each scope and [`ScopeDetails`].
-#[derive(Default, Copy, Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[cfg_attr(
     feature = "serialization",
     derive(serde::Serialize, serde::Deserialize)
 )]
-pub struct ScopeId(pub u32);
+pub struct ScopeId(pub NonZeroU32);
+
+impl ScopeId {
+    #[cfg(test)]
+    pub(crate) fn new_unchecked(id: u32) -> Self {
+        ScopeId(NonZeroU32::new(id).expect("Scope id was not non-zero u32"))
+    }
+}
 
 #[doc(hidden)]
 #[inline(always)]
@@ -956,18 +967,20 @@ fn profile_macros_test() {
     GlobalProfiler::lock().new_frame();
 
     let collection = GlobalProfiler::scope_collection();
-    collection.read_by_id(&ScopeId(0), |scope| {
+    collection.read_by_id(&ScopeId::new_unchecked(1), |scope| {
         assert_eq!(scope.file_path, "puffin/src/lib.rs");
         assert_eq!(scope.function_name, "profile_macros_test::a");
-        assert_eq!(scope.line_nr, 947);
+        assert_eq!(scope.line_nr, 958);
     });
-    collection.read_by_id(&ScopeId(1), |scope| {
+    collection.read_by_id(&ScopeId::new_unchecked(2), |scope| {
         assert_eq!(scope.file_path, "puffin/src/lib.rs");
         assert_eq!(scope.function_name, "profile_macros_test::a");
-        assert_eq!(scope.line_nr, 949);
+        assert_eq!(scope.line_nr, 960);
     });
 
-    collection.read_by_name("profile_macros_test::a", |id| assert_eq!(*id, ScopeId(1)));
+    collection.read_by_name("profile_macros_test::a", |id| {
+        assert_eq!(*id, ScopeId::new_unchecked(2))
+    });
 
     // Second frame
     a();

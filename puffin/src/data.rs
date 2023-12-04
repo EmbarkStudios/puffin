@@ -25,6 +25,7 @@
 //! At the moment strings may be at most 127 bytes long.
 
 use super::*;
+use anyhow::Context;
 use byteorder::{LittleEndian as LE, ReadBytesExt, WriteBytesExt};
 use std::mem::size_of;
 
@@ -59,16 +60,11 @@ pub type Result<T> = std::result::Result<T, Error>;
 impl Stream {
     /// Returns position where to write scope size once the scope is closed
     #[inline]
-    pub fn begin_scope(
-        &mut self,
-        start_ns: NanoSecond,
-        scope_id: ScopeId,
-        dynamic_data: &str,
-    ) -> usize {
+    pub fn begin_scope(&mut self, start_ns: NanoSecond, scope_id: ScopeId, data: &str) -> usize {
         self.0.push(SCOPE_BEGIN);
         self.write_scope_id(scope_id);
         self.0.write_i64::<LE>(start_ns).expect("can't fail");
-        self.write_str(dynamic_data);
+        self.write_str(data);
         // Put place-holder value for total scope size.
         let offset = self.0.len();
         self.write_scope_size(ScopeSize::unfinished());
@@ -104,7 +100,9 @@ impl Stream {
     #[inline]
     fn write_scope_id(&mut self, scope_id: ScopeId) {
         // Could potentially use varint encoding.
-        self.0.write_u32::<LE>(scope_id.0).expect("can't fail");
+        self.0
+            .write_u32::<LE>(scope_id.0.get())
+            .expect("can't fail");
     }
 
     #[inline]
@@ -150,7 +148,7 @@ impl<'s> Reader<'s> {
 
         let scope_id = self.parse_scope_id()?;
         let start_ns = self.parse_nanos()?;
-        let dynamic_data = self.parse_string()?;
+        let data = self.parse_string()?;
         let scope_size = self.parse_scope_size()?;
         if scope_size == ScopeSize::unfinished() {
             return Err(Error::ScopeNeverEnded);
@@ -172,7 +170,7 @@ impl<'s> Reader<'s> {
             record: ScopeRecord {
                 start_ns,
                 duration_ns: stop_ns - start_ns,
-                data: dynamic_data,
+                data,
             },
             child_begin_position,
             child_end_position,
@@ -204,6 +202,8 @@ impl<'s> Reader<'s> {
     fn parse_scope_id(&mut self) -> Result<ScopeId> {
         self.0
             .read_u32::<LE>()
+            .context("Can not parse scope id")
+            .and_then(|x| NonZeroU32::new(x).context("Not a `NonZeroU32` scope id"))
             .map(ScopeId)
             .map_err(|_err| Error::PrematureEnd)
     }
@@ -289,7 +289,7 @@ impl<'s> Iterator for Reader<'s> {
 #[test]
 fn write_scope() {
     let mut stream: Stream = Stream::default();
-    let start = stream.begin_scope(100, ScopeId(0), "data");
+    let start = stream.begin_scope(100, ScopeId::new_unchecked(1), "data");
     stream.end_scope(start, 300);
 
     let scopes = Reader::from_start(&stream).read_top_scopes().unwrap();
@@ -309,10 +309,10 @@ fn test_profile_data() {
     let stream = {
         let mut stream = Stream::default();
 
-        let t0 = stream.begin_scope(100, ScopeId(0), "data_top");
-        let m1 = stream.begin_scope(200, ScopeId(1), "data_middle_0");
+        let t0 = stream.begin_scope(100, ScopeId::new_unchecked(1), "data_top");
+        let m1 = stream.begin_scope(200, ScopeId::new_unchecked(2), "data_middle_0");
         stream.end_scope(m1, 300);
-        let m1 = stream.begin_scope(300, ScopeId(2), "data_middle_1");
+        let m1 = stream.begin_scope(300, ScopeId::new_unchecked(3), "data_middle_1");
         stream.end_scope(m1, 400);
         stream.end_scope(t0, 400);
         stream

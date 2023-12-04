@@ -190,29 +190,34 @@ fn test_merge() {
 
     let scope_collection = ScopeCollection::default();
     // top scopes
-    scope_collection.insert(ScopeDetails::from_scope_id(ScopeId(0)).with_function_name("a"));
-    scope_collection.insert(ScopeDetails::from_scope_id(ScopeId(1)).with_function_name("b"));
+    scope_collection
+        .insert(ScopeDetails::from_scope_id(ScopeId::new_unchecked(1)).with_function_name("a"));
+    scope_collection
+        .insert(ScopeDetails::from_scope_id(ScopeId::new_unchecked(2)).with_function_name("b"));
 
     // middle scopes
-    scope_collection.insert(ScopeDetails::from_scope_id(ScopeId(2)).with_function_name("ba"));
-    scope_collection.insert(ScopeDetails::from_scope_id(ScopeId(3)).with_function_name("bb"));
-    scope_collection.insert(ScopeDetails::from_scope_id(ScopeId(4)).with_function_name("bba"));
+    scope_collection
+        .insert(ScopeDetails::from_scope_id(ScopeId::new_unchecked(3)).with_function_name("ba"));
+    scope_collection
+        .insert(ScopeDetails::from_scope_id(ScopeId::new_unchecked(4)).with_function_name("bb"));
+    scope_collection
+        .insert(ScopeDetails::from_scope_id(ScopeId::new_unchecked(5)).with_function_name("bba"));
 
     let stream = {
         let mut stream = Stream::default();
 
         for i in 0..2 {
             let ns = 1000 * i;
-            let a = stream.begin_scope(ns + 100, ScopeId(0), "");
+            let a = stream.begin_scope(ns + 100, ScopeId::new_unchecked(1), "");
             stream.end_scope(a, ns + 200);
 
-            let b = stream.begin_scope(ns + 200, ScopeId(1), "");
+            let b = stream.begin_scope(ns + 200, ScopeId::new_unchecked(2), "");
 
-            let ba = stream.begin_scope(ns + 400, ScopeId(2), "");
+            let ba = stream.begin_scope(ns + 400, ScopeId::new_unchecked(3), "");
             stream.end_scope(ba, ns + 600);
 
-            let bb = stream.begin_scope(ns + 600, ScopeId(3), "");
-            let bba = stream.begin_scope(ns + 600, ScopeId(4), "");
+            let bb = stream.begin_scope(ns + 600, ScopeId::new_unchecked(4), "");
+            let bba = stream.begin_scope(ns + 600, ScopeId::new_unchecked(5), "");
             stream.end_scope(bba, ns + 700);
             stream.end_scope(bb, ns + 800);
             stream.end_scope(b, ns + 900);
@@ -241,7 +246,7 @@ fn test_merge() {
             duration_per_frame_ns: 2 * 100,
             max_duration_ns: 100,
             num_pieces: 2,
-            id: ScopeId(0),
+            id: ScopeId::new_unchecked(1),
             data: "".into(),
             children: vec![],
         },
@@ -251,7 +256,7 @@ fn test_merge() {
             duration_per_frame_ns: 2 * 700,
             max_duration_ns: 700,
             num_pieces: 2,
-            id: ScopeId(1),
+            id: ScopeId::new_unchecked(2),
             data: "".into(),
             children: vec![
                 MergeScope {
@@ -260,7 +265,7 @@ fn test_merge() {
                     duration_per_frame_ns: 2 * 200,
                     max_duration_ns: 200,
                     num_pieces: 2,
-                    id: ScopeId(2),
+                    id: ScopeId::new_unchecked(3),
                     data: "".into(),
                     children: vec![],
                 },
@@ -270,7 +275,7 @@ fn test_merge() {
                     duration_per_frame_ns: 2 * 200,
                     max_duration_ns: 200,
                     num_pieces: 2,
-                    id: ScopeId(3),
+                    id: ScopeId::new_unchecked(4),
                     data: "".into(),
                     children: vec![MergeScope {
                         relative_start_ns: 0,
@@ -278,7 +283,7 @@ fn test_merge() {
                         duration_per_frame_ns: 2 * 100,
                         max_duration_ns: 100,
                         num_pieces: 2,
-                        id: ScopeId(4),
+                        id: ScopeId::new_unchecked(5),
                         data: "".into(),
                         children: vec![],
                     }],
