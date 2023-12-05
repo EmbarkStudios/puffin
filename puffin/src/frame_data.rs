@@ -473,7 +473,7 @@ impl FrameData {
     /// or an end-of-stream sentinel of `0u32` is read.
     #[cfg(feature = "serialization")]
     pub fn read_next(
-        scope_collection: &ScopeCollection,
+        scope_collection: &mut ScopeCollection,
         read: &mut impl std::io::Read,
     ) -> anyhow::Result<Option<Self>> {
         use anyhow::Context as _;

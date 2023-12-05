@@ -188,7 +188,7 @@ pub fn merge_scopes_for_thread<'s>(
 fn test_merge() {
     use crate::*;
 
-    let scope_collection = ScopeCollection::default();
+    let mut scope_collection = ScopeCollection::default();
     // top scopes
     scope_collection
         .insert(ScopeDetails::from_scope_id(ScopeId::new_unchecked(1)).with_function_name("a"));

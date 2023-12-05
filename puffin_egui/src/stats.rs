@@ -71,25 +71,25 @@ pub fn ui(
                 ui.end_row();
 
                 for (key, stats) in &scopes {
-                    scope_infos.read_by_id(&key.id, |scope_details| {
-                        if !options.filter.include(&scope_details.function_name) {
-                            return;
-                        }
+                    let scope_details = scope_infos.read_by_id(&key.id).unwrap();
 
-                        ui.label(&key.thread_name);
-                        ui.label(scope_details.location());
-                        ui.label(format!("{:?}", scope_details.function_name));
-                        ui.label(format!("{:?}", scope_details.scope_name));
-                        ui.monospace(format!("{:>5}", stats.count));
-                        ui.monospace(format!("{:>6.1} kB", stats.bytes as f32 * 1e-3));
-                        ui.monospace(format!("{:>8.1} µs", stats.total_self_ns as f32 * 1e-3));
-                        ui.monospace(format!(
-                            "{:>8.1} µs",
-                            stats.total_self_ns as f32 * 1e-3 / (stats.count as f32)
-                        ));
-                        ui.monospace(format!("{:>8.1} µs", stats.max_ns as f32 * 1e-3));
-                        ui.end_row();
-                    });
+                    if !options.filter.include(&scope_details.function_name) {
+                        return;
+                    }
+
+                    ui.label(&key.thread_name);
+                    ui.label(scope_details.location());
+                    ui.label(format!("{:?}", scope_details.function_name));
+                    ui.label(format!("{:?}", scope_details.scope_name));
+                    ui.monospace(format!("{:>5}", stats.count));
+                    ui.monospace(format!("{:>6.1} kB", stats.bytes as f32 * 1e-3));
+                    ui.monospace(format!("{:>8.1} µs", stats.total_self_ns as f32 * 1e-3));
+                    ui.monospace(format!(
+                        "{:>8.1} µs",
+                        stats.total_self_ns as f32 * 1e-3 / (stats.count as f32)
+                    ));
+                    ui.monospace(format!("{:>8.1} µs", stats.max_ns as f32 * 1e-3));
+                    ui.end_row();
                 }
             });
     });

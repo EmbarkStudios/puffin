@@ -608,13 +608,13 @@ impl ProfilerUi {
             View::Flamegraph => flamegraph::ui(
                 ui,
                 &mut self.flamegraph_options,
-                frame_view.scope_collection(),
+                &GlobalProfiler::scope_collection(),
                 &frames,
             ),
             View::Stats => stats::ui(
                 ui,
                 &mut self.stats_options,
-                frame_view.scope_collection(),
+                &GlobalProfiler::scope_collection(),
                 &frames.frames,
             ),
         }

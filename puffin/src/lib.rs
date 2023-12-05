@@ -110,6 +110,8 @@ mod scope_details;
 pub use data::*;
 pub use frame_data::{FrameData, FrameMeta, UnpackedFrameData};
 pub use merge::*;
+use once_cell::sync::Lazy;
+use parking_lot::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 pub use profile_view::{select_slowest, FrameView, GlobalFrameView};
 pub use scope_details::{ScopeCollection, ScopeDetails};
 use std::borrow::Cow;
@@ -495,6 +497,15 @@ pub type FrameSink = Box<dyn Fn(Arc<FrameData>) + Send>;
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
 pub struct FrameSinkId(u64);
 
+// Scope details are stored separately from [`GlobalProfiler`] for the following reasons:
+//
+// 1. Almost every access only requires read access so there is no need for mutex lock the global profiler.
+// 2. Its important to guarantee that the profiler path is lock-free.
+// 2. External libraries like the http server or ui require read/write access to scopes.
+// But that can easily end up in deadlocks if a profile scope is executed while scope details are being read.
+// Storing the scope collection outside the [`GlobalProfiler`] prevents deadlocks.
+static SCOPE_COLLECTION: Lazy<RwLock<ScopeCollection>> = Lazy::new(Default::default);
+
 /// Singleton. Collects profiling data from multiple threads
 /// and passes them on to different [`FrameSink`]s.
 pub struct GlobalProfiler {
@@ -505,9 +516,6 @@ pub struct GlobalProfiler {
     next_sink_id: FrameSinkId,
     sinks: std::collections::HashMap<FrameSinkId, FrameSink>,
 
-    // Contains detailed information of every registered scope.
-    // This data structure can be cloned for fast read access.
-    scope_collection: ScopeCollection,
     // Stores the new scopes created since last frame was created.
     scope_delta: Vec<ScopeId>,
 }
@@ -520,7 +528,6 @@ impl Default for GlobalProfiler {
             new_scope_details: Default::default(),
             next_sink_id: FrameSinkId(1),
             sinks: Default::default(),
-            scope_collection: Default::default(),
             scope_delta: Default::default(),
         }
     }
@@ -538,11 +545,11 @@ impl GlobalProfiler {
 
     /// Access to the global profiler singleton.
     #[cfg(not(feature = "parking_lot"))]
-    pub fn lock() -> std::sync::MutexGuard<'static, Self> {
-        use once_cell::sync::Lazy;
-        static GLOBAL_PROFILER: Lazy<std::sync::Mutex<GlobalProfiler>> =
-            Lazy::new(Default::default);
-        GLOBAL_PROFILER.lock().expect("poisoned mutex")
+    pub fn lock() -> parking_lot::MutexGuard<'static, Self> {
+        use parking_lot::Mutex;
+
+        static GLOBAL_PROFILER: Lazy<Mutex<GlobalProfiler>> = Lazy::new(Default::default);
+        GLOBAL_PROFILER.lock()
     }
 
     /// You need to call this once at the start of every frame.
@@ -566,7 +573,7 @@ impl GlobalProfiler {
                         .scope_id
                         .expect("Puffin should have allocated id"),
                 );
-                self.scope_collection.insert(scope_detail);
+                Self::scope_collection_mut().insert(scope_detail);
             }
         }
 
@@ -617,6 +624,7 @@ impl GlobalProfiler {
     }
 
     /// Report custom scopes to puffin profiler.
+    /// Every scope reported should first be registered by [`Self::register_custom_scopes`].
     pub fn report_custom_scopes(
         &mut self,
         info: ThreadInfo,
@@ -626,6 +634,16 @@ impl GlobalProfiler {
             .entry(info)
             .or_default()
             .extend(stream_scope_times);
+    }
+
+    /// Insert custom scopes into puffin.
+    /// Scopes details should only be registered once for each scope and need be inserted before being reported to puffin.
+    /// This function should only be relevant when your not using puffin through the profiler macros.
+    pub fn register_custom_scopes(scopes: &[ScopeDetails]) {
+        let mut scope_collection_mut = Self::scope_collection_mut();
+        let new_scopes = scope_collection_mut.register_custom_scopes(scopes);
+        let mut lock = Self::lock();
+        lock.scope_delta.extend(&new_scopes);
     }
 
     /// Tells [`GlobalProfiler`] to call this function with each new finished frame.
@@ -643,24 +661,23 @@ impl GlobalProfiler {
         self.sinks.remove(&id)
     }
 
-    /// Insert custom scopes into puffin.
-    /// Scopes details should only be provided once for each scope and need be inserted before being reported to puffin.
-    /// This is only relevant when your not using puffin through the profiler macros.
-    pub fn insert_custom_scopes(scopes: &[ScopeDetails]) {
-        let mut lock = Self::lock();
-        let new_scopes = lock.scope_collection.register_custom_scopes(scopes);
-        lock.scope_delta.extend(&new_scopes);
-    }
-
     /// Fetches and drains the delta of newly registered scopes if any.
     /// Useful for knowing which scopes were registered since last time the function was called.
     pub fn take_scope_delta(&mut self) -> Vec<ScopeId> {
         std::mem::take(&mut self.scope_delta)
     }
 
-    pub fn scope_collection() -> ScopeCollection {
-        let lock = Self::lock();
-        lock.scope_collection.clone()
+    /// Fetches the scope collection with details for each scope.
+    pub fn scope_collection<'a>() -> RwLockReadGuard<'a, ScopeCollection> {
+        SCOPE_COLLECTION.read()
+    }
+
+    /// Fetches mutable access to the scope collection with details for each scope.
+    /// This should only be used if you know what your doing.
+    /// Scope details are automatically registered when using the profile macros.
+    /// Use [`Self::insert_custom_scopes`] for inserting custom scopes.
+    pub fn scope_collection_mut<'a>() -> RwLockWriteGuard<'a, ScopeCollection> {
+        SCOPE_COLLECTION.write()
     }
 }
 
@@ -690,8 +707,6 @@ pub fn now_ns() -> NanoSecond {
     use std::time::Instant;
     #[cfg(target_arch = "wasm32")]
     use web_time::Instant;
-
-    use once_cell::sync::Lazy;
 
     static START_TIME: Lazy<(NanoSecond, Instant)> =
         Lazy::new(|| (nanos_since_epoch(), Instant::now()));
@@ -967,20 +982,20 @@ fn profile_macros_test() {
     GlobalProfiler::lock().new_frame();
 
     let collection = GlobalProfiler::scope_collection();
-    collection.read_by_id(&ScopeId::new_unchecked(1), |scope| {
-        assert_eq!(scope.file_path, "puffin/src/lib.rs");
-        assert_eq!(scope.function_name, "profile_macros_test::a");
-        assert_eq!(scope.line_nr, 958);
-    });
-    collection.read_by_id(&ScopeId::new_unchecked(2), |scope| {
-        assert_eq!(scope.file_path, "puffin/src/lib.rs");
-        assert_eq!(scope.function_name, "profile_macros_test::a");
-        assert_eq!(scope.line_nr, 960);
-    });
+    let scope_details = collection.read_by_id(&ScopeId::new_unchecked(1)).unwrap();
+    assert_eq!(scope_details.file_path, "puffin/src/lib.rs");
+    assert_eq!(scope_details.function_name, "profile_macros_test::a");
+    assert_eq!(scope_details.line_nr, 973);
 
-    collection.read_by_name("profile_macros_test::a", |id| {
-        assert_eq!(*id, ScopeId::new_unchecked(2))
-    });
+    let scope_details = collection.read_by_id(&ScopeId::new_unchecked(2)).unwrap();
+
+    assert_eq!(scope_details.file_path, "puffin/src/lib.rs");
+    assert_eq!(scope_details.function_name, "profile_macros_test::a");
+    assert_eq!(scope_details.scope_name, Some(Cow::Borrowed("my-scope")));
+    assert_eq!(scope_details.line_nr, 975);
+
+    let scope_details = collection.read_by_name("my-scope").unwrap();
+    assert_eq!(scope_details, &ScopeId::new_unchecked(2));
 
     // Second frame
     a();

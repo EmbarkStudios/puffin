@@ -637,11 +637,10 @@ fn paint_record(
     if info.response.double_clicked() {
         if let Some(mouse_pos) = info.response.interact_pointer_pos() {
             if rect.contains(mouse_pos) {
-                scope_collection.read_by_id(&scope_id, |scope_details| {
-                    options
-                        .filter
-                        .set_filter(scope_details.function_name.to_string());
-                });
+                let scope_details = scope_collection.read_by_id(&scope_id).unwrap();
+                options
+                    .filter
+                    .set_filter(scope_details.function_name.to_string());
             }
         }
     } else if is_hovered && info.response.clicked() {
@@ -663,15 +662,14 @@ fn paint_record(
     let mut min_width = options.min_width;
 
     if !options.filter.is_empty() {
-        scope_collection.read_by_id(&scope_id, |scope_details| {
-            if options.filter.include(&scope_details.function_name) {
-                // keep full opacity
-                min_width *= 2.0; // make it more visible even when thin
-            } else {
-                // fade to highlight others
-                rect_color = lerp(Rgba::BLACK..=rect_color, 0.075);
-            }
-        });
+        let scope_details = scope_collection.read_by_id(&scope_id).unwrap();
+        if options.filter.include(&scope_details.function_name) {
+            // keep full opacity
+            min_width *= 2.0; // make it more visible even when thin
+        } else {
+            // fade to highlight others
+            rect_color = lerp(Rgba::BLACK..=rect_color, 0.075);
+        }
     }
 
     if rect.width() <= min_width {
@@ -688,10 +686,8 @@ fn paint_record(
     if wide_enough_for_text {
         let painter = info.painter.with_clip_rect(rect.intersect(info.canvas));
 
-        let mut name = String::new();
-        scope_collection.read_by_id(&scope_id, |scope_details| {
-            name = format!("{:?}", scope_details.identifier());
-        });
+        let scope_details = scope_collection.read_by_id(&scope_id).unwrap();
+        let name = format!("{:?}", scope_details.identifier());
 
         let duration_ms = to_ms(scope_data.duration_ns);
         let text = if scope_data.data.is_empty() {
@@ -744,7 +740,7 @@ fn paint_scope(
     info: &Info,
     options: &mut Options,
     stream: &Stream,
-    scope_detais: &ScopeCollection,
+    scope_collection: &ScopeCollection,
     scope: &Scope<'_>,
     depth: usize,
     min_y: f32,
@@ -758,7 +754,7 @@ fn paint_scope(
         "",
         scope.id,
         &scope.record,
-        scope_detais,
+        scope_collection,
         top_y,
     );
 
@@ -769,7 +765,7 @@ fn paint_scope(
                 info,
                 options,
                 stream,
-                scope_detais,
+                scope_collection,
                 &child_scope?,
                 depth + 1,
                 min_y,
@@ -778,28 +774,23 @@ fn paint_scope(
         }
 
         if result == PaintResult::Hovered {
-            scope_detais.read_by_id(&scope.id, |scope_details| {
-                egui::show_tooltip_at_pointer(
-                    &info.ctx,
-                    Id::new("puffin_profiler_tooltip"),
-                    |ui| {
-                        ui.monospace(format!("id:       {}", scope_details.function_name));
-                        if !scope_details.file_path.is_empty() {
-                            ui.monospace(format!(
-                                "location: {}:{}",
-                                scope_details.file_path, scope_details.line_nr
-                            ));
-                        }
-                        if !scope.record.data.is_empty() {
-                            ui.monospace(format!("data:     {}", scope.record.data));
-                        }
-                        ui.monospace(format!(
-                            "duration: {:7.3} ms",
-                            to_ms(scope.record.duration_ns)
-                        ));
-                        ui.monospace(format!("children: {num_children}"));
-                    },
-                );
+            let scope_details = scope_collection.read_by_id(&scope.id).unwrap();
+            egui::show_tooltip_at_pointer(&info.ctx, Id::new("puffin_profiler_tooltip"), |ui| {
+                ui.monospace(format!("id:       {}", scope_details.function_name));
+                if !scope_details.file_path.is_empty() {
+                    ui.monospace(format!(
+                        "location: {}:{}",
+                        scope_details.file_path, scope_details.line_nr
+                    ));
+                }
+                if !scope.record.data.is_empty() {
+                    ui.monospace(format!("data:     {}", scope.record.data));
+                }
+                ui.monospace(format!(
+                    "duration: {:7.3} ms",
+                    to_ms(scope.record.duration_ns)
+                ));
+                ui.monospace(format!("children: {num_children}"));
             });
         }
     }
@@ -893,14 +884,13 @@ fn merge_scope_tooltip(
     #![allow(clippy::collapsible_else_if)]
 
     ui.monospace(format!("id:       {:?}", merge.id));
+    let scope_details = scope_collection.read_by_id(&merge.id).unwrap();
+    ui.monospace(format!("name:       {:?}", scope_details.scope_name));
 
-    scope_collection.read_by_id(&merge.id, |scope| {
-        ui.monospace(format!("name:       {:?}", scope.scope_name));
+    if !scope_details.function_name.is_empty() {
+        ui.monospace(format!("location: {}", scope_details.file_path));
+    }
 
-        if !scope.function_name.is_empty() {
-            ui.monospace(format!("location: {}", scope.file_path));
-        }
-    });
     if !merge.data.is_empty() {
         ui.monospace(format!("data:     {}", merge.data));
     }

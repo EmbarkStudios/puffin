@@ -1,6 +1,8 @@
-use std::{borrow::Cow, collections::HashSet, sync::Arc};
+use std::{
+    borrow::Cow,
+    collections::{HashMap, HashSet},
+};
 
-use parking_lot::RwLock;
 use serde::{ser::SerializeStruct, Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::{clean_function_name, fetch_add_scope_id, short_file_name, ScopeId};
@@ -8,47 +10,43 @@ use crate::{clean_function_name, fetch_add_scope_id, short_file_name, ScopeId};
 #[derive(Default, Clone)]
 struct Inner {
     // Store a both-way map, memory wise this can be a bit redundant but allows for faster access of information by external libs.
-    pub(crate) scope_id_to_details: std::collections::HashMap<ScopeId, ScopeDetails>,
-    pub(crate) string_to_scope_id: std::collections::HashMap<String, ScopeId>,
+    pub(crate) scope_id_to_details: HashMap<ScopeId, ScopeDetails>,
+    pub(crate) string_to_scope_id: HashMap<String, ScopeId>,
 }
 
 /// Provides fast read access to scope details.
 /// This collection can be cloned safely.
 #[derive(Default, Clone)]
-pub struct ScopeCollection(Arc<RwLock<Inner>>);
+pub struct ScopeCollection(Inner);
 
 impl ScopeCollection {
-    /// Provides read to the given closure for some scope details.
-    pub fn read_by_id<F: FnMut(&ScopeDetails)>(&self, scope_id: &ScopeId, mut cb: F) {
-        if let Some(read) = self.0.read().scope_id_to_details.get(scope_id) {
-            cb(read);
-        }
+    /// Fetches scope details by scope id.
+    pub fn read_by_id(&self, scope_id: &ScopeId) -> Option<&ScopeDetails> {
+        self.0.scope_id_to_details.get(scope_id)
     }
 
-    /// Provides read to the given closure for some scope details.
-    pub fn read_by_name<F: FnMut(&ScopeId)>(&self, scope_name: &str, mut cb: F) {
-        if let Some(read) = self.0.read().string_to_scope_id.get(scope_name) {
-            cb(read);
-        }
+    /// Fetches scope details by scope name.
+    pub fn read_by_name(&self, scope_name: &str) -> Option<&ScopeId> {
+        self.0.string_to_scope_id.get(scope_name)
     }
 
     /// Only puffin should be allowed to allocate and provide the scope id so this function is private to puffin.
-    pub(crate) fn insert(&self, scope_details: ScopeDetails) {
+    pub(crate) fn insert(&mut self, scope_details: ScopeDetails) {
         assert!(scope_details.scope_id.is_some());
 
         let id = scope_details.identifier();
+
         self.0
-            .write()
             .string_to_scope_id
             .insert(id.to_string(), scope_details.scope_id.unwrap());
-        self.0.write().scope_id_to_details.insert(
+        self.0.scope_id_to_details.insert(
             scope_details.scope_id.unwrap(),
             scope_details.into_readable(),
         );
     }
 
     /// Manually register scope details. After a scope is inserted it can be reported to puffin.
-    pub fn register_custom_scopes(&self, scopes: &[ScopeDetails]) -> HashSet<ScopeId> {
+    pub fn register_custom_scopes(&mut self, scopes: &[ScopeDetails]) -> HashSet<ScopeId> {
         let mut new_scopes = HashSet::new();
         for scope_detail in scopes {
             let new_scope_id = fetch_add_scope_id();
@@ -65,7 +63,7 @@ impl ScopeCollection {
         &self,
         mut existing_scopes: impl FnMut(&std::collections::HashMap<String, ScopeId>) -> T,
     ) -> T {
-        existing_scopes(&self.0.read().string_to_scope_id)
+        existing_scopes(&self.0.string_to_scope_id)
     }
 
     /// Fetches all registered scopes.
@@ -74,31 +72,31 @@ impl ScopeCollection {
         &self,
         mut existing_scopes: impl FnMut(&std::collections::HashMap<ScopeId, ScopeDetails>) -> T,
     ) -> T {
-        existing_scopes(&self.0.read().scope_id_to_details)
+        existing_scopes(&self.0.scope_id_to_details)
     }
 }
 
 #[derive(Debug, Default, Clone, PartialEq, Hash, PartialOrd, Ord, Eq)]
-/// This struct contains scope details and can be read by external libraries.
+/// Detailed information about a scope.
 pub struct ScopeDetails {
     /// Unique scope identifier.
-    // Always initialized once registered.
-    // It is `None` when an external library has yet to register this scope.
+    /// Always initialized once registered.
+    /// It is `None` when an external library has yet to register this scope.
     pub(crate) scope_id: Option<ScopeId>,
-    /// Identifier for a scope, functions do not have an identifier.
+    /// A name for a profile scope, a function profile scope does not have a custom provided name.
     pub scope_name: Option<Cow<'static, str>>,
     /// The function name of the function in which this scope is contained.
-    /// The name might be slightly modified to represent a short descriptive name.
+    /// The name might be slightly modified to represent a short descriptive representation.
     pub function_name: Cow<'static, str>,
     /// The file path in which this scope is contained.
-    /// The path might be slightly modified to represent a short descriptive name.
+    /// The path might be slightly modified to represent a short descriptive representation.
     pub file_path: Cow<'static, str>,
     /// The exact line number at which this scope is located.
     pub line_nr: u32,
 }
 
 impl ScopeDetails {
-    /// Create a new custom scope with a unique name.
+    /// Creates a new custom scope with a unique name.
     pub fn from_scope_name<T>(scope_name: T) -> Self
     where
         T: Into<Cow<'static, str>>,
@@ -112,8 +110,8 @@ impl ScopeDetails {
         }
     }
 
-    /// Create a new custom scope with a unique id allocated by puffin.
-    /// This function should not be exposed as only puffin should allocate ids.
+    /// Creates a new custom scope with a unique id allocated by puffin.
+    /// This function should not be exposed as only puffin should allocate ids for scopes.
     pub(crate) fn from_scope_id(scope_id: ScopeId) -> Self {
         Self {
             scope_id: Some(scope_id),
@@ -150,9 +148,7 @@ impl ScopeDetails {
 
     // Scopes are identified by user-provided name while functions are identified by the function name.
     pub fn identifier(&self) -> &'_ Cow<'static, str> {
-        self.scope_name
-            .as_ref()
-            .unwrap_or_else(|| &self.function_name)
+        self.scope_name.as_ref().unwrap_or(&self.function_name)
     }
 
     /// Returns the exact location of the profile scope formatted as `file:line_nr`
@@ -161,6 +157,10 @@ impl ScopeDetails {
         format!("{}:{}", self.file_path, self.line_nr)
     }
 
+    /// Turns the scope details into a more readable version:
+    ///
+    /// * Consistent / shortened file path across platforms
+    /// * Consistent / shortened function name
     #[inline]
     pub(crate) fn into_readable(self) -> Self {
         Self {
