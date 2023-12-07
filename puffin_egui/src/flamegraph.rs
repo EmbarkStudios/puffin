@@ -862,12 +862,7 @@ fn paint_merge_scope(
 
         if result == PaintResult::Hovered {
             egui::show_tooltip_at_pointer(&info.ctx, Id::new("puffin_profiler_tooltip"), |ui| {
-                merge_scope_tooltip(
-                    ui,
-                    &GlobalProfiler::scope_collection(),
-                    merge,
-                    info.num_frames,
-                );
+                merge_scope_tooltip(ui, &ScopeCollection::instance(), merge, info.num_frames);
             });
         }
     }

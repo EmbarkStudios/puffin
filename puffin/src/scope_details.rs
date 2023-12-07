@@ -3,9 +3,20 @@ use std::{
     collections::{HashMap, HashSet},
 };
 
+use once_cell::sync::Lazy;
+use parking_lot::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 use serde::{ser::SerializeStruct, Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::{clean_function_name, fetch_add_scope_id, short_file_name, ScopeId};
+
+// Scope details are stored separately from [`GlobalProfiler`] for the following reasons:
+//
+// 1. Almost every access only requires read access so there is no need for mutex lock the global profiler.
+// 2. Its important to guarantee that the profiler path is lock-free.
+// 2. External libraries like the http server or ui require read/write access to scopes.
+// But that can easily end up in deadlocks if a profile scope is executed while scope details are being read.
+// Storing the scope collection outside the [`GlobalProfiler`] prevents deadlocks.
+static SCOPE_COLLECTION: Lazy<RwLock<ScopeCollection>> = Lazy::new(Default::default);
 
 #[derive(Default, Clone)]
 struct Inner {
@@ -20,6 +31,19 @@ struct Inner {
 pub struct ScopeCollection(Inner);
 
 impl ScopeCollection {
+    /// Fetches the scope collection with details for each scope.
+    pub fn instance<'a>() -> RwLockReadGuard<'a, ScopeCollection> {
+        SCOPE_COLLECTION.read()
+    }
+
+    /// Fetches mutable access to the scope collection with details for each scope.
+    /// This should only be used if you know what your doing.
+    /// Scope details are automatically registered when using the profile macros.
+    /// Use [`Self::insert_custom_scopes`] for inserting custom scopes.
+    pub fn instance_mut<'a>() -> RwLockWriteGuard<'a, ScopeCollection> {
+        SCOPE_COLLECTION.write()
+    }
+
     /// Fetches scope details by scope id.
     pub fn read_by_id(&self, scope_id: &ScopeId) -> Option<&ScopeDetails> {
         self.0.scope_id_to_details.get(scope_id)

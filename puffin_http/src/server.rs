@@ -1,5 +1,5 @@
 use anyhow::Context as _;
-use puffin::GlobalProfiler;
+use puffin::{GlobalProfiler, ScopeCollection};
 use std::{
     io::Write,
     net::{SocketAddr, TcpListener, TcpStream},
@@ -174,7 +174,7 @@ impl PuffinServerImpl {
 
         frame
             .write_into(
-                &GlobalProfiler::scope_collection(),
+                &ScopeCollection::instance(),
                 self.send_all_scopes,
                 &mut packet,
             )

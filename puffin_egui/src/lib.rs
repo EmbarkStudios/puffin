@@ -522,7 +522,7 @@ impl ProfilerUi {
         let frames: Option<SelectedFrames> = if let Some(frame) = hovered_frame {
             match frame.unpacked() {
                 Ok(frame) => {
-                    SelectedFrames::try_from_vec(&GlobalProfiler::scope_collection(), vec![frame])
+                    SelectedFrames::try_from_vec(&ScopeCollection::instance(), vec![frame])
                 }
                 Err(err) => {
                     ui.colored_label(ERROR_COLOR, format!("Failed to load hovered frame: {err}"));
@@ -539,7 +539,7 @@ impl ProfilerUi {
                 .map(|frame| frame.unpacked())
                 .filter_map(|unpacked| unpacked.ok())
                 .collect();
-            SelectedFrames::try_from_vec(&GlobalProfiler::scope_collection(), unpacked.clone())
+            SelectedFrames::try_from_vec(&ScopeCollection::instance(), unpacked.clone())
         };
 
         let frames = if let Some(frames) = frames {
@@ -578,7 +578,7 @@ impl ProfilerUi {
                                 self.pause_and_select(
                                     frame_view,
                                     SelectedFrames::from_vec1(
-                                        &GlobalProfiler::scope_collection(),
+                                        &ScopeCollection::instance(),
                                         vec1::vec1![latest],
                                     ),
                                 );
@@ -608,13 +608,13 @@ impl ProfilerUi {
             View::Flamegraph => flamegraph::ui(
                 ui,
                 &mut self.flamegraph_options,
-                &GlobalProfiler::scope_collection(),
+                &ScopeCollection::instance(),
                 &frames,
             ),
             View::Stats => stats::ui(
                 ui,
                 &mut self.stats_options,
-                &GlobalProfiler::scope_collection(),
+                &ScopeCollection::instance(),
                 &frames.frames,
             ),
         }
@@ -836,7 +836,7 @@ impl ProfilerUi {
         }
 
         if let Some(new_selection) =
-            SelectedFrames::try_from_vec(&GlobalProfiler::scope_collection(), new_selection)
+            SelectedFrames::try_from_vec(&ScopeCollection::instance(), new_selection)
         {
             self.pause_and_select(frame_view, new_selection);
         }

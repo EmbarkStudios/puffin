@@ -3,7 +3,7 @@ use std::sync::{
     Arc, Mutex,
 };
 
-use puffin::{FrameData, FrameView, GlobalProfiler, ScopeCollection};
+use puffin::{FrameData, FrameView, ScopeCollection};
 
 /// Connect to a [`crate::Server`], reading profile data
 /// and feeding it to a [`puffin::FrameView`].
@@ -50,7 +50,7 @@ impl Client {
                 match std::net::TcpStream::connect(&addr) {
                     Ok(mut stream) => {
                         log::info!("Connected to {}", addr);
-                        let mut scope_collection_mut = GlobalProfiler::scope_collection_mut();
+                        let mut scope_collection_mut = ScopeCollection::instance_mut();
                         connected.store(true, SeqCst);
                         while alive.load(SeqCst) {
                             match consume_message(&mut scope_collection_mut, &mut stream) {

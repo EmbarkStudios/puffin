@@ -111,7 +111,6 @@ pub use data::*;
 pub use frame_data::{FrameData, FrameMeta, UnpackedFrameData};
 pub use merge::*;
 use once_cell::sync::Lazy;
-use parking_lot::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 pub use profile_view::{select_slowest, FrameView, GlobalFrameView};
 pub use scope_details::{ScopeCollection, ScopeDetails};
 use std::borrow::Cow;
@@ -497,15 +496,6 @@ pub type FrameSink = Box<dyn Fn(Arc<FrameData>) + Send>;
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
 pub struct FrameSinkId(u64);
 
-// Scope details are stored separately from [`GlobalProfiler`] for the following reasons:
-//
-// 1. Almost every access only requires read access so there is no need for mutex lock the global profiler.
-// 2. Its important to guarantee that the profiler path is lock-free.
-// 2. External libraries like the http server or ui require read/write access to scopes.
-// But that can easily end up in deadlocks if a profile scope is executed while scope details are being read.
-// Storing the scope collection outside the [`GlobalProfiler`] prevents deadlocks.
-static SCOPE_COLLECTION: Lazy<RwLock<ScopeCollection>> = Lazy::new(Default::default);
-
 /// Singleton. Collects profiling data from multiple threads
 /// and passes them on to different [`FrameSink`]s.
 pub struct GlobalProfiler {
@@ -573,7 +563,7 @@ impl GlobalProfiler {
                         .scope_id
                         .expect("Puffin should have allocated id"),
                 );
-                Self::scope_collection_mut().insert(scope_detail);
+                ScopeCollection::instance_mut().insert(scope_detail);
             }
         }
 
@@ -640,7 +630,7 @@ impl GlobalProfiler {
     /// Scopes details should only be registered once for each scope and need be inserted before being reported to puffin.
     /// This function should only be relevant when your not using puffin through the profiler macros.
     pub fn register_custom_scopes(scopes: &[ScopeDetails]) {
-        let mut scope_collection_mut = Self::scope_collection_mut();
+        let mut scope_collection_mut = ScopeCollection::instance_mut();
         let new_scopes = scope_collection_mut.register_custom_scopes(scopes);
         let mut lock = Self::lock();
         lock.scope_delta.extend(&new_scopes);
@@ -665,19 +655,6 @@ impl GlobalProfiler {
     /// Useful for knowing which scopes were registered since last time the function was called.
     pub fn take_scope_delta(&mut self) -> Vec<ScopeId> {
         std::mem::take(&mut self.scope_delta)
-    }
-
-    /// Fetches the scope collection with details for each scope.
-    pub fn scope_collection<'a>() -> RwLockReadGuard<'a, ScopeCollection> {
-        SCOPE_COLLECTION.read()
-    }
-
-    /// Fetches mutable access to the scope collection with details for each scope.
-    /// This should only be used if you know what your doing.
-    /// Scope details are automatically registered when using the profile macros.
-    /// Use [`Self::insert_custom_scopes`] for inserting custom scopes.
-    pub fn scope_collection_mut<'a>() -> RwLockWriteGuard<'a, ScopeCollection> {
-        SCOPE_COLLECTION.write()
     }
 }
 
@@ -969,6 +946,8 @@ fn profile_macros_test() {
         }
     }));
 
+    let line_nr_fn = line!() + 3;
+    let  line_nr_scope = line!() + 4;
     fn a() {
         profile_function!();
         {
@@ -981,18 +960,18 @@ fn profile_macros_test() {
     // First frame
     GlobalProfiler::lock().new_frame();
 
-    let collection = GlobalProfiler::scope_collection();
+    let collection = ScopeCollection::instance();
     let scope_details = collection.read_by_id(&ScopeId::new_unchecked(1)).unwrap();
     assert_eq!(scope_details.file_path, "puffin/src/lib.rs");
     assert_eq!(scope_details.function_name, "profile_macros_test::a");
-    assert_eq!(scope_details.line_nr, 973);
+    assert_eq!(scope_details.line_nr, line_nr_fn);
 
     let scope_details = collection.read_by_id(&ScopeId::new_unchecked(2)).unwrap();
 
     assert_eq!(scope_details.file_path, "puffin/src/lib.rs");
     assert_eq!(scope_details.function_name, "profile_macros_test::a");
     assert_eq!(scope_details.scope_name, Some(Cow::Borrowed("my-scope")));
-    assert_eq!(scope_details.line_nr, 975);
+    assert_eq!(scope_details.line_nr, line_nr_scope);
 
     let scope_details = collection.read_by_name("my-scope").unwrap();
     assert_eq!(scope_details, &ScopeId::new_unchecked(2));

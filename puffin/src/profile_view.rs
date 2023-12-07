@@ -1,6 +1,6 @@
 use std::sync::{Arc, Mutex};
 
-use crate::{FrameData, FrameSinkId, GlobalProfiler};
+use crate::{FrameData, FrameSinkId,};
 
 /// A view of recent and slowest frames, used by GUIs.
 #[derive(Clone)]
@@ -151,6 +151,8 @@ impl FrameView {
     #[cfg(feature = "serialization")]
     #[cfg(not(target_arch = "wasm32"))] // compression not supported on wasm
     pub fn write(&self, write: &mut impl std::io::Write) -> anyhow::Result<()> {
+        use crate::ScopeCollection;
+
         write.write_all(b"PUF0")?;
 
         let slowest_frames = self.slowest.iter().map(|f| &f.0);
@@ -159,7 +161,7 @@ impl FrameView {
         frames.dedup_by_key(|frame| frame.frame_index());
 
         for frame in frames {
-            frame.write_into(&GlobalProfiler::scope_collection(), false, write)?;
+            frame.write_into(&ScopeCollection::instance(), false, write)?;
         }
         Ok(())
     }
@@ -167,6 +169,8 @@ impl FrameView {
     /// Import profile data from a `.puffin` file/stream.
     #[cfg(feature = "serialization")]
     pub fn read(read: &mut impl std::io::Read) -> anyhow::Result<Self> {
+        use crate::ScopeCollection;
+
         let mut magic = [0_u8; 4];
         read.read_exact(&mut magic)?;
         if &magic != b"PUF0" {
@@ -177,9 +181,7 @@ impl FrameView {
             max_recent: usize::MAX,
             ..Default::default()
         };
-        while let Some(frame) =
-            FrameData::read_next(&mut GlobalProfiler::scope_collection_mut(), read)?
-        {
+        while let Some(frame) = FrameData::read_next(&mut ScopeCollection::instance_mut(), read)? {
             slf.add_frame(frame.into());
         }
 
