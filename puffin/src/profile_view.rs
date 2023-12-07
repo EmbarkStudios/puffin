@@ -1,6 +1,6 @@
 use std::sync::{Arc, Mutex};
 
-use crate::{FrameData, FrameSinkId};
+use crate::{FrameData, FrameSinkId, ScopeCollection};
 
 /// A view of recent and slowest frames, used by GUIs.
 #[derive(Clone)]
@@ -39,6 +39,13 @@ impl FrameView {
     }
 
     pub fn add_frame(&mut self, new_frame: Arc<FrameData>) {
+        let mut scope_collection = ScopeCollection::instance_mut();
+
+        // Register all scopes from the new frame into the scope collection.
+        for new_scope in &new_frame.scope_delta {
+            scope_collection.insert(new_scope.as_ref().clone());
+        }
+
         if let Some(last) = self.recent.back() {
             if new_frame.frame_index() <= last.frame_index() {
                 // A frame from the past!?

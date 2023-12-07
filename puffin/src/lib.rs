@@ -507,7 +507,7 @@ pub struct GlobalProfiler {
     sinks: std::collections::HashMap<FrameSinkId, FrameSink>,
 
     // Stores the new scopes created since last frame was created.
-    scope_delta: Vec<ScopeId>,
+    scope_delta: Vec<Arc<ScopeDetails>>,
 }
 
 impl Default for GlobalProfiler {
@@ -558,12 +558,9 @@ impl GlobalProfiler {
         // 3. This logic doesn't run within the profile macros so we have more CPU resources here.
         if !self.new_scope_details.is_empty() {
             for scope_detail in self.new_scope_details.drain(..) {
-                self.scope_delta.push(
-                    scope_detail
-                        .scope_id
-                        .expect("Puffin should have allocated id"),
-                );
-                ScopeCollection::instance_mut().insert(scope_detail);
+                if let Some(inserted) = ScopeCollection::instance_mut().insert(scope_detail) {
+                    self.scope_delta.push(inserted.clone());
+                }
             }
         }
 
@@ -632,7 +629,7 @@ impl GlobalProfiler {
     pub fn register_custom_scopes(&mut self, scopes: &[ScopeDetails]) {
         let mut scope_collection_mut = ScopeCollection::instance_mut();
         let new_scopes = scope_collection_mut.register_custom_scopes(scopes);
-        self.scope_delta.extend(&new_scopes);
+        self.scope_delta.extend(new_scopes);
     }
 
     /// Tells [`GlobalProfiler`] to call this function with each new finished frame.
@@ -652,7 +649,7 @@ impl GlobalProfiler {
 
     /// Fetches and drains the delta of newly registered scopes if any.
     /// Useful for knowing which scopes were registered since last time the function was called.
-    pub fn take_scope_delta(&mut self) -> Vec<ScopeId> {
+    pub fn take_scope_delta(&mut self) -> Vec<Arc<ScopeDetails>> {
         std::mem::take(&mut self.scope_delta)
     }
 }

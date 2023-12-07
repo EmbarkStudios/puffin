@@ -1,7 +1,4 @@
-use std::{
-    borrow::Cow,
-    collections::{HashMap, HashSet},
-};
+use std::{borrow::Cow, collections::HashMap, sync::Arc};
 
 use once_cell::sync::Lazy;
 use parking_lot::{RwLock, RwLockReadGuard, RwLockWriteGuard};
@@ -21,7 +18,7 @@ static SCOPE_COLLECTION: Lazy<RwLock<ScopeCollection>> = Lazy::new(Default::defa
 #[derive(Default, Clone)]
 struct Inner {
     // Store a both-way map, memory wise this can be a bit redundant but allows for faster access of information by external libs.
-    pub(crate) scope_id_to_details: HashMap<ScopeId, ScopeDetails>,
+    pub(crate) scope_id_to_details: HashMap<ScopeId, Arc<ScopeDetails>>,
     pub(crate) string_to_scope_id: HashMap<String, ScopeId>,
 }
 
@@ -45,7 +42,7 @@ impl ScopeCollection {
     }
 
     /// Fetches scope details by scope id.
-    pub fn read_by_id(&self, scope_id: &ScopeId) -> Option<&ScopeDetails> {
+    pub fn read_by_id(&self, scope_id: &ScopeId) -> Option<&Arc<ScopeDetails>> {
         self.0.scope_id_to_details.get(scope_id)
     }
 
@@ -55,7 +52,7 @@ impl ScopeCollection {
     }
 
     /// Only puffin should be allowed to allocate and provide the scope id so this function is private to puffin.
-    pub(crate) fn insert(&mut self, scope_details: ScopeDetails) {
+    pub(crate) fn insert(&mut self, scope_details: ScopeDetails) -> Option<Arc<ScopeDetails>> {
         assert!(scope_details.scope_id.is_some());
 
         let id = scope_details.identifier();
@@ -65,20 +62,23 @@ impl ScopeCollection {
             .insert(id.to_string(), scope_details.scope_id.unwrap());
         self.0.scope_id_to_details.insert(
             scope_details.scope_id.unwrap(),
-            scope_details.into_readable(),
-        );
+            Arc::new(scope_details.into_readable()),
+        )
     }
 
     /// Manually register scope details. After a scope is inserted it can be reported to puffin.
-    pub(crate) fn register_custom_scopes(&mut self, scopes: &[ScopeDetails]) -> HashSet<ScopeId> {
-        let mut new_scopes = HashSet::new();
+    pub(crate) fn register_custom_scopes(
+        &mut self,
+        scopes: &[ScopeDetails],
+    ) -> Vec<Arc<ScopeDetails>> {
+        let mut new_scopes = Vec::new();
         for scope_detail in scopes {
             let new_scope_id = fetch_add_scope_id();
-            self.insert(scope_detail.clone().with_scope_id(new_scope_id));
-            new_scopes.insert(new_scope_id);
+            let scope = self.insert(scope_detail.clone().with_scope_id(new_scope_id));
+            new_scopes.push(scope);
         }
 
-        new_scopes
+        new_scopes.into_iter().flatten().collect()
     }
 
     /// Fetches all registered scopes and their ids.
@@ -94,7 +94,7 @@ impl ScopeCollection {
     /// Useful for fetching scope details by a scope id.
     pub fn scopes_by_id<T>(
         &self,
-        mut existing_scopes: impl FnMut(&std::collections::HashMap<ScopeId, ScopeDetails>) -> T,
+        mut existing_scopes: impl FnMut(&std::collections::HashMap<ScopeId, Arc<ScopeDetails>>) -> T,
     ) -> T {
         existing_scopes(&self.0.scope_id_to_details)
     }

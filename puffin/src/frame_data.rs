@@ -1,5 +1,5 @@
-use crate::ScopeCollection;
 use crate::{Error, FrameIndex, NanoSecond, Result, ScopeId, StreamInfo, ThreadInfo};
+use crate::{ScopeCollection, ScopeDetails};
 #[cfg(feature = "packing")]
 use parking_lot::RwLock;
 
@@ -297,7 +297,7 @@ pub struct FrameData {
     packed_streams: RwLock<Option<PackedStreams>>,
 
     /// Scopes that were registered during this frame.
-    pub new_scopes: Vec<ScopeId>,
+    pub scope_delta: Vec<Arc<ScopeDetails>>,
 }
 
 #[cfg(feature = "packing")]
@@ -305,20 +305,23 @@ impl FrameData {
     pub fn new(
         frame_index: FrameIndex,
         thread_streams: BTreeMap<ThreadInfo, StreamInfo>,
-        new_scopes: Vec<ScopeId>,
+        scope_delta: Vec<Arc<ScopeDetails>>,
     ) -> Result<Self> {
         Ok(Self::from_unpacked(
             Arc::new(UnpackedFrameData::new(frame_index, thread_streams)?),
-            new_scopes,
+            scope_delta,
         ))
     }
 
-    fn from_unpacked(unpacked_frame: Arc<UnpackedFrameData>, new_scopes: Vec<ScopeId>) -> Self {
+    fn from_unpacked(
+        unpacked_frame: Arc<UnpackedFrameData>,
+        scope_delta: Vec<Arc<ScopeDetails>>,
+    ) -> Self {
         Self {
             meta: unpacked_frame.meta.clone(),
             unpacked_frame: RwLock::new(Some(Ok(unpacked_frame))),
             packed_streams: RwLock::new(None),
-            new_scopes,
+            scope_delta,
         }
     }
 
@@ -449,7 +452,10 @@ impl FrameData {
             ScopeCollection::instance()
                 .scopes_by_id(|all_scopes| all_scopes.keys().copied().collect::<Vec<ScopeId>>())
         } else {
-            self.new_scopes.clone()
+            self.scope_delta
+                .iter()
+                .map(|x| x.scope_id.expect("Allocated scopes must have id"))
+                .collect()
         };
 
         for new_scope_id in &scopes {
@@ -578,7 +584,7 @@ impl FrameData {
                     meta,
                     unpacked_frame: RwLock::new(None),
                     packed_streams: RwLock::new(Some(packed_streams)),
-                    new_scopes: Default::default(),
+                    scope_delta: Default::default(),
                 }))
             } else if &header == b"PFD3" {
                 // Added 2023-05-13: CompressionKind field
@@ -609,7 +615,7 @@ impl FrameData {
                     meta,
                     unpacked_frame: RwLock::new(None),
                     packed_streams: RwLock::new(Some(packed_streams)),
-                    new_scopes: Default::default(),
+                    scope_delta: Default::default(),
                 }))
             } else if &header == b"PFD4" {
                 // Added 2023-12-01: CompressionKind field
@@ -631,7 +637,7 @@ impl FrameData {
                 };
 
                 let serialized_scope_len = read.read_u32::<LE>()?;
-                let serialized_scopes: Vec<crate::ScopeDetails> = {
+                let deserialized_scopes: Vec<crate::ScopeDetails> = {
                     let mut serialized_scopes = vec![0; serialized_scope_len as usize];
                     read.read_exact(&mut serialized_scopes)?;
                     bincode::options()
@@ -639,21 +645,16 @@ impl FrameData {
                         .context("Can not deserialize scope details")?
                 };
 
-                let new_scopes: Vec<_> = serialized_scopes
-                    .iter()
-                    .map(|x| x.scope_id.unwrap())
+                let new_scopes: Vec<_> = deserialized_scopes
+                    .into_iter()
+                    .map(|x| Arc::new(x.clone()))
                     .collect();
-
-                let mut collection = ScopeCollection::instance_mut();
-                for scope_details in serialized_scopes {
-                    collection.insert(scope_details);
-                }
 
                 Ok(Some(Self {
                     meta,
                     unpacked_frame: RwLock::new(None),
                     packed_streams: RwLock::new(Some(streams_compressed)),
-                    new_scopes,
+                    scope_delta: new_scopes,
                 }))
             } else {
                 anyhow::bail!("Failed to decode: this data is newer than this reader. Please update your puffin version!");
