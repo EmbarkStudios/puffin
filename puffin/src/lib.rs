@@ -629,11 +629,10 @@ impl GlobalProfiler {
     /// Insert custom scopes into puffin.
     /// Scopes details should only be registered once for each scope and need be inserted before being reported to puffin.
     /// This function should only be relevant when your not using puffin through the profiler macros.
-    pub fn register_custom_scopes(scopes: &[ScopeDetails]) {
+    pub fn register_custom_scopes(&mut self, scopes: &[ScopeDetails]) {
         let mut scope_collection_mut = ScopeCollection::instance_mut();
         let new_scopes = scope_collection_mut.register_custom_scopes(scopes);
-        let mut lock = Self::lock();
-        lock.scope_delta.extend(&new_scopes);
+        self.scope_delta.extend(&new_scopes);
     }
 
     /// Tells [`GlobalProfiler`] to call this function with each new finished frame.
@@ -947,7 +946,7 @@ fn profile_macros_test() {
     }));
 
     let line_nr_fn = line!() + 3;
-    let  line_nr_scope = line!() + 4;
+    let line_nr_scope = line!() + 4;
     fn a() {
         profile_function!();
         {

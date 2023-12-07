@@ -423,7 +423,6 @@ impl FrameData {
     #[cfg(feature = "serialization")]
     pub fn write_into(
         &self,
-        scope_collection: &ScopeCollection,
         send_all_scopes: bool,
         write: &mut impl std::io::Write,
     ) -> anyhow::Result<()> {
@@ -447,14 +446,14 @@ impl FrameData {
         let mut to_serialize_scopes = Vec::new();
 
         let scopes = if send_all_scopes {
-            scope_collection
+            ScopeCollection::instance()
                 .scopes_by_id(|all_scopes| all_scopes.keys().copied().collect::<Vec<ScopeId>>())
         } else {
             self.new_scopes.clone()
         };
 
         for new_scope_id in &scopes {
-            scope_collection.scopes_by_id(|details| {
+            ScopeCollection::instance().scopes_by_id(|details| {
                 if let Some(details) = details.get(new_scope_id) {
                     to_serialize_scopes.push(details.clone());
                 }
@@ -472,10 +471,7 @@ impl FrameData {
     /// [`None`] is returned if the end of the stream is reached (EOF),
     /// or an end-of-stream sentinel of `0u32` is read.
     #[cfg(feature = "serialization")]
-    pub fn read_next(
-        scope_collection: &mut ScopeCollection,
-        read: &mut impl std::io::Read,
-    ) -> anyhow::Result<Option<Self>> {
+    pub fn read_next(read: &mut impl std::io::Read) -> anyhow::Result<Option<Self>> {
         use anyhow::Context as _;
         use bincode::Options as _;
         use byteorder::{ReadBytesExt, LE};
@@ -648,8 +644,9 @@ impl FrameData {
                     .map(|x| x.scope_id.unwrap())
                     .collect();
 
+                let mut collection = ScopeCollection::instance_mut();
                 for scope_details in serialized_scopes {
-                    scope_collection.insert(scope_details);
+                    collection.insert(scope_details);
                 }
 
                 Ok(Some(Self {

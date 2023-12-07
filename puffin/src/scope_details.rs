@@ -25,22 +25,22 @@ struct Inner {
     pub(crate) string_to_scope_id: HashMap<String, ScopeId>,
 }
 
-/// Provides fast read access to scope details.
-/// This collection can be cloned safely.
+/// A collection of scope details containing more information about a recorded profile scope.
 #[derive(Default, Clone)]
 pub struct ScopeCollection(Inner);
 
 impl ScopeCollection {
-    /// Fetches the scope collection with details for each scope.
+    /// Fetches readonly access to the scope collection
     pub fn instance<'a>() -> RwLockReadGuard<'a, ScopeCollection> {
         SCOPE_COLLECTION.read()
     }
 
-    /// Fetches mutable access to the scope collection with details for each scope.
+    /// Fetches mutable access to the scope collection.
+    ///
     /// This should only be used if you know what your doing.
     /// Scope details are automatically registered when using the profile macros.
-    /// Use [`Self::insert_custom_scopes`] for inserting custom scopes.
-    pub fn instance_mut<'a>() -> RwLockWriteGuard<'a, ScopeCollection> {
+    /// Use [`GlobalProfiler::register_custom_scopes`] for inserting custom scopes.
+    pub(crate) fn instance_mut<'a>() -> RwLockWriteGuard<'a, ScopeCollection> {
         SCOPE_COLLECTION.write()
     }
 
@@ -70,7 +70,7 @@ impl ScopeCollection {
     }
 
     /// Manually register scope details. After a scope is inserted it can be reported to puffin.
-    pub fn register_custom_scopes(&mut self, scopes: &[ScopeDetails]) -> HashSet<ScopeId> {
+    pub(crate) fn register_custom_scopes(&mut self, scopes: &[ScopeDetails]) -> HashSet<ScopeId> {
         let mut new_scopes = HashSet::new();
         for scope_detail in scopes {
             let new_scope_id = fetch_add_scope_id();

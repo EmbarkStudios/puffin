@@ -1,5 +1,5 @@
 use anyhow::Context as _;
-use puffin::{GlobalProfiler, ScopeCollection};
+use puffin::GlobalProfiler;
 use std::{
     io::Write,
     net::{SocketAddr, TcpListener, TcpStream},
@@ -173,11 +173,7 @@ impl PuffinServerImpl {
             .unwrap();
 
         frame
-            .write_into(
-                &ScopeCollection::instance(),
-                self.send_all_scopes,
-                &mut packet,
-            )
+            .write_into(self.send_all_scopes, &mut packet)
             .context("Encode puffin frame")?;
         self.send_all_scopes = false;
 

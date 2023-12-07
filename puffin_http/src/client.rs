@@ -3,7 +3,7 @@ use std::sync::{
     Arc, Mutex,
 };
 
-use puffin::{FrameData, FrameView, ScopeCollection};
+use puffin::{FrameData, FrameView};
 
 /// Connect to a [`crate::Server`], reading profile data
 /// and feeding it to a [`puffin::FrameView`].
@@ -50,10 +50,9 @@ impl Client {
                 match std::net::TcpStream::connect(&addr) {
                     Ok(mut stream) => {
                         log::info!("Connected to {}", addr);
-                        let mut scope_collection_mut = ScopeCollection::instance_mut();
                         connected.store(true, SeqCst);
                         while alive.load(SeqCst) {
-                            match consume_message(&mut scope_collection_mut, &mut stream) {
+                            match consume_message(&mut stream) {
                                 Ok(frame_data) => {
                                     frame_view
                                         .lock()
@@ -99,10 +98,7 @@ impl Client {
 }
 
 /// Read a `puffin_http` message from a stream.
-pub fn consume_message(
-    scope_collection: &mut ScopeCollection,
-    stream: &mut impl std::io::Read,
-) -> anyhow::Result<puffin::FrameData> {
+pub fn consume_message(stream: &mut impl std::io::Read) -> anyhow::Result<puffin::FrameData> {
     let mut server_version = [0_u8; 2];
     stream.read_exact(&mut server_version)?;
     let server_version = u16::from_le_bytes(server_version);
@@ -127,7 +123,7 @@ pub fn consume_message(
 
     use anyhow::Context as _;
 
-    FrameData::read_next(scope_collection, stream)
+    FrameData::read_next(stream)
         .context("Failed to parse FrameData")?
         .ok_or_else(|| anyhow::format_err!("End of stream"))
 }
