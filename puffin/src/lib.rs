@@ -194,8 +194,8 @@ impl<'s> ScopeRecord<'s> {
 /// Used when parsing a Stream.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Scope<'s> {
-    // Identifier for the scope
-    // To fetch more details about this scope use `GlobalProfiler::scope_details()`.
+    // Unique identifier for the profile scope.
+    // More detailed scope information can be requested via [`ScopeCollection::instance`]
     pub id: ScopeId,
     // Some dynamic data that is passed into the profiler scope.
     pub record: ScopeRecord<'s>,
@@ -334,7 +334,7 @@ pub struct StreamInfoRef<'a> {
 type NsSource = fn() -> NanoSecond;
 
 // Function interface for reporting thread local scope details.
-// If there are new scopes the scope details array will contain information contain scope details for this scope.
+// The scope details array will contain information about a scope the first time it is seen.
 // The stream will always contain the scope timing details.
 type ThreadReporter = fn(ThreadInfo, &[ScopeDetails], &StreamInfoRef<'_>);
 
@@ -500,25 +500,26 @@ pub struct FrameSinkId(u64);
 /// and passes them on to different [`FrameSink`]s.
 pub struct GlobalProfiler {
     current_frame_index: FrameIndex,
-    current_stream_scope_times: BTreeMap<ThreadInfo, StreamInfo>,
-    new_scope_details: Vec<ScopeDetails>,
+    current_frame: BTreeMap<ThreadInfo, StreamInfo>,
 
     next_sink_id: FrameSinkId,
     sinks: std::collections::HashMap<FrameSinkId, FrameSink>,
 
-    // Stores the new scopes created since last frame was created.
-    scope_delta: Vec<Arc<ScopeDetails>>,
+    // When scope details are reported by the macros.
+    new_scopes: Vec<ScopeDetails>,
+    // When scope details are reported by external libraries.
+    new_custom_scopes: Vec<Arc<ScopeDetails>>,
 }
 
 impl Default for GlobalProfiler {
     fn default() -> Self {
         Self {
             current_frame_index: 0,
-            current_stream_scope_times: Default::default(),
-            new_scope_details: Default::default(),
+            current_frame: Default::default(),
+            new_scopes: Default::default(),
             next_sink_id: FrameSinkId(1),
             sinks: Default::default(),
-            scope_delta: Default::default(),
+            new_custom_scopes: Default::default(),
         }
     }
 }
@@ -537,7 +538,6 @@ impl GlobalProfiler {
     #[cfg(not(feature = "parking_lot"))]
     pub fn lock() -> parking_lot::MutexGuard<'static, Self> {
         use parking_lot::Mutex;
-
         static GLOBAL_PROFILER: Lazy<Mutex<GlobalProfiler>> = Lazy::new(Default::default);
         GLOBAL_PROFILER.lock()
     }
@@ -552,24 +552,22 @@ impl GlobalProfiler {
         let current_frame_index = self.current_frame_index;
         self.current_frame_index += 1;
 
-        // Scope details are read before the frame is propagated to sinks. Because:
-        // 1. Scopes are only registered once, and we don't want every sink to have to parse them.
-        // 2. Sinks should be able to read scope details
-        // 3. This logic doesn't run within the profile macros so we have more CPU resources here.
-        if !self.new_scope_details.is_empty() {
-            for scope_detail in self.new_scope_details.drain(..) {
-                self.scope_delta
-                    .push(ScopeCollection::instance_mut().insert(scope_detail));
+        // Scope details are registered here because we want them to be available for sinks to read during the new frame.
+        // The [`FrameData`] will get a delta of scopes that where reported this frame.
+        let mut scope_deltas = Vec::new();
+
+        if !self.new_scopes.is_empty() {
+            for scope_detail in self.new_scopes.drain(..) {
+                scope_deltas.push(ScopeCollection::instance_mut().insert(scope_detail));
             }
         }
 
-        let current_frame_scope = std::mem::take(&mut self.current_stream_scope_times);
+        scope_deltas.extend(self.new_custom_scopes.drain(..));
 
-        let new_frame = match FrameData::new(
-            current_frame_index,
-            current_frame_scope,
-            self.take_scope_delta(),
-        ) {
+        let current_frame_scope = std::mem::take(&mut self.current_frame);
+
+        let new_frame = match FrameData::new(current_frame_index, current_frame_scope, scope_deltas)
+        {
             Ok(new_frame) => Arc::new(new_frame),
             Err(Error::Empty) => {
                 return; // don't warn about empty frames, just ignore them
@@ -600,10 +598,10 @@ impl GlobalProfiler {
         if !scope_details.is_empty() {
             // Here we can run slightly heavy logic as its only ran once for each scope.
             // If this ever needs non static data one can deep clone the structure.
-            self.new_scope_details.extend_from_slice(scope_details);
+            self.new_scopes.extend_from_slice(scope_details);
         }
 
-        self.current_stream_scope_times
+        self.current_frame
             .entry(info)
             .or_default()
             .extend(stream_scope_times);
@@ -616,7 +614,7 @@ impl GlobalProfiler {
         info: ThreadInfo,
         stream_scope_times: &StreamInfoRef<'_>,
     ) {
-        self.current_stream_scope_times
+        self.current_frame
             .entry(info)
             .or_default()
             .extend(stream_scope_times);
@@ -628,7 +626,7 @@ impl GlobalProfiler {
     pub fn register_custom_scopes(&mut self, scopes: &[ScopeDetails]) {
         let mut scope_collection_mut = ScopeCollection::instance_mut();
         let new_scopes = scope_collection_mut.register_custom_scopes(scopes);
-        self.scope_delta.extend(new_scopes);
+        self.new_custom_scopes.extend(new_scopes);
     }
 
     /// Tells [`GlobalProfiler`] to call this function with each new finished frame.
@@ -644,12 +642,6 @@ impl GlobalProfiler {
 
     pub fn remove_sink(&mut self, id: FrameSinkId) -> Option<FrameSink> {
         self.sinks.remove(&id)
-    }
-
-    /// Fetches and drains the delta of newly registered scopes if any.
-    /// Useful for knowing which scopes were registered since last time the function was called.
-    pub fn take_scope_delta(&mut self) -> Vec<Arc<ScopeDetails>> {
-        std::mem::take(&mut self.scope_delta)
     }
 }
 

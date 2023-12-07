@@ -1,4 +1,4 @@
-use crate::{Error, FrameIndex, NanoSecond, Result, ScopeId, StreamInfo, ThreadInfo};
+use crate::{Error, FrameIndex, NanoSecond, Result, StreamInfo, ThreadInfo};
 use crate::{ScopeCollection, ScopeDetails};
 #[cfg(feature = "packing")]
 use parking_lot::RwLock;
@@ -95,7 +95,8 @@ impl UnpackedFrameData {
 #[cfg(not(feature = "packing"))]
 pub struct FrameData {
     unpacked_frame: Arc<UnpackedFrameData>,
-    new_scopes: Vec<ScopeId>,
+    /// Scopes that were registered during this frame.
+    pub scope_delta: Vec<Arc<ScopeDetails>>,
 }
 
 #[cfg(not(feature = "packing"))]
@@ -106,18 +107,21 @@ impl FrameData {
     pub fn new(
         frame_index: FrameIndex,
         thread_streams: BTreeMap<ThreadInfo, StreamInfo>,
-        new_scopes: Vec<ScopeId>,
+        scope_delta: Vec<Arc<ScopeDetails>>,
     ) -> Result<Self> {
         Ok(Self::from_unpacked(
             Arc::new(UnpackedFrameData::new(frame_index, thread_streams)?),
-            new_scopes,
+            scope_delta,
         ))
     }
 
-    fn from_unpacked(unpacked_frame: Arc<UnpackedFrameData>, new_scopes: Vec<ScopeId>) -> Self {
+    fn from_unpacked(
+        unpacked_frame: Arc<UnpackedFrameData>,
+        scope_delta: Vec<Arc<ScopeDetails>>,
+    ) -> Self {
         Self {
             unpacked_frame,
-            new_scopes,
+            scope_delta,
         }
     }
 
