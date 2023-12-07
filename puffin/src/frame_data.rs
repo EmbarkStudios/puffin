@@ -448,23 +448,17 @@ impl FrameData {
 
         let mut to_serialize_scopes = Vec::new();
 
-        let scopes = if send_all_scopes {
-            ScopeCollection::instance()
-                .scopes_by_id(|all_scopes| all_scopes.keys().copied().collect::<Vec<ScopeId>>())
-        } else {
-            self.scope_delta
-                .iter()
-                .map(|x| x.scope_id.expect("Allocated scopes must have id"))
-                .collect()
-        };
-
-        for new_scope_id in &scopes {
+        if send_all_scopes {
             ScopeCollection::instance().scopes_by_id(|details| {
-                if let Some(details) = details.get(new_scope_id) {
-                    to_serialize_scopes.push(details.clone());
+                for scope in details.iter() {
+                    to_serialize_scopes.push(scope.1.clone());
                 }
             });
-        }
+        } else {
+            for scope in self.scope_delta.iter() {
+                to_serialize_scopes.push(scope.clone());
+            }
+        };
 
         let serialized_scopes = bincode::options().serialize(&to_serialize_scopes)?;
         write.write_u32::<LE>(serialized_scopes.len() as u32)?;

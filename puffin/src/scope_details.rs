@@ -52,7 +52,7 @@ impl ScopeCollection {
     }
 
     /// Only puffin should be allowed to allocate and provide the scope id so this function is private to puffin.
-    pub(crate) fn insert(&mut self, scope_details: ScopeDetails) -> Option<Arc<ScopeDetails>> {
+    pub(crate) fn insert(&mut self, scope_details: ScopeDetails) -> Arc<ScopeDetails> {
         assert!(scope_details.scope_id.is_some());
 
         let id = scope_details.identifier();
@@ -60,10 +60,11 @@ impl ScopeCollection {
         self.0
             .string_to_scope_id
             .insert(id.to_string(), scope_details.scope_id.unwrap());
-        self.0.scope_id_to_details.insert(
-            scope_details.scope_id.unwrap(),
-            Arc::new(scope_details.into_readable()),
-        )
+        self.0
+            .scope_id_to_details
+            .entry(scope_details.scope_id.unwrap())
+            .or_insert(Arc::new(scope_details.into_readable()))
+            .clone()
     }
 
     /// Manually register scope details. After a scope is inserted it can be reported to puffin.
@@ -77,8 +78,7 @@ impl ScopeCollection {
             let scope = self.insert(scope_detail.clone().with_scope_id(new_scope_id));
             new_scopes.push(scope);
         }
-
-        new_scopes.into_iter().flatten().collect()
+        new_scopes
     }
 
     /// Fetches all registered scopes and their ids.

@@ -558,9 +558,8 @@ impl GlobalProfiler {
         // 3. This logic doesn't run within the profile macros so we have more CPU resources here.
         if !self.new_scope_details.is_empty() {
             for scope_detail in self.new_scope_details.drain(..) {
-                if let Some(inserted) = ScopeCollection::instance_mut().insert(scope_detail) {
-                    self.scope_delta.push(inserted.clone());
-                }
+                self.scope_delta
+                    .push(ScopeCollection::instance_mut().insert(scope_detail));
             }
         }
 
