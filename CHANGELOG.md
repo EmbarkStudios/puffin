@@ -8,10 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <!-- next-header -->
 ## [Unreleased] - ReleaseDate
+
+- [PR#175](https://github.com/EmbarkStudios/puffin/issues/175) Remove accidental `::{{closure}}` suffix from all `profile_function` scopes.
+
 ## [0.18.0] - 2023-11-21
-## [0.17.1] - 2023-11-20
 
 - [PR#165](https://github.com/EmbarkStudios/puffin/issues/165) Faster profiling, add line numbers, better paths, and better function names
+
+## [0.17.1] - 2023-11-20 - YANKED
+
+- Accidentally introduced a breaking change in [PR#165](https://github.com/EmbarkStudios/puffin/issues/165)
 
 ## [0.17.0] - 2023-09-28
 
