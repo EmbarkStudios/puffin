@@ -619,6 +619,7 @@ pub fn type_name_of<T>(_: T) -> &'static str {
 }
 
 /// Returns the name of the calling function without a long module path prefix.
+#[doc(hidden)]
 #[macro_export]
 macro_rules! current_function_name {
     () => {{
@@ -825,7 +826,13 @@ macro_rules! profile_function {
             // SAFETY: accessing the statics is safe because it is done in cojunction with `std::sync::Once``
             let (function_name, location) = unsafe {
                 _INITITIALIZED.call_once(|| {
-                    _FUNCTION_NAME = $crate::current_function_name!().leak();
+                    let function_name = $crate::current_function_name!();
+
+                    // We call `current_function_name` from a closure, so we need to strip that from the output.
+                    // We only strip it once though, because if the user calls `profile_function!` from within a closure, they probably want to know it.
+                    let function_name = function_name.strip_suffix("::{{closure}}").unwrap_or(function_name.as_ref());
+
+                    _FUNCTION_NAME = function_name.to_owned().leak();
                     _LOCATION = format!("{}:{}", $crate::current_file_name!(), line!()).leak();
                 });
                 (_FUNCTION_NAME, _LOCATION)

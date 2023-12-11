@@ -8,16 +8,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <!-- next-header -->
 ## [Unreleased] - ReleaseDate
-## [0.18.0] - 2023-11-21
-## [0.17.1] - 2023-11-20
 
-- [PR#165](https://github.com/EmbarkStudios/puffin/issues/165) Faster profiling, add line numbers, better paths, and better function names
+- [PR#175](https://github.com/EmbarkStudios/puffin/pull/175) Remove accidental `::{{closure}}` suffix from all `profile_function` scopes.
+
+## [0.18.0] - 2023-11-21
+
+- [PR#165](https://github.com/EmbarkStudios/puffin/pull/165) Faster profiling, add line numbers, better paths, and better function names
+
+## [0.17.1] - 2023-11-20 - YANKED
+
+- Accidentally introduced a breaking change in [PR#165](https://github.com/EmbarkStudios/puffin/pull/165)
 
 ## [0.17.0] - 2023-09-28
 
-- [PR#140](https://github.com/EmbarkStudios/puffin/issues/140) Remove imgui support for
+- [PR#140](https://github.com/EmbarkStudios/puffin/pull/140) Remove imgui support for
 - [PR#158](https://github.com/EmbarkStudios/puffin/pull/158) Remove file I/O from
-- [PR#157](https://github.com/EmbarkStudios/puffin/issues/157) Remove `instant` dependency when not building for web
+- [PR#157](https://github.com/EmbarkStudios/puffin/pull/157) Remove `instant` dependency when not building for web
 
 ## [0.16.0] - 2023-05-24
 
