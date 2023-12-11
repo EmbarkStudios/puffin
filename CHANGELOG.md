@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <!-- next-header -->
 ## [Unreleased] - ReleaseDate
+## [0.18.1] - 2023-12-11
 
 - [PR#175](https://github.com/EmbarkStudios/puffin/pull/175) Remove accidental `::{{closure}}` suffix from all `profile_function` scopes.
 
@@ -129,7 +130,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * `GlobalProfiler` now store recent history and the slowest frames.
 
 <!-- next-url -->
-[Unreleased]: https://github.com/EmbarkStudios/puffin/compare/0.18.0...HEAD
+[Unreleased]: https://github.com/EmbarkStudios/puffin/compare/0.18.1...HEAD
+[0.18.1]: https://github.com/EmbarkStudios/puffin/compare/0.18.0...0.18.1
 [0.18.0]: https://github.com/EmbarkStudios/puffin/compare/0.17.1...0.18.0
 [0.17.1]: https://github.com/EmbarkStudios/puffin/compare/0.17.0...0.17.1
 [0.17.0]: https://github.com/EmbarkStudios/puffin/compare/0.16.0...0.17.0
