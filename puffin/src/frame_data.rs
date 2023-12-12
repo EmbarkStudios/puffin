@@ -97,6 +97,7 @@ pub struct FrameData {
     unpacked_frame: Arc<UnpackedFrameData>,
     /// Scopes that were registered during this frame.
     pub scope_delta: Vec<Arc<ScopeDetails>>,
+    pub full_delta: bool,
 }
 
 #[cfg(not(feature = "packing"))]
@@ -108,6 +109,7 @@ impl FrameData {
         frame_index: FrameIndex,
         thread_streams: BTreeMap<ThreadInfo, StreamInfo>,
         scope_delta: Vec<Arc<ScopeDetails>>,
+        full_delta: bool,
     ) -> Result<Self> {
         Ok(Self::from_unpacked(
             Arc::new(UnpackedFrameData::new(frame_index, thread_streams)?),
@@ -118,10 +120,12 @@ impl FrameData {
     fn from_unpacked(
         unpacked_frame: Arc<UnpackedFrameData>,
         scope_delta: Vec<Arc<ScopeDetails>>,
+        full_delta: bool,
     ) -> Self {
         Self {
             unpacked_frame,
             scope_delta,
+            full_delta,
         }
     }
 
@@ -300,6 +304,7 @@ pub struct FrameData {
     /// [`None`] if not yet compressed.
     packed_streams: RwLock<Option<PackedStreams>>,
 
+    pub full_delta: bool,
     /// Scopes that were registered during this frame.
     pub scope_delta: Vec<Arc<ScopeDetails>>,
 }
@@ -310,22 +315,26 @@ impl FrameData {
         frame_index: FrameIndex,
         thread_streams: BTreeMap<ThreadInfo, StreamInfo>,
         scope_delta: Vec<Arc<ScopeDetails>>,
+        full_delta: bool,
     ) -> Result<Self> {
         Ok(Self::from_unpacked(
             Arc::new(UnpackedFrameData::new(frame_index, thread_streams)?),
             scope_delta,
+            full_delta,
         ))
     }
 
     fn from_unpacked(
         unpacked_frame: Arc<UnpackedFrameData>,
         scope_delta: Vec<Arc<ScopeDetails>>,
+        full_delta: bool,
     ) -> Self {
         Self {
             meta: unpacked_frame.meta.clone(),
             unpacked_frame: RwLock::new(Some(Ok(unpacked_frame))),
             packed_streams: RwLock::new(None),
             scope_delta,
+            full_delta,
         }
     }
 
@@ -430,6 +439,7 @@ impl FrameData {
     #[cfg(feature = "serialization")]
     pub fn write_into(
         &self,
+        scope_collection: &ScopeCollection,
         send_all_scopes: bool,
         write: &mut impl std::io::Write,
     ) -> anyhow::Result<()> {
@@ -453,7 +463,7 @@ impl FrameData {
         let mut to_serialize_scopes = Vec::new();
 
         if send_all_scopes {
-            ScopeCollection::instance().scopes_by_id(|details| {
+            scope_collection.scopes_by_id(|details| {
                 for scope in details.iter() {
                     to_serialize_scopes.push(scope.1.clone());
                 }
@@ -522,6 +532,7 @@ impl FrameData {
                 FrameData::from_unpacked(
                     Arc::new(self.into_unpacked_frame_data()),
                     Default::default(),
+                    false,
                 )
             }
         }
@@ -583,6 +594,7 @@ impl FrameData {
                     unpacked_frame: RwLock::new(None),
                     packed_streams: RwLock::new(Some(packed_streams)),
                     scope_delta: Default::default(),
+                    full_delta: false,
                 }))
             } else if &header == b"PFD3" {
                 // Added 2023-05-13: CompressionKind field
@@ -614,6 +626,7 @@ impl FrameData {
                     unpacked_frame: RwLock::new(None),
                     packed_streams: RwLock::new(Some(packed_streams)),
                     scope_delta: Default::default(),
+                    full_delta: false,
                 }))
             } else if &header == b"PFD4" {
                 // Added 2023-12-01: CompressionKind field
@@ -653,6 +666,7 @@ impl FrameData {
                     unpacked_frame: RwLock::new(None),
                     packed_streams: RwLock::new(Some(streams_compressed)),
                     scope_delta: new_scopes,
+                    full_delta: false,
                 }))
             } else {
                 anyhow::bail!("Failed to decode: this data is newer than this reader. Please update your puffin version!");

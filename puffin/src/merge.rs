@@ -190,18 +190,23 @@ fn test_merge() {
 
     let mut scope_collection = ScopeCollection::default();
     // top scopes
-    scope_collection
-        .insert(ScopeDetails::from_scope_id(ScopeId::new_unchecked(1)).with_function_name("a"));
-    scope_collection
-        .insert(ScopeDetails::from_scope_id(ScopeId::new_unchecked(2)).with_function_name("b"));
+    scope_collection.insert(Arc::new(
+        ScopeDetails::from_scope_id(ScopeId::new_unchecked(1)).with_function_name("a"),
+    ));
+    scope_collection.insert(Arc::new(
+        ScopeDetails::from_scope_id(ScopeId::new_unchecked(2)).with_function_name("b"),
+    ));
 
     // middle scopes
-    scope_collection
-        .insert(ScopeDetails::from_scope_id(ScopeId::new_unchecked(3)).with_function_name("ba"));
-    scope_collection
-        .insert(ScopeDetails::from_scope_id(ScopeId::new_unchecked(4)).with_function_name("bb"));
-    scope_collection
-        .insert(ScopeDetails::from_scope_id(ScopeId::new_unchecked(5)).with_function_name("bba"));
+    scope_collection.insert(Arc::new(
+        ScopeDetails::from_scope_id(ScopeId::new_unchecked(3)).with_function_name("ba"),
+    ));
+    scope_collection.insert(Arc::new(
+        ScopeDetails::from_scope_id(ScopeId::new_unchecked(4)).with_function_name("bb"),
+    ));
+    scope_collection.insert(Arc::new(
+        ScopeDetails::from_scope_id(ScopeId::new_unchecked(5)).with_function_name("bba"),
+    ));
 
     let stream = {
         let mut stream = Stream::default();

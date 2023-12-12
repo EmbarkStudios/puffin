@@ -1,19 +1,7 @@
-use std::{borrow::Cow, collections::HashMap, sync::Arc};
-
-use once_cell::sync::Lazy;
-use parking_lot::{RwLock, RwLockReadGuard, RwLockWriteGuard};
-use serde::{ser::SerializeStruct, Deserialize, Deserializer, Serialize, Serializer};
-
 use crate::{clean_function_name, fetch_add_scope_id, short_file_name, ScopeId};
-
-// Scope details are stored separately from [`GlobalProfiler`] for the following reasons:
-//
-// 1. Almost every access only requires read access so there is no need for mutex lock the global profiler.
-// 2. Its important to guarantee that the profiler path is lock-free.
-// 2. External libraries like the http server or ui require read/write access to scopes.
-// But that can easily end up in deadlocks if a profile scope is executed while scope details are being read.
-// Storing the scope collection outside the [`GlobalProfiler`] prevents deadlocks.
-static SCOPE_COLLECTION: Lazy<RwLock<ScopeCollection>> = Lazy::new(Default::default);
+use serde::{ser::SerializeStruct, Deserialize, Deserializer, Serialize, Serializer};
+use std::ops::Deref;
+use std::{borrow::Cow, collections::HashMap, sync::Arc};
 
 #[derive(Default, Clone)]
 struct Inner {
@@ -27,20 +15,6 @@ struct Inner {
 pub struct ScopeCollection(Inner);
 
 impl ScopeCollection {
-    /// Fetches readonly access to the scope collection
-    pub fn instance<'a>() -> RwLockReadGuard<'a, ScopeCollection> {
-        SCOPE_COLLECTION.read()
-    }
-
-    /// Fetches mutable access to the scope collection.
-    ///
-    /// This should only be used if you know what your doing.
-    /// Scope details are automatically registered when using the profile macros.
-    /// Use [`GlobalProfiler::register_custom_scopes`] for inserting custom scopes.
-    pub(crate) fn instance_mut<'a>() -> RwLockWriteGuard<'a, ScopeCollection> {
-        SCOPE_COLLECTION.write()
-    }
-
     /// Fetches scope details by scope id.
     pub fn read_by_id(&self, scope_id: &ScopeId) -> Option<&Arc<ScopeDetails>> {
         self.0.scope_id_to_details.get(scope_id)
@@ -52,7 +26,7 @@ impl ScopeCollection {
     }
 
     /// Only puffin should be allowed to allocate and provide the scope id so this function is private to puffin.
-    pub(crate) fn insert(&mut self, scope_details: ScopeDetails) -> Arc<ScopeDetails> {
+    pub fn insert(&mut self, scope_details: Arc<ScopeDetails>) -> Arc<ScopeDetails> {
         assert!(scope_details.scope_id.is_some());
 
         let id = scope_details.identifier();
@@ -63,7 +37,7 @@ impl ScopeCollection {
         self.0
             .scope_id_to_details
             .entry(scope_details.scope_id.unwrap())
-            .or_insert(Arc::new(scope_details.into_readable()))
+            .or_insert(Arc::new(scope_details.deref().clone().into_readable()))
             .clone()
     }
 
@@ -75,7 +49,9 @@ impl ScopeCollection {
         let mut new_scopes = Vec::new();
         for scope_detail in scopes {
             let new_scope_id = fetch_add_scope_id();
-            let scope = self.insert(scope_detail.clone().with_scope_id(new_scope_id));
+            let scope = self.insert(Arc::new(
+                (*scope_detail).clone().with_scope_id(new_scope_id),
+            ));
             new_scopes.push(scope);
         }
         new_scopes

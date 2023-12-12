@@ -504,11 +504,14 @@ pub struct GlobalProfiler {
 
     next_sink_id: FrameSinkId,
     sinks: std::collections::HashMap<FrameSinkId, FrameSink>,
+    propagate_all_scope_details: bool,
 
     // When scope details are reported by the macros.
     new_scopes: Vec<ScopeDetails>,
     // When scope details are reported by external libraries.
     new_custom_scopes: Vec<Arc<ScopeDetails>>,
+    // Store a absolute collection of scope details such that sinks can request a total state.
+    scope_collection: ScopeCollection,
 }
 
 impl Default for GlobalProfiler {
@@ -520,6 +523,8 @@ impl Default for GlobalProfiler {
             next_sink_id: FrameSinkId(1),
             sinks: Default::default(),
             new_custom_scopes: Default::default(),
+            scope_collection: Default::default(),
+            propagate_all_scope_details: Default::default(),
         }
     }
 }
@@ -554,20 +559,37 @@ impl GlobalProfiler {
 
         // Scope details are registered here because we want them to be available for sinks to read during the new frame.
         // The [`FrameData`] will get a delta of scopes that where reported this frame.
-        let mut scope_deltas = Vec::new();
+        let mut scope_deltas =
+            Vec::with_capacity(self.new_scopes.len() + self.new_custom_scopes.len());
 
-        if !self.new_scopes.is_empty() {
-            for scope_detail in self.new_scopes.drain(..) {
-                scope_deltas.push(ScopeCollection::instance_mut().insert(scope_detail));
-            }
+        // Firstly add the new scopes registered through the macros.
+        for scope_detail in self.new_scopes.drain(..) {
+            scope_deltas.push(self.scope_collection.insert(Arc::new(scope_detail)));
         }
 
+        // Secondly add the new scopes registered manually.
         scope_deltas.extend(self.new_custom_scopes.drain(..));
 
         let current_frame_scope = std::mem::take(&mut self.current_frame);
 
-        let new_frame = match FrameData::new(current_frame_index, current_frame_scope, scope_deltas)
-        {
+        // Thirdly add a full snapshot of all scopes if requested.
+        // Its easier to send full delta to every sink.
+        let propagate_full_delta = std::mem::take(&mut self.propagate_all_scope_details);
+
+        if propagate_full_delta {
+            self.scope_collection.scopes_by_id(|scopes| {
+                for (_, details) in scopes {
+                    scope_deltas.push(details.clone());
+                }
+            });
+        }
+
+        let new_frame = match FrameData::new(
+            current_frame_index,
+            current_frame_scope,
+            scope_deltas,
+            propagate_full_delta,
+        ) {
             Ok(new_frame) => Arc::new(new_frame),
             Err(Error::Empty) => {
                 return; // don't warn about empty frames, just ignore them
@@ -583,9 +605,21 @@ impl GlobalProfiler {
 
     /// Manually add frame data.
     pub fn add_frame(&mut self, new_frame: Arc<FrameData>) {
+        for delta in &new_frame.scope_delta {
+            self.scope_collection.insert(delta.clone());
+        }
+
         for sink in self.sinks.values() {
             sink(new_frame.clone());
         }
+    }
+
+    /// Insert custom scopes into puffin.
+    /// Scopes details should only be registered once for each scope and need be inserted before being reported to puffin.
+    /// This function should only be relevant when your not using puffin through the profiler macros.
+    pub fn register_custom_scopes(&mut self, scopes: &[ScopeDetails]) {
+        let new_scopes = self.scope_collection.register_custom_scopes(scopes);
+        self.new_custom_scopes.extend(new_scopes);
     }
 
     /// Report some profiling data. Called from [`ThreadProfiler`].
@@ -620,15 +654,6 @@ impl GlobalProfiler {
             .extend(stream_scope_times);
     }
 
-    /// Insert custom scopes into puffin.
-    /// Scopes details should only be registered once for each scope and need be inserted before being reported to puffin.
-    /// This function should only be relevant when your not using puffin through the profiler macros.
-    pub fn register_custom_scopes(&mut self, scopes: &[ScopeDetails]) {
-        let mut scope_collection_mut = ScopeCollection::instance_mut();
-        let new_scopes = scope_collection_mut.register_custom_scopes(scopes);
-        self.new_custom_scopes.extend(new_scopes);
-    }
-
     /// Tells [`GlobalProfiler`] to call this function with each new finished frame.
     ///
     /// The returned [`FrameSinkId`] can be used to remove the sink with [`Self::remove_sink()`].
@@ -642,6 +667,12 @@ impl GlobalProfiler {
 
     pub fn remove_sink(&mut self, id: FrameSinkId) -> Option<FrameSink> {
         self.sinks.remove(&id)
+    }
+
+    /// Sends a snapshot of all scopes to a sink via the frame data.
+    /// This is useful for if a sink is initialized after scopes are registered.
+    pub fn send_all_scopes_to_sinks(&mut self) {
+        self.propagate_all_scope_details = true;
     }
 }
 
@@ -919,6 +950,8 @@ fn test_short_file_name() {
 fn profile_macros_test() {
     set_scopes_on(true);
 
+    let frame_view = GlobalFrameView::default();
+
     GlobalProfiler::lock().add_sink(Box::new(|data| {
         if data.frame_index() == 0 {
             assert_eq!(data.frame_index(), 0);
@@ -947,21 +980,29 @@ fn profile_macros_test() {
     // First frame
     GlobalProfiler::lock().new_frame();
 
-    let collection = ScopeCollection::instance();
-    let scope_details = collection.read_by_id(&ScopeId::new_unchecked(1)).unwrap();
+    let lock = frame_view.lock();
+    let scope_details = lock
+        .scope_collection
+        .read_by_id(&ScopeId::new_unchecked(1))
+        .unwrap();
     assert_eq!(scope_details.file_path, "puffin/src/lib.rs");
     assert_eq!(scope_details.function_name, "profile_macros_test::a");
     assert_eq!(scope_details.line_nr, line_nr_fn);
 
-    let scope_details = collection.read_by_id(&ScopeId::new_unchecked(2)).unwrap();
+    let scope_details = lock
+        .scope_collection
+        .read_by_id(&ScopeId::new_unchecked(2))
+        .unwrap();
 
     assert_eq!(scope_details.file_path, "puffin/src/lib.rs");
     assert_eq!(scope_details.function_name, "profile_macros_test::a");
     assert_eq!(scope_details.scope_name, Some(Cow::Borrowed("my-scope")));
     assert_eq!(scope_details.line_nr, line_nr_scope);
 
-    let scope_details = collection.read_by_name("my-scope").unwrap();
+    let scope_details = lock.scope_collection.read_by_name("my-scope").unwrap();
     assert_eq!(scope_details, &ScopeId::new_unchecked(2));
+
+    drop(lock);
 
     // Second frame
     a();

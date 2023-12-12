@@ -1,5 +1,5 @@
 use anyhow::Context as _;
-use puffin::GlobalProfiler;
+use puffin::{FrameView, GlobalProfiler};
 use std::{
     io::Write,
     net::{SocketAddr, TcpListener, TcpStream},
@@ -49,9 +49,11 @@ impl Server {
                     clients: Default::default(),
                     num_clients: num_clients_cloned,
                     send_all_scopes: false,
+                    frame_view: Default::default(),
                 };
 
                 while let Ok(frame) = rx.recv() {
+                    server_impl.frame_view.add_frame(frame.clone());
                     if let Err(err) = server_impl.accept_new_clients() {
                         log::warn!("puffin server failure: {}", err);
                     }
@@ -120,6 +122,7 @@ struct PuffinServerImpl {
     clients: Vec<Client>,
     num_clients: Arc<AtomicUsize>,
     send_all_scopes: bool,
+    frame_view: FrameView,
 }
 
 impl PuffinServerImpl {
@@ -173,7 +176,11 @@ impl PuffinServerImpl {
             .unwrap();
 
         frame
-            .write_into(self.send_all_scopes, &mut packet)
+            .write_into(
+                &self.frame_view.scope_collection,
+                self.send_all_scopes,
+                &mut packet,
+            )
             .context("Encode puffin frame")?;
         self.send_all_scopes = false;
 
