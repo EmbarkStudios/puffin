@@ -71,7 +71,9 @@ pub fn ui(
                 ui.end_row();
 
                 for (key, stats) in &scopes {
-                    let scope_details = scope_infos.read_by_id(&key.id).unwrap();
+                    let Some(scope_details) = scope_infos.read_by_id(&key.id) {
+                        continue;
+                    }
 
                     if !options.filter.include(&scope_details.function_name) {
                         return;
@@ -80,7 +82,12 @@ pub fn ui(
                     ui.label(&key.thread_name);
                     ui.label(scope_details.location());
                     ui.label(format!("{:?}", scope_details.function_name));
-                    ui.label(format!("{:?}", scope_details.scope_name));
+
+                    if let Some(name) =  &scope_details.scope_name {
+                         ui.label(format!("{}", name));
+                    } else {
+                        ui.label(format!("-"));
+                    }
                     ui.monospace(format!("{:>5}", stats.count));
                     ui.monospace(format!("{:>6.1} kB", stats.bytes as f32 * 1e-3));
                     ui.monospace(format!("{:>8.1} µs", stats.total_self_ns as f32 * 1e-3));
