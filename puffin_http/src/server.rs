@@ -1,5 +1,5 @@
 use anyhow::Context as _;
-use puffin::GlobalProfiler;
+use puffin::{FrameSink, FrameSinkId, GlobalProfiler};
 use std::{
     io::Write,
     net::{SocketAddr, TcpListener, TcpStream},
@@ -18,14 +18,41 @@ const MAX_FRAMES_IN_QUEUE: usize = 30;
 /// Drop to stop transmitting and listening for new connections.
 #[must_use = "When Server is dropped, the server is closed, so keep it around!"]
 pub struct Server {
-    sink_id: puffin::FrameSinkId,
+    sink_id: FrameSinkId,
     join_handle: Option<std::thread::JoinHandle<()>>,
     num_clients: Arc<AtomicUsize>,
+    sink_remove: fn(FrameSinkId) -> (),
 }
 
 impl Server {
     /// Start listening for connections on this addr (e.g. "0.0.0.0:8585")
+    ///
+    /// Connects to the [GlobalProfiler]
     pub fn new(bind_addr: &str) -> anyhow::Result<Self> {
+        fn global_add(sink: FrameSink) -> FrameSinkId {
+            GlobalProfiler::lock().add_sink(sink)
+        }
+        fn global_remove(id: FrameSinkId) {
+            GlobalProfiler::lock().remove_sink(id);
+        }
+
+        Self::new_custom(bind_addr, global_add, global_remove)
+    }
+
+    /// Starts a new puffin server, with a custom function for installing the server's sink
+    ///
+    /// # Arguments
+    /// * `bind_addr` - The address to bind to, when listening for connections
+    /// (e.g. "localhost:8585" or "127.0.0.1:8585")
+    /// * `sink_install` - A function that installs the [Server]'s sink into
+    /// a [GlobalProfiler], and then returns the [FrameSinkId] so that the sink can be removed later
+    /// * `sink_remove` - A function that reverts `sink_install`.
+    /// This should be a call to remove the sink from the profiler ([GlobalProfiler::remove_sink])  
+    pub fn new_custom(
+        bind_addr: &str,
+        sink_install: fn(FrameSink) -> FrameSinkId,
+        sink_remove: fn(FrameSinkId) -> (),
+    ) -> anyhow::Result<Self> {
         let tcp_listener = TcpListener::bind(bind_addr).context("binding server TCP socket")?;
         tcp_listener
             .set_nonblocking(true)
@@ -61,7 +88,8 @@ impl Server {
             })
             .context("Couldn't spawn thread")?;
 
-        let sink_id = GlobalProfiler::lock().add_sink(Box::new(move |frame| {
+        // Call the install function to add ourselves as a sink
+        let sink_id = sink_install(Box::new(move |frame| {
             tx.send(frame).ok();
         }));
 
@@ -69,6 +97,7 @@ impl Server {
             sink_id,
             join_handle: Some(join_handle),
             num_clients,
+            sink_remove,
         })
     }
 
@@ -80,9 +109,11 @@ impl Server {
 
 impl Drop for Server {
     fn drop(&mut self) {
-        GlobalProfiler::lock().remove_sink(self.sink_id);
+        // Remove ourselves from the profiler
+        (self.sink_remove)(self.sink_id);
 
         // Take care to send everything before we shut down:
+        log::trace!("puffin server dropped, flushing remaining buffer");
         if let Some(join_handle) = self.join_handle.take() {
             join_handle.join().ok();
         }
