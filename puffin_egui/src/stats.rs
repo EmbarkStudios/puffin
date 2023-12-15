@@ -71,9 +71,9 @@ pub fn ui(
                 ui.end_row();
 
                 for (key, stats) in &scopes {
-                    let Some(scope_details) = scope_infos.read_by_id(&key.id) {
+                    let Some(scope_details) = scope_infos.fetch_by_id(&key.id) else {
                         continue;
-                    }
+                    };
 
                     if !options.filter.include(&scope_details.function_name) {
                         return;
@@ -83,8 +83,8 @@ pub fn ui(
                     ui.label(scope_details.location());
                     ui.label(format!("{:?}", scope_details.function_name));
 
-                    if let Some(name) =  &scope_details.scope_name {
-                         ui.label(format!("{}", name));
+                    if let Some(name) = &scope_details.scope_name {
+                        ui.label(format!("{}", name));
                     } else {
                         ui.label(format!("-"));
                     }

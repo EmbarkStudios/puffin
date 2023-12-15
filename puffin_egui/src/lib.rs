@@ -539,7 +539,7 @@ impl ProfilerUi {
                 .map(|frame| frame.unpacked())
                 .filter_map(|unpacked| unpacked.ok())
                 .collect();
-            SelectedFrames::try_from_vec(&frame_view.scope_collection, unpacked.clone())
+            SelectedFrames::try_from_vec(&frame_view.scope_collection, unpacked)
         };
 
         let frames = if let Some(frames) = frames {
@@ -645,7 +645,7 @@ impl ProfilerUi {
                     .show(ui, |ui| {
                         let slowest_visible = self.show_frame_list(
                             ui,
-                            frame_view.as_mut().unwrap(),
+                            &frame_view,
                             &frames.recent,
                             false,
                             &mut hovered_frame,
@@ -723,7 +723,7 @@ impl ProfilerUi {
     fn show_frame_list(
         &mut self,
         ui: &mut egui::Ui,
-        frame_view: &mut FrameView,
+        frame_view: &FrameView,
         frames: &[Arc<FrameData>],
         tight: bool,
         hovered_frame: &mut Option<Arc<FrameData>>,

@@ -1,5 +1,5 @@
 use crate::{clean_function_name, fetch_add_scope_id, short_file_name, ScopeId};
-use serde::{ser::SerializeStruct, Deserialize, Deserializer, Serialize, Serializer};
+use serde::{Deserialize, Serialize};
 use std::ops::Deref;
 use std::{borrow::Cow, collections::HashMap, sync::Arc};
 
@@ -7,7 +7,7 @@ use std::{borrow::Cow, collections::HashMap, sync::Arc};
 struct Inner {
     // Store a both-way map, memory wise this can be a bit redundant but allows for faster access of information by external libs.
     pub(crate) scope_id_to_details: HashMap<ScopeId, Arc<ScopeDetails>>,
-    pub(crate) string_to_scope_id: HashMap<String, ScopeId>,
+    pub(crate) type_to_scope_id: HashMap<ScopeType, ScopeId>,
 }
 
 /// A collection of scope details containing more information about a recorded profile scope.
@@ -16,24 +16,26 @@ pub struct ScopeCollection(Inner);
 
 impl ScopeCollection {
     /// Fetches scope details by scope id.
-    pub fn read_by_id(&self, scope_id: &ScopeId) -> Option<&Arc<ScopeDetails>> {
+    pub fn fetch_by_id(&self, scope_id: &ScopeId) -> Option<&Arc<ScopeDetails>> {
         self.0.scope_id_to_details.get(scope_id)
     }
 
     /// Fetches scope details by scope name.
-    pub fn read_by_name(&self, scope_name: &str) -> Option<&ScopeId> {
-        self.0.string_to_scope_id.get(scope_name)
+    pub fn fetch_by_name(&self, scope_type: &ScopeType) -> Option<&ScopeId> {
+        self.0.type_to_scope_id.get(scope_type)
     }
 
-    /// Only puffin should be allowed to allocate and provide the scope id so this function is private to puffin.
+    /// Insert a scope into the collection.
+    /// Note that only puffin should allocate and provide the scope id.
+    /// But there might be instances like in http-client were one needs to insert a scope manually with the scope id set by the server.
     pub fn insert(&mut self, scope_details: Arc<ScopeDetails>) -> Arc<ScopeDetails> {
         assert!(scope_details.scope_id.is_some());
 
-        let id = scope_details.identifier();
+        let scope_type = scope_details.scope_type();
 
         self.0
-            .string_to_scope_id
-            .insert(id.to_string(), scope_details.scope_id.unwrap());
+            .type_to_scope_id
+            .insert(scope_type, scope_details.scope_id.unwrap());
         self.0
             .scope_id_to_details
             .entry(scope_details.scope_id.unwrap())
@@ -59,24 +61,45 @@ impl ScopeCollection {
 
     /// Fetches all registered scopes and their ids.
     /// Useful for fetching scope id by a static scope name.
-    pub fn scopes_by_name<T>(
-        &self,
-        mut existing_scopes: impl FnMut(&std::collections::HashMap<String, ScopeId>) -> T,
-    ) -> T {
-        existing_scopes(&self.0.string_to_scope_id)
+    /// For profiler scopes and custom scopes this is the manual provided name.
+    /// For function profiler scopes this is the function name.
+    pub fn scopes_by_name(&self) -> &HashMap<ScopeType, ScopeId> {
+        &self.0.type_to_scope_id
     }
 
     /// Fetches all registered scopes.
     /// Useful for fetching scope details by a scope id.
-    pub fn scopes_by_id<T>(
-        &self,
-        mut existing_scopes: impl FnMut(&std::collections::HashMap<ScopeId, Arc<ScopeDetails>>) -> T,
-    ) -> T {
-        existing_scopes(&self.0.scope_id_to_details)
+    pub fn scopes_by_id(&self) -> &HashMap<ScopeId, Arc<ScopeDetails>> {
+        &self.0.scope_id_to_details
     }
 }
 
-#[derive(Debug, Default, Clone, PartialEq, Hash, PartialOrd, Ord, Eq)]
+// Scopes are identified by user-provided name while functions are identified by the function name.
+#[derive(Debug, Clone, PartialEq, Hash, PartialOrd, Ord, Eq, Serialize, Deserialize)]
+pub enum ScopeType {
+    /// The scope is a function profile scope identified by the name of this function.
+    Function(Cow<'static, str>),
+    /// The scope is a profile scope inside a function identified by the name of this scope.
+    Scope(Cow<'static, str>),
+}
+
+impl ScopeType {
+    pub fn function_scope<T>(function_name: T) -> Self
+    where
+        T: Into<Cow<'static, str>>,
+    {
+        Self::Function(function_name.into())
+    }
+
+    pub fn scope<T>(scope_name: T) -> Self
+    where
+        T: Into<Cow<'static, str>>,
+    {
+        Self::Scope(scope_name.into())
+    }
+}
+
+#[derive(Debug, Default, Clone, PartialEq, Hash, PartialOrd, Ord, Eq, Serialize, Deserialize)]
 /// Detailed information about a scope.
 pub struct ScopeDetails {
     /// Unique scope identifier.
@@ -146,15 +169,21 @@ impl ScopeDetails {
         self
     }
 
-    // Scopes are identified by user-provided name while functions are identified by the function name.
-    pub fn identifier(&self) -> &'_ Cow<'static, str> {
-        self.scope_name.as_ref().unwrap_or(&self.function_name)
+    pub fn scope_type(&self) -> ScopeType {
+        self.scope_name
+            .as_ref()
+            .map(|x| ScopeType::scope(x.clone()))
+            .unwrap_or(ScopeType::function_scope(self.function_name.clone()))
     }
 
     /// Returns the exact location of the profile scope formatted as `file:line_nr`
     #[inline]
     pub fn location(&self) -> String {
-        format!("{}:{}", self.file_path, self.line_nr)
+        if self.line_nr != 0 {
+            format!("{}:{}", self.file_path, self.line_nr)
+        } else {
+            format!("{}", self.file_path)
+        }
     }
 
     /// Turns the scope details into a more readable version:
@@ -187,75 +216,5 @@ impl ScopeDetails {
     {
         self.scope_name = Some(scope_name.into());
         self
-    }
-}
-
-impl Serialize for ScopeDetails {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        let mut state = serializer.serialize_struct(stringify!(ScopeDetails), 5)?;
-        state.serialize_field("scope_id", &self.scope_id)?;
-        state.serialize_field("scope_name", &self.scope_name)?;
-        state.serialize_field("function_name", &self.function_name)?;
-        state.serialize_field("file_path", &self.file_path)?;
-        state.serialize_field("line_nr", &self.line_nr)?;
-        state.end()
-    }
-}
-
-impl<'de> Deserialize<'de> for ScopeDetails {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        struct ScopeDetailsOwnedVisitor;
-
-        impl<'de> serde::de::Visitor<'de> for ScopeDetailsOwnedVisitor {
-            type Value = ScopeDetails;
-
-            fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                formatter.write_str(&format!("struct {}", stringify!(ScopeDetails)))
-            }
-
-            fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
-            where
-                A: serde::de::SeqAccess<'de>,
-            {
-                let scope_id = seq
-                    .next_element()?
-                    .ok_or_else(|| serde::de::Error::missing_field("scope_id"))?;
-                let scope_name = seq
-                    .next_element()?
-                    .ok_or_else(|| serde::de::Error::missing_field("scope_name"))?;
-                let function_name = seq
-                    .next_element()?
-                    .ok_or_else(|| serde::de::Error::missing_field("function_name"))?;
-                let file_path = seq
-                    .next_element()?
-                    .ok_or_else(|| serde::de::Error::missing_field("file_path"))?;
-                let line_nr = seq
-                    .next_element()?
-                    .ok_or_else(|| serde::de::Error::missing_field("line_nr"))?;
-
-                Ok(ScopeDetails {
-                    scope_id,
-                    scope_name,
-                    function_name,
-                    file_path,
-                    line_nr,
-                })
-            }
-        }
-
-        const FIELDS: &[&str] = &[
-            "scope_id",
-            "scope_name",
-            "function_name",
-            "file_path",
-            "line_nr",
-        ];
-        deserializer.deserialize_struct(stringify!(ScopeDetails), FIELDS, ScopeDetailsOwnedVisitor)
     }
 }

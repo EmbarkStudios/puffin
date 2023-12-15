@@ -112,7 +112,7 @@ pub use frame_data::{FrameData, FrameMeta, UnpackedFrameData};
 pub use merge::*;
 use once_cell::sync::Lazy;
 pub use profile_view::{select_slowest, FrameView, GlobalFrameView};
-pub use scope_details::{ScopeCollection, ScopeDetails};
+pub use scope_details::{ScopeCollection, ScopeDetails, ScopeType};
 use std::borrow::Cow;
 use std::collections::BTreeMap;
 use std::num::NonZeroU32;
@@ -480,7 +480,7 @@ impl ThreadProfiler {
 static SCOPE_ID_TRACKER: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(1);
 
 fn fetch_add_scope_id() -> ScopeId {
-    let new_id = SCOPE_ID_TRACKER.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+    let new_id = SCOPE_ID_TRACKER.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
     ScopeId(
         NonZeroU32::new(new_id)
             .expect("safe because integer is retrieved from fetch-add atomic operation"),
@@ -504,13 +504,13 @@ pub struct GlobalProfiler {
 
     next_sink_id: FrameSinkId,
     sinks: std::collections::HashMap<FrameSinkId, FrameSink>,
+    // When true will propagate a full snapshot from `scope_collection` to every sink.
     propagate_all_scope_details: bool,
 
     // When scope details are reported by the macros.
-    new_scopes: Vec<ScopeDetails>,
-    // When scope details are reported by external libraries.
-    new_custom_scopes: Vec<Arc<ScopeDetails>>,
-    // Store a absolute collection of scope details such that sinks can request a total state.
+    // Scopes with `ScopeId`.
+    new_scopes: Vec<Arc<ScopeDetails>>,
+    // Store an absolute collection of scope details such that sinks can request a total state by setting `propagate_all_scope_details`.
     scope_collection: ScopeCollection,
 }
 
@@ -522,7 +522,6 @@ impl Default for GlobalProfiler {
             new_scopes: Default::default(),
             next_sink_id: FrameSinkId(1),
             sinks: Default::default(),
-            new_custom_scopes: Default::default(),
             scope_collection: Default::default(),
             propagate_all_scope_details: Default::default(),
         }
@@ -559,29 +558,23 @@ impl GlobalProfiler {
 
         // Scope details are registered here because we want them to be available for sinks to read during the new frame.
         // The [`FrameData`] will get a delta of scopes that where reported this frame.
-        let mut scope_deltas =
-            Vec::with_capacity(self.new_scopes.len() + self.new_custom_scopes.len());
+        let mut scope_deltas = Vec::with_capacity(self.new_scopes.len());
 
         // Firstly add the new scopes registered through the macros.
         for scope_detail in self.new_scopes.drain(..) {
-            scope_deltas.push(self.scope_collection.insert(Arc::new(scope_detail)));
+            scope_deltas.push(scope_detail);
         }
-
-        // Secondly add the new scopes registered manually.
-        scope_deltas.extend(self.new_custom_scopes.drain(..));
 
         let current_frame_scope = std::mem::take(&mut self.current_frame);
 
-        // Thirdly add a full snapshot of all scopes if requested.
-        // Its easier to send full delta to every sink.
+        // Secondly add a full snapshot of all scopes if requested.
+        // Could potentially do this per sink.
         let propagate_full_delta = std::mem::take(&mut self.propagate_all_scope_details);
 
         if propagate_full_delta {
-            self.scope_collection.scopes_by_id(|scopes| {
-                for (_, details) in scopes {
-                    scope_deltas.push(details.clone());
-                }
-            });
+            for (_, details) in self.scope_collection.scopes_by_id() {
+                scope_deltas.push(details.clone());
+            }
         }
 
         let new_frame = match FrameData::new(
@@ -616,10 +609,11 @@ impl GlobalProfiler {
 
     /// Insert custom scopes into puffin.
     /// Scopes details should only be registered once for each scope and need be inserted before being reported to puffin.
-    /// This function should only be relevant when your not using puffin through the profiler macros.
+    /// This function is relevant when you're registering measurement not performed using the puffin profiler macros.
+    /// Scope id is always supposed to be `None` as it will be set by puffin.
     pub fn register_custom_scopes(&mut self, scopes: &[ScopeDetails]) {
         let new_scopes = self.scope_collection.register_custom_scopes(scopes);
-        self.new_custom_scopes.extend(new_scopes);
+        self.new_scopes.extend(new_scopes);
     }
 
     /// Report some profiling data. Called from [`ThreadProfiler`].
@@ -631,8 +625,8 @@ impl GlobalProfiler {
     ) {
         if !scope_details.is_empty() {
             // Here we can run slightly heavy logic as its only ran once for each scope.
-            // If this ever needs non static data one can deep clone the structure.
-            self.new_scopes.extend_from_slice(scope_details);
+            self.new_scopes
+                .extend(scope_details.iter().map(|x| Arc::new(x.clone())));
         }
 
         self.current_frame
@@ -669,7 +663,7 @@ impl GlobalProfiler {
         self.sinks.remove(&id)
     }
 
-    /// Sends a snapshot of all scopes to a sink via the frame data.
+    /// Sends a snapshot of all scopes to all sinks via the frame data.
     /// This is useful for if a sink is initialized after scopes are registered.
     pub fn send_all_scopes_to_sinks(&mut self) {
         self.propagate_all_scope_details = true;
@@ -782,7 +776,7 @@ macro_rules! current_function_name {
 #[doc(hidden)]
 #[inline(never)]
 pub fn clean_function_name(name: &str) -> String {
-    let Some(name) = name.strip_suffix(USELESS_SCOPE_NAME_POSTFIX) else {
+    let Some(name) = name.strip_suffix(USELESS_SCOPE_NAME_SUFFIX) else {
         // Probably the user registered a custom scope name.
         return name.to_owned();
     };
@@ -834,28 +828,28 @@ pub fn clean_function_name(name: &str) -> String {
 fn test_clean_function_name() {
     assert_eq!(clean_function_name(""), "");
     assert_eq!(
-        clean_function_name(&format!("foo{}", USELESS_SCOPE_NAME_POSTFIX)),
+        clean_function_name(&format!("foo{}", USELESS_SCOPE_NAME_SUFFIX)),
         "foo"
     );
     assert_eq!(
-        clean_function_name(&format!("foo::bar{}", USELESS_SCOPE_NAME_POSTFIX)),
+        clean_function_name(&format!("foo::bar{}", USELESS_SCOPE_NAME_SUFFIX)),
         "foo::bar"
     );
     assert_eq!(
-        clean_function_name(&format!("foo::bar::baz{}", USELESS_SCOPE_NAME_POSTFIX)),
+        clean_function_name(&format!("foo::bar::baz{}", USELESS_SCOPE_NAME_SUFFIX)),
         "bar::baz"
     );
     assert_eq!(
         clean_function_name(&format!(
             "some::GenericThing<_, _>::function_name{}",
-            USELESS_SCOPE_NAME_POSTFIX
+            USELESS_SCOPE_NAME_SUFFIX
         )),
         "GenericThing<_, _>::function_name"
     );
     assert_eq!(
         clean_function_name(&format!(
             "<some::ConcreteType as some::bloody::Trait>::function_name{}",
-            USELESS_SCOPE_NAME_POSTFIX
+            USELESS_SCOPE_NAME_SUFFIX
         )),
         "<ConcreteType as Trait>::function_name"
     );
@@ -983,7 +977,7 @@ fn profile_macros_test() {
     let lock = frame_view.lock();
     let scope_details = lock
         .scope_collection
-        .read_by_id(&ScopeId::new_unchecked(1))
+        .fetch_by_id(&ScopeId::new_unchecked(1))
         .unwrap();
     assert_eq!(scope_details.file_path, "puffin/src/lib.rs");
     assert_eq!(scope_details.function_name, "profile_macros_test::a");
@@ -991,7 +985,7 @@ fn profile_macros_test() {
 
     let scope_details = lock
         .scope_collection
-        .read_by_id(&ScopeId::new_unchecked(2))
+        .fetch_by_id(&ScopeId::new_unchecked(2))
         .unwrap();
 
     assert_eq!(scope_details.file_path, "puffin/src/lib.rs");
@@ -999,7 +993,10 @@ fn profile_macros_test() {
     assert_eq!(scope_details.scope_name, Some(Cow::Borrowed("my-scope")));
     assert_eq!(scope_details.line_nr, line_nr_scope);
 
-    let scope_details = lock.scope_collection.read_by_name("my-scope").unwrap();
+    let scope_details = lock
+        .scope_collection
+        .fetch_by_name(&ScopeType::scope("my-scope"))
+        .unwrap();
     assert_eq!(scope_details, &ScopeId::new_unchecked(2));
 
     drop(lock);
@@ -1013,7 +1010,7 @@ fn profile_macros_test() {
 // The macro defines 'f()' at the place where macro is called.
 // This code is located at the place of call and two closures deep.
 // Strip away this useless postfix.
-static USELESS_SCOPE_NAME_POSTFIX: &str = "::{{closure}}::{{closure}}::f";
+static USELESS_SCOPE_NAME_SUFFIX: &str = "::{{closure}}::{{closure}}::f";
 
 #[allow(clippy::doc_markdown)] // clippy wants to put "MacBook" in ticks 🙄
 /// Automatically name the profiling scope based on function name.

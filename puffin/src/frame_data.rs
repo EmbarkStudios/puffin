@@ -97,6 +97,8 @@ pub struct FrameData {
     unpacked_frame: Arc<UnpackedFrameData>,
     /// Scopes that were registered during this frame.
     pub scope_delta: Vec<Arc<ScopeDetails>>,
+    /// Does [`Self::scope_delta`] contain all the scopes up to this point?
+    /// If `false`, it just contains the new scopes since last frame data.
     pub full_delta: bool,
 }
 
@@ -304,9 +306,12 @@ pub struct FrameData {
     /// [`None`] if not yet compressed.
     packed_streams: RwLock<Option<PackedStreams>>,
 
-    pub full_delta: bool,
     /// Scopes that were registered during this frame.
     pub scope_delta: Vec<Arc<ScopeDetails>>,
+
+    /// Does [`Self::scope_delta`] contain all the scopes up to this point?
+    /// If `false`, it just contains the new scopes since last frame data.
+    pub full_delta: bool,
 }
 
 #[cfg(feature = "packing")]
@@ -463,11 +468,9 @@ impl FrameData {
         let mut to_serialize_scopes = Vec::new();
 
         if send_all_scopes {
-            scope_collection.scopes_by_id(|details| {
-                for scope in details.iter() {
-                    to_serialize_scopes.push(scope.1.clone());
-                }
-            });
+            for scope in scope_collection.scopes_by_id().iter() {
+                to_serialize_scopes.push(scope.1.clone());
+            }
         } else {
             for scope in self.scope_delta.iter() {
                 to_serialize_scopes.push(scope.clone());
@@ -629,7 +632,7 @@ impl FrameData {
                     full_delta: false,
                 }))
             } else if &header == b"PFD4" {
-                // Added 2023-12-01: CompressionKind field
+                // Added 2023-12-01: Split up stream scope details from the record stream.
                 let meta_length = read.read_u32::<LE>()? as usize;
                 let meta = {
                     let mut meta = vec![0_u8; meta_length];
