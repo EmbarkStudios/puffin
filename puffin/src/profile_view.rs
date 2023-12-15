@@ -40,11 +40,11 @@ impl FrameView {
         self.recent.is_empty() && self.slowest.is_empty()
     }
 
-    /// Insert custom scopes into puffin.
+    /// Insert user scopes into puffin.
     /// Scopes details should only be registered once for each scope and need be inserted before being reported to puffin.
     /// This function should only be relevant when your not using puffin through the profiler macros.
-    pub fn register_custom_scopes(&mut self, scopes: &[ScopeDetails]) {
-        self.scope_collection.register_custom_scopes(scopes);
+    pub fn register_user_scopes(&mut self, scopes: &[ScopeDetails]) {
+        self.scope_collection.register_user_scopes(scopes);
     }
 
     pub fn add_frame(&mut self, new_frame: Arc<FrameData>) {

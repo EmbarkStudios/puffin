@@ -605,12 +605,12 @@ impl GlobalProfiler {
         }
     }
 
-    /// Inserts custom scopes into puffin.
+    /// Inserts user scopes into puffin.
     /// Scopes details should only be registered once for each scope and need be inserted before being reported to puffin.
     /// This function is relevant when you're registering measurement not performed using the puffin profiler macros.
     /// Scope id is always supposed to be `None` as it will be set by puffin.
-    pub fn register_custom_scopes(&mut self, scopes: &[ScopeDetails]) {
-        let new_scopes = self.scope_collection.register_custom_scopes(scopes);
+    pub fn register_user_scopes(&mut self, scopes: &[ScopeDetails]) {
+        let new_scopes = self.scope_collection.register_user_scopes(scopes);
         self.new_scopes.extend(new_scopes);
     }
 
@@ -633,13 +633,9 @@ impl GlobalProfiler {
             .extend(stream_scope_times);
     }
 
-    /// Reports custom scopes to puffin profiler.
-    /// Every scope reported should first be registered by [`Self::register_custom_scopes`].
-    pub fn report_custom_scopes(
-        &mut self,
-        info: ThreadInfo,
-        stream_scope_times: &StreamInfoRef<'_>,
-    ) {
+    /// Reports user scopes to puffin profiler.
+    /// Every scope reported should first be registered by [`Self::register_user_scopes`].
+    pub fn report_user_scopes(&mut self, info: ThreadInfo, stream_scope_times: &StreamInfoRef<'_>) {
         self.current_frame
             .entry(info)
             .or_default()
@@ -775,7 +771,7 @@ macro_rules! current_function_name {
 #[inline(never)]
 pub fn clean_function_name(name: &str) -> String {
     let Some(name) = name.strip_suffix(USELESS_SCOPE_NAME_SUFFIX) else {
-        // Probably the user registered a custom scope name.
+        // Probably the user registered a user scope name.
         return name.to_owned();
     };
 

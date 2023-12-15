@@ -16,11 +16,13 @@ pub struct ScopeCollection(Inner);
 
 impl ScopeCollection {
     /// Fetches scope details by scope id.
+    #[inline]
     pub fn fetch_by_id(&self, scope_id: &ScopeId) -> Option<&Arc<ScopeDetails>> {
         self.0.scope_id_to_details.get(scope_id)
     }
 
     /// Fetches scope details by scope name.
+    #[inline]
     pub fn fetch_by_name(&self, scope_type: &ScopeType) -> Option<&ScopeId> {
         self.0.type_to_scope_id.get(scope_type)
     }
@@ -44,7 +46,7 @@ impl ScopeCollection {
     }
 
     /// Manually register scope details. After a scope is inserted it can be reported to puffin.
-    pub(crate) fn register_custom_scopes(
+    pub(crate) fn register_user_scopes(
         &mut self,
         scopes: &[ScopeDetails],
     ) -> Vec<Arc<ScopeDetails>> {
@@ -64,14 +66,16 @@ impl ScopeCollection {
 
     /// Fetches all registered scopes and their ids.
     /// Useful for fetching scope id by a static scope name.
-    /// For profiler scopes and custom scopes this is the manual provided name.
+    /// For profiler scopes and user scopes this is the manual provided name.
     /// For function profiler scopes this is the function name.
+    #[inline]
     pub fn scopes_by_name(&self) -> &HashMap<ScopeType, ScopeId> {
         &self.0.type_to_scope_id
     }
 
     /// Fetches all registered scopes.
     /// Useful for fetching scope details by a scope id.
+    #[inline]
     pub fn scopes_by_id(&self) -> &HashMap<ScopeId, Arc<ScopeDetails>> {
         &self.0.scope_id_to_details
     }
@@ -84,6 +88,14 @@ pub enum ScopeType {
     Function(Cow<'static, str>),
     /// The scope is a profile scope inside a function identified by the name of this scope.
     Scope(Cow<'static, str>),
+}
+
+impl ScopeType {
+    pub fn name<'a>(&self) -> &'a Cow<'static, str> {
+        match self {
+            ScopeType::Function(name) | ScopeType::Scope(name) => name,
+        }
+    }
 }
 
 impl ScopeType {
@@ -122,7 +134,7 @@ pub struct ScopeDetails {
 }
 
 impl ScopeDetails {
-    /// Creates a new custom scope with a unique name.
+    /// Creates a new user scope with a unique name.
     pub fn from_scope_name<T>(scope_name: T) -> Self
     where
         T: Into<Cow<'static, str>>,
@@ -136,7 +148,7 @@ impl ScopeDetails {
         }
     }
 
-    /// Creates a new custom scope with a unique id allocated by puffin.
+    /// Creates a new user scope with a unique id allocated by puffin.
     /// This function should not be exposed as only puffin should allocate ids for scopes.
     pub(crate) fn from_scope_id(scope_id: ScopeId) -> Self {
         Self {

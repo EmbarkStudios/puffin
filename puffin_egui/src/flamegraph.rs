@@ -627,10 +627,13 @@ fn paint_record(
         false
     };
 
+    let Some(scope_details) = info.scope_collection.fetch_by_id(&scope_id) else {
+        return;
+    };
+
     if info.response.double_clicked() {
         if let Some(mouse_pos) = info.response.interact_pointer_pos() {
             if rect.contains(mouse_pos) {
-                let scope_details = info.scope_collection.fetch_by_id(&scope_id).unwrap();
                 options
                     .filter
                     .set_filter(scope_details.function_name.to_string());
@@ -655,7 +658,6 @@ fn paint_record(
     let mut min_width = options.min_width;
 
     if !options.filter.is_empty() {
-        let scope_details = info.scope_collection.fetch_by_id(&scope_id).unwrap();
         if options.filter.include(&scope_details.function_name) {
             // keep full opacity
             min_width *= 2.0; // make it more visible even when thin
@@ -679,11 +681,7 @@ fn paint_record(
     if wide_enough_for_text {
         let painter = info.painter.with_clip_rect(rect.intersect(info.canvas));
 
-        let scope_details = info.scope_collection.fetch_by_id(&scope_id).unwrap();
-
-        let scope_type = match scope_details.scope_type() {
-            ScopeType::Function(name) | ScopeType::Scope(name) => name,
-        };
+        let scope_type = scope_details.scope_type().name();
 
         let scope_name = format!("{:?}", scope_type);
 
@@ -753,7 +751,9 @@ fn paint_scope(
         }
 
         if result == PaintResult::Hovered {
-            let scope_details = info.scope_collection.fetch_by_id(&scope.id).unwrap();
+            let Some(scope_details) = info.scope_collection.fetch_by_id(&scope.id) else {
+                return Err(Error::Empty);
+            };
             egui::show_tooltip_at_pointer(&info.ctx, Id::new("puffin_profiler_tooltip"), |ui| {
                 ui.monospace(format!("id:       {}", scope_details.function_name));
                 if !scope_details.file_path.is_empty() {
@@ -840,7 +840,9 @@ fn merge_scope_tooltip(
     #![allow(clippy::collapsible_else_if)]
 
     ui.monospace(format!("id:       {:?}", merge.id));
-    let scope_details = scope_collection.fetch_by_id(&merge.id).unwrap();
+    let Some(scope_details) = scope_collection.fetch_by_id(&merge.id) else {
+        return;
+    };
     ui.monospace(format!("name:       {:?}", scope_details.scope_name));
 
     if !scope_details.function_name.is_empty() {
