@@ -181,6 +181,8 @@ impl From<Vec<u8>> for Stream {
 pub struct ScopeRecord<'s> {
     pub start_ns: NanoSecond,
     pub duration_ns: NanoSecond,
+    /// e.g. function argument, like a mesh name. Optional.
+    /// Example: "image.png".
     pub data: &'s str,
 }
 
@@ -375,10 +377,10 @@ impl ThreadProfiler {
     /// Explicit initialize with custom callbacks.
     ///
     /// If not called, each thread will use the default nanosecond source ([`now_ns()`])
-    /// and report scopes to the global profiler ([`internal_reporter()`]).
+    /// and report scopes to the global profiler ([`internal_profile_reporter()`]).
     ///
     /// For instance, when compiling for WASM the default timing function ([`now_ns()`]) won't work,
-    /// so you'll want to call `puffin::ThreadProfiler::initialize(my_timing_function, puffin::internal_reporter);`.
+    /// so you'll want to call `puffin::ThreadProfiler::initialize(my_timing_function, internal_profile_reporter);`.
     pub fn initialize(now_ns: NsSource, reporter: ThreadReporter) {
         ThreadProfiler::call(|tp| {
             tp.now_ns = now_ns;
@@ -506,9 +508,7 @@ pub struct GlobalProfiler {
     sinks: std::collections::HashMap<FrameSinkId, FrameSink>,
     // When true will propagate a full snapshot from `scope_collection` to every sink.
     propagate_all_scope_details: bool,
-
-    // When scope details are reported by the macros.
-    // Scopes with `ScopeId`.
+    // The new scopes' details, or also the first time macro or external library detected a scope.
     new_scopes: Vec<Arc<ScopeDetails>>,
     // Store an absolute collection of scope details such that sinks can request a total state by setting `propagate_all_scope_details`.
     scope_collection: ScopeCollection,
@@ -519,11 +519,11 @@ impl Default for GlobalProfiler {
         Self {
             current_frame_index: 0,
             current_frame: Default::default(),
-            new_scopes: Default::default(),
             next_sink_id: FrameSinkId(1),
             sinks: Default::default(),
-            scope_collection: Default::default(),
             propagate_all_scope_details: Default::default(),
+            new_scopes: Default::default(),
+            scope_collection: Default::default(),
         }
     }
 }
@@ -556,8 +556,6 @@ impl GlobalProfiler {
         let current_frame_index = self.current_frame_index;
         self.current_frame_index += 1;
 
-        // Scope details are registered here because we want them to be available for sinks to read during the new frame.
-        // The [`FrameData`] will get a delta of scopes that where reported this frame.
         let mut scope_deltas = Vec::with_capacity(self.new_scopes.len());
 
         // Firstly add the new scopes registered through the macros.
@@ -607,7 +605,7 @@ impl GlobalProfiler {
         }
     }
 
-    /// Insert custom scopes into puffin.
+    /// Inserts custom scopes into puffin.
     /// Scopes details should only be registered once for each scope and need be inserted before being reported to puffin.
     /// This function is relevant when you're registering measurement not performed using the puffin profiler macros.
     /// Scope id is always supposed to be `None` as it will be set by puffin.
@@ -616,7 +614,7 @@ impl GlobalProfiler {
         self.new_scopes.extend(new_scopes);
     }
 
-    /// Report some profiling data. Called from [`ThreadProfiler`].
+    /// Reports some profiling data. Called from [`ThreadProfiler`].
     pub(crate) fn report(
         &mut self,
         info: ThreadInfo,
@@ -635,7 +633,7 @@ impl GlobalProfiler {
             .extend(stream_scope_times);
     }
 
-    /// Report custom scopes to puffin profiler.
+    /// Reports custom scopes to puffin profiler.
     /// Every scope reported should first be registered by [`Self::register_custom_scopes`].
     pub fn report_custom_scopes(
         &mut self,
@@ -781,7 +779,7 @@ pub fn clean_function_name(name: &str) -> String {
         return name.to_owned();
     };
 
-    // "foo::bar::baz" -> "baz"
+    // "foo::bar::baz" -> "baz"FS
     fn last_part(name: &str) -> &str {
         if let Some(colon) = name.rfind("::") {
             &name[colon + 2..]

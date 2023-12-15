@@ -52,7 +52,10 @@ impl ScopeCollection {
         for scope_detail in scopes {
             let new_scope_id = fetch_add_scope_id();
             let scope = self.insert(Arc::new(
-                (*scope_detail).clone().with_scope_id(new_scope_id),
+                (*scope_detail)
+                    .clone()
+                    .with_scope_id(new_scope_id)
+                    .into_readable(),
             ));
             new_scopes.push(scope);
         }
