@@ -772,14 +772,17 @@ fn paint_scope(
             };
             egui::show_tooltip_at_pointer(&info.ctx, Id::new("puffin_profiler_tooltip"), |ui| {
                 let scope_type = scope_details.scope_type();
-                ui.monospace(format!("name:       {}", scope_type.name()));
-                ui.monospace(format!("type:       {}", match scope_type {
-                    ScopeType::Function(_) => "function scope",
-                    ScopeType::Scope(_) => "scope",
-                }));
+                ui.monospace(format!("name:     {}", scope_type.name()));
+                ui.monospace(format!(
+                    "type:     {}",
+                    match scope_type {
+                        ScopeType::Function(_) => "function scope",
+                        ScopeType::Scope(_) => "scope",
+                    }
+                ));
 
                 if !scope_details.file_path.is_empty() {
-                    ui.monospace(format!("location: {}", scope_details.location()));
+                    ui.monospace(format!("location:     {}", scope_details.location()));
                 }
                 if !scope.record.data.is_empty() {
                     ui.monospace(format!("data:     {}", scope.record.data));
@@ -835,7 +838,7 @@ fn paint_merge_scope(
 
     let result = paint_record(info, options, &prefix, suffix, merge.id, &record, top_y);
 
-    if matches!(result, Some(PaintResult::Culled)) {
+    if !matches!(result, Some(PaintResult::Culled)) {
         for child in &merge.children {
             paint_merge_scope(info, options, record.start_ns, child, depth + 1, min_y)?;
         }
@@ -858,19 +861,26 @@ fn merge_scope_tooltip(
 ) {
     #![allow(clippy::collapsible_else_if)]
 
-    ui.monospace(format!("id:       {:?}", merge.id));
+    ui.monospace(format!("id:       {}", merge.id.0));
     let Some(scope_details) = scope_collection.fetch_by_id(&merge.id) else {
         return;
     };
-    ui.monospace(format!("name:       {:?}", scope_details.scope_name));
 
-    if !scope_details.function_name.is_empty() {
-        ui.monospace(format!("location: {}", scope_details.file_path));
-    }
+    let scope_type = scope_details.scope_type();
+
+    ui.monospace(format!("name:     {}", scope_type.name()));
+    ui.monospace(format!(
+        "type:     {}",
+        match scope_type {
+            ScopeType::Function(_) => "function scope",
+            ScopeType::Scope(_) => "scope",
+        }
+    ));
 
     if !merge.data.is_empty() {
         ui.monospace(format!("data:     {}", merge.data));
     }
+
     ui.add_space(8.0);
 
     if num_frames <= 1 {
