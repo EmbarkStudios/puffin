@@ -771,7 +771,7 @@ fn paint_scope(
                 return Ok(None);
             };
             egui::show_tooltip_at_pointer(&info.ctx, Id::new("puffin_profiler_tooltip"), |ui| {
-                paint_scope_details(ui, scope.id, &scope.record.data, &scope_details);
+                paint_scope_details(ui, scope.id, scope.record.data, scope_details);
 
                 ui.separator();
 
@@ -844,10 +844,6 @@ fn paint_merge_scope(
 
 fn paint_scope_details(ui: &mut Ui, scope_id: ScopeId, data: &str, scope_details: &ScopeDetails) {
     let scope_type = scope_details.scope_type();
-    let scope_type_str = match scope_type {
-        ScopeType::Function(_) => "function scope",
-        ScopeType::Scope(_) => "scope",
-    };
 
     egui::Grid::new("merge_scope_tooltip")
         .num_columns(2)
@@ -873,7 +869,7 @@ fn paint_scope_details(ui: &mut Ui, scope_id: ScopeId, data: &str, scope_details
             }
 
             ui.monospace("type");
-            ui.monospace(scope_type_str);
+            ui.monospace(scope_type.type_str());
             ui.end_row();
         });
 }
@@ -890,27 +886,27 @@ fn merge_scope_tooltip(
         return;
     };
 
-    paint_scope_details(ui, merge.id, &merge.data, &scope_details);
+    paint_scope_details(ui, merge.id, &merge.data, scope_details);
 
     ui.separator();
 
     if num_frames <= 1 {
         if merge.num_pieces <= 1 {
             ui.monospace(format!(
-                "duration:\t{:7.3} ms",
+                "duration:\t{:.3} ms",
                 to_ms(merge.duration_per_frame_ns)
             ));
         } else {
             ui.monospace(format!("sum of {} scopes", merge.num_pieces));
             ui.monospace(format!(
-                "total:\t\t{:7.3} ms",
+                "total:\t{:.3} ms",
                 to_ms(merge.duration_per_frame_ns)
             ));
             ui.monospace(format!(
-                "mean:\t\t{:7.3} ms",
+                "mean:\t{:.3} ms",
                 to_ms(merge.duration_per_frame_ns) / (merge.num_pieces as f64),
             ));
-            ui.monospace(format!("max:\t\t{:7.3} ms", to_ms(merge.max_duration_ns)));
+            ui.monospace(format!("max:\t{:.3} ms", to_ms(merge.max_duration_ns)));
         }
     } else {
         ui.monospace(format!(

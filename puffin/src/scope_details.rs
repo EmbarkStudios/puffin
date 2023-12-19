@@ -99,6 +99,13 @@ impl ScopeType {
             ScopeType::Function(name) | ScopeType::Scope(name) => name,
         }
     }
+
+    pub fn type_str(&self) -> &'static str {
+        match self {
+            ScopeType::Function(_) => "function scope",
+            ScopeType::Scope(_) => "scope",
+        }
+    }
 }
 
 impl ScopeType {

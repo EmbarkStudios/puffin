@@ -511,6 +511,7 @@ pub struct GlobalProfiler {
     // The new scopes' details, or also the first time macro or external library detected a scope.
     new_scopes: Vec<Arc<ScopeDetails>>,
     // Store an absolute collection of scope details such that sinks can request a total state by setting `propagate_all_scope_details`.
+    // This should not be mutable accessible to external applications as frame views store there own copy.
     scope_collection: ScopeCollection,
 }
 
