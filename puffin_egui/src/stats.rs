@@ -1,3 +1,4 @@
+use egui::TextBuffer;
 use puffin::*;
 
 use crate::filter::Filter;
@@ -81,12 +82,12 @@ pub fn ui(
 
                     ui.label(&key.thread_name);
                     ui.label(scope_details.location());
-                    ui.label(format!("{:?}", scope_details.function_name));
+                    ui.label(scope_details.function_name.as_str());
 
                     if let Some(name) = &scope_details.scope_name {
-                        ui.label(format!("{}", name));
+                        ui.label(name.as_ref());
                     } else {
-                        ui.label(format!("-"));
+                        ui.label("-");
                     }
                     ui.monospace(format!("{:>5}", stats.count));
                     ui.monospace(format!("{:>6.1} kB", stats.bytes as f32 * 1e-3));

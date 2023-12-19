@@ -645,7 +645,7 @@ impl ProfilerUi {
                     .show(ui, |ui| {
                         let slowest_visible = self.show_frame_list(
                             ui,
-                            &frame_view,
+                            frame_view,
                             &frames.recent,
                             false,
                             &mut hovered_frame,

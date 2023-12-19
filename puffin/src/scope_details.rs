@@ -1,5 +1,4 @@
 use crate::{clean_function_name, fetch_add_scope_id, short_file_name, ScopeId};
-use serde::{Deserialize, Serialize};
 use std::ops::Deref;
 use std::{borrow::Cow, collections::HashMap, sync::Arc};
 
@@ -82,7 +81,11 @@ impl ScopeCollection {
 }
 
 // Scopes are identified by user-provided name while functions are identified by the function name.
-#[derive(Debug, Clone, PartialEq, Hash, PartialOrd, Ord, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Hash, PartialOrd, Ord, Eq)]
+#[cfg_attr(
+    feature = "serialization",
+    derive(serde::Serialize, serde::Deserialize)
+)]
 pub enum ScopeType {
     /// The scope is a function profile scope identified by the name of this function.
     Function(Cow<'static, str>),
@@ -91,7 +94,7 @@ pub enum ScopeType {
 }
 
 impl ScopeType {
-    pub fn name<'a>(&self) -> &'a Cow<'static, str> {
+    pub fn name(&self) -> &Cow<'static, str> {
         match self {
             ScopeType::Function(name) | ScopeType::Scope(name) => name,
         }
@@ -114,7 +117,11 @@ impl ScopeType {
     }
 }
 
-#[derive(Debug, Default, Clone, PartialEq, Hash, PartialOrd, Ord, Eq, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, PartialEq, Hash, PartialOrd, Ord, Eq)]
+#[cfg_attr(
+    feature = "serialization",
+    derive(serde::Serialize, serde::Deserialize)
+)]
 /// Detailed information about a scope.
 pub struct ScopeDetails {
     /// Unique scope identifier.

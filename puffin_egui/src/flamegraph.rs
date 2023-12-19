@@ -387,14 +387,21 @@ fn ui_canvas(
             let mut paint_streams = || -> Result<()> {
                 if options.merge_scopes {
                     for merge in &frames.threads[&thread_info].merged_scopes {
-                        paint_merge_scope(info, options, 0, merge, 0, cursor_y)?;
+                        let _ = paint_merge_scope(info, options, 0, merge, 0, cursor_y);
                     }
                 } else {
                     for stream_info in &frames.threads[&thread_info].streams {
                         let top_scopes =
                             Reader::from_start(&stream_info.stream).read_top_scopes()?;
                         for scope in top_scopes {
-                            paint_scope(info, options, &stream_info.stream, &scope, 0, cursor_y)?;
+                            let _ = paint_scope(
+                                info,
+                                options,
+                                &stream_info.stream,
+                                &scope,
+                                0,
+                                cursor_y,
+                            )?;
                         }
                     }
                 }
@@ -607,14 +614,14 @@ fn paint_record(
     scope_id: ScopeId,
     scope_data: &ScopeRecord<'_>,
     top_y: f32,
-) -> PaintResult {
+) -> Option<PaintResult> {
     let start_x = info.point_from_ns(options, scope_data.start_ns);
     let stop_x = info.point_from_ns(options, scope_data.stop_ns());
     if info.canvas.max.x < start_x
         || stop_x < info.canvas.min.x
         || stop_x - start_x < options.cull_width
     {
-        return PaintResult::Culled;
+        return Some(PaintResult::Culled);
     }
 
     let bottom_y = top_y + options.rect_height;
@@ -628,7 +635,7 @@ fn paint_record(
     };
 
     let Some(scope_details) = info.scope_collection.fetch_by_id(&scope_id) else {
-        return;
+        return None;
     };
 
     if info.response.double_clicked() {
@@ -681,17 +688,28 @@ fn paint_record(
     if wide_enough_for_text {
         let painter = info.painter.with_clip_rect(rect.intersect(info.canvas));
 
-        let scope_type = scope_details.scope_type().name();
+        let scope_type = scope_details.scope_type();
+        let scope_name = scope_type.name();
 
-        let scope_name = format!("{:?}", scope_type);
+        println!("{}", scope_name.as_str());
 
         let duration_ms = to_ms(scope_data.duration_ns);
         let text = if scope_data.data.is_empty() {
-            format!("{}{} {:6.3} ms {}", prefix, scope_name, duration_ms, suffix)
+            format!(
+                "{}{} {:6.3} ms {}",
+                prefix,
+                scope_name.as_str(),
+                duration_ms,
+                suffix
+            )
         } else {
             format!(
                 "{}{} {:?} {:6.3} ms {}",
-                prefix, scope_name, scope_data.data, duration_ms, suffix
+                prefix,
+                scope_name.as_str(),
+                scope_data.data,
+                duration_ms,
+                suffix
             )
         };
         let pos = pos2(
@@ -710,9 +728,9 @@ fn paint_record(
     }
 
     if is_hovered {
-        PaintResult::Hovered
+        Some(PaintResult::Hovered)
     } else {
-        PaintResult::Normal
+        Some(PaintResult::Normal)
     }
 }
 
@@ -738,29 +756,27 @@ fn paint_scope(
     scope: &Scope<'_>,
     depth: usize,
     min_y: f32,
-) -> Result<PaintResult> {
+) -> Result<Option<PaintResult>> {
     let top_y = min_y + (depth as f32) * (options.rect_height + options.spacing);
 
     let result = paint_record(info, options, "", "", scope.id, &scope.record, top_y);
 
-    if result != PaintResult::Culled {
+    if matches!(result, Some(PaintResult::Culled)) {
         let mut num_children = 0;
         for child_scope in Reader::with_offset(stream, scope.child_begin_position)? {
-            paint_scope(info, options, stream, &child_scope?, depth + 1, min_y)?;
+            let _ = paint_scope(info, options, stream, &child_scope?, depth + 1, min_y)?;
             num_children += 1;
         }
 
-        if result == PaintResult::Hovered {
+        if matches!(result, Some(PaintResult::Hovered)) {
             let Some(scope_details) = info.scope_collection.fetch_by_id(&scope.id) else {
-                return Err(Error::Empty);
+                return Ok(None);
             };
             egui::show_tooltip_at_pointer(&info.ctx, Id::new("puffin_profiler_tooltip"), |ui| {
-                ui.monospace(format!("id:       {}", scope_details.function_name));
+                let scope_type = scope_details.scope_type();
+                ui.monospace(format!("name:       {}", scope_type.name()));
                 if !scope_details.file_path.is_empty() {
-                    ui.monospace(format!(
-                        "location: {}:{}",
-                        scope_details.file_path, scope_details.line_nr
-                    ));
+                    ui.monospace(format!("location: {}", scope_details.location()));
                 }
                 if !scope.record.data.is_empty() {
                     ui.monospace(format!("data:     {}", scope.record.data));
@@ -784,7 +800,7 @@ fn paint_merge_scope(
     merge: &MergeScope<'_>,
     depth: usize,
     min_y: f32,
-) -> Result<PaintResult> {
+) -> Option<PaintResult> {
     let top_y = min_y + (depth as f32) * (options.rect_height + options.spacing);
 
     let prefix = if info.num_frames <= 1 {
@@ -816,19 +832,19 @@ fn paint_merge_scope(
 
     let result = paint_record(info, options, &prefix, suffix, merge.id, &record, top_y);
 
-    if result != PaintResult::Culled {
+    if matches!(result, Some(PaintResult::Culled)) {
         for child in &merge.children {
             paint_merge_scope(info, options, record.start_ns, child, depth + 1, min_y)?;
         }
 
-        if result == PaintResult::Hovered {
+        if matches!(result, Some(PaintResult::Hovered)) {
             egui::show_tooltip_at_pointer(&info.ctx, Id::new("puffin_profiler_tooltip"), |ui| {
-                merge_scope_tooltip(ui, &info.scope_collection, merge, info.num_frames);
+                merge_scope_tooltip(ui, info.scope_collection, merge, info.num_frames);
             });
         }
     }
 
-    Ok(result)
+    result
 }
 
 fn merge_scope_tooltip(

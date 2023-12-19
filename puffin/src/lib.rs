@@ -570,7 +570,7 @@ impl GlobalProfiler {
         let propagate_full_delta = std::mem::take(&mut self.propagate_all_scope_details);
 
         if propagate_full_delta {
-            for (_, details) in self.scope_collection.scopes_by_id() {
+            for details in self.scope_collection.scopes_by_id().values() {
                 scope_deltas.push(details.clone());
             }
         }

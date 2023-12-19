@@ -1,5 +1,5 @@
+use crate::ScopeDetails;
 use crate::{Error, FrameIndex, NanoSecond, Result, StreamInfo, ThreadInfo};
-use crate::{ScopeCollection, ScopeDetails};
 #[cfg(feature = "packing")]
 use parking_lot::RwLock;
 
@@ -116,6 +116,7 @@ impl FrameData {
         Ok(Self::from_unpacked(
             Arc::new(UnpackedFrameData::new(frame_index, thread_streams)?),
             scope_delta,
+            full_delta,
         ))
     }
 
@@ -444,7 +445,7 @@ impl FrameData {
     #[cfg(feature = "serialization")]
     pub fn write_into(
         &self,
-        scope_collection: &ScopeCollection,
+        scope_collection: &crate::ScopeCollection,
         send_all_scopes: bool,
         write: &mut impl std::io::Write,
     ) -> anyhow::Result<()> {
