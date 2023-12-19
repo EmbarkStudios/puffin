@@ -691,8 +691,6 @@ fn paint_record(
         let scope_type = scope_details.scope_type();
         let scope_name = scope_type.name();
 
-        println!("{}", scope_name.as_str());
-
         let duration_ms = to_ms(scope_data.duration_ns);
         let text = if scope_data.data.is_empty() {
             format!(
@@ -761,7 +759,7 @@ fn paint_scope(
 
     let result = paint_record(info, options, "", "", scope.id, &scope.record, top_y);
 
-    if matches!(result, Some(PaintResult::Culled)) {
+    if !matches!(result, Some(PaintResult::Culled)) {
         let mut num_children = 0;
         for child_scope in Reader::with_offset(stream, scope.child_begin_position)? {
             let _ = paint_scope(info, options, stream, &child_scope?, depth + 1, min_y)?;
@@ -775,6 +773,11 @@ fn paint_scope(
             egui::show_tooltip_at_pointer(&info.ctx, Id::new("puffin_profiler_tooltip"), |ui| {
                 let scope_type = scope_details.scope_type();
                 ui.monospace(format!("name:       {}", scope_type.name()));
+                ui.monospace(format!("type:       {}", match scope_type {
+                    ScopeType::Function(_) => "function scope",
+                    ScopeType::Scope(_) => "scope",
+                }));
+
                 if !scope_details.file_path.is_empty() {
                     ui.monospace(format!("location: {}", scope_details.location()));
                 }
