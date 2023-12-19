@@ -27,8 +27,8 @@ impl ScopeCollection {
     }
 
     /// Insert a scope into the collection.
-    /// Note that only puffin should allocate and provide the scope id.
-    /// But there might be instances like in http-client were one needs to insert a scope manually with the scope id set by the server.
+    /// This method asserts the scope id is set which only puffin should do.
+    /// Custom sinks might use this method to store new scope details received from puffin.
     pub fn insert(&mut self, scope_details: Arc<ScopeDetails>) -> Arc<ScopeDetails> {
         assert!(scope_details.scope_id.is_some());
 

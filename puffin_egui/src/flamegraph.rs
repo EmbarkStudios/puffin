@@ -771,27 +771,16 @@ fn paint_scope(
                 return Ok(None);
             };
             egui::show_tooltip_at_pointer(&info.ctx, Id::new("puffin_profiler_tooltip"), |ui| {
-                let scope_type = scope_details.scope_type();
-                ui.monospace(format!("name:     {}", scope_type.name()));
-                ui.monospace(format!(
-                    "type:     {}",
-                    match scope_type {
-                        ScopeType::Function(_) => "function scope",
-                        ScopeType::Scope(_) => "scope",
-                    }
-                ));
+                paint_scope_details(ui, scope.id, &scope.record.data, &scope_details);
 
-                if !scope_details.file_path.is_empty() {
-                    ui.monospace(format!("location:     {}", scope_details.location()));
-                }
-                if !scope.record.data.is_empty() {
-                    ui.monospace(format!("data:     {}", scope.record.data));
-                }
+                ui.separator();
+
                 ui.monospace(format!(
-                    "duration: {:7.3} ms",
+                    "duration:\t{:.3} ms",
                     to_ms(scope.record.duration_ns)
                 ));
-                ui.monospace(format!("children: {num_children}"));
+
+                ui.monospace(format!("children:\t{num_children}"));
             });
         }
     }
@@ -853,6 +842,42 @@ fn paint_merge_scope(
     result
 }
 
+fn paint_scope_details(ui: &mut Ui, scope_id: ScopeId, data: &str, scope_details: &ScopeDetails) {
+    let scope_type = scope_details.scope_type();
+    let scope_type_str = match scope_type {
+        ScopeType::Function(_) => "function scope",
+        ScopeType::Scope(_) => "scope",
+    };
+
+    egui::Grid::new("merge_scope_tooltip")
+        .num_columns(2)
+        .show(ui, |ui| {
+            ui.monospace("id");
+            ui.monospace(format!("{}", scope_id.0));
+            ui.end_row();
+
+            ui.monospace("name");
+            ui.monospace(format!("{}", scope_type.name()));
+            ui.end_row();
+
+            if !scope_details.file_path.is_empty() {
+                ui.monospace("location");
+                ui.monospace(scope_details.location());
+                ui.end_row();
+            }
+
+            if !data.is_empty() {
+                ui.monospace("data");
+                ui.monospace(data.as_str());
+                ui.end_row();
+            }
+
+            ui.monospace("type");
+            ui.monospace(scope_type_str);
+            ui.end_row();
+        });
+}
+
 fn merge_scope_tooltip(
     ui: &mut egui::Ui,
     scope_collection: &ScopeCollection,
@@ -861,45 +886,31 @@ fn merge_scope_tooltip(
 ) {
     #![allow(clippy::collapsible_else_if)]
 
-    ui.monospace(format!("id:       {}", merge.id.0));
     let Some(scope_details) = scope_collection.fetch_by_id(&merge.id) else {
         return;
     };
 
-    let scope_type = scope_details.scope_type();
+    paint_scope_details(ui, merge.id, &merge.data, &scope_details);
 
-    ui.monospace(format!("name:     {}", scope_type.name()));
-    ui.monospace(format!(
-        "type:     {}",
-        match scope_type {
-            ScopeType::Function(_) => "function scope",
-            ScopeType::Scope(_) => "scope",
-        }
-    ));
-
-    if !merge.data.is_empty() {
-        ui.monospace(format!("data:     {}", merge.data));
-    }
-
-    ui.add_space(8.0);
+    ui.separator();
 
     if num_frames <= 1 {
         if merge.num_pieces <= 1 {
             ui.monospace(format!(
-                "duration: {:7.3} ms",
+                "duration:\t{:7.3} ms",
                 to_ms(merge.duration_per_frame_ns)
             ));
         } else {
             ui.monospace(format!("sum of {} scopes", merge.num_pieces));
             ui.monospace(format!(
-                "total: {:7.3} ms",
+                "total:\t\t{:7.3} ms",
                 to_ms(merge.duration_per_frame_ns)
             ));
             ui.monospace(format!(
-                "mean:  {:7.3} ms",
+                "mean:\t\t{:7.3} ms",
                 to_ms(merge.duration_per_frame_ns) / (merge.num_pieces as f64),
             ));
-            ui.monospace(format!("max:   {:7.3} ms", to_ms(merge.max_duration_ns)));
+            ui.monospace(format!("max:\t\t{:7.3} ms", to_ms(merge.max_duration_ns)));
         }
     } else {
         ui.monospace(format!(
@@ -930,7 +941,6 @@ fn merge_scope_tooltip(
             "{:7.3} ms for slowest call",
             to_ms(merge.max_duration_ns)
         ));
-        // }
     }
 }
 

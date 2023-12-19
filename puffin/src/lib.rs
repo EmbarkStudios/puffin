@@ -747,7 +747,7 @@ pub struct ScopeId(pub NonZeroU32);
 
 impl ScopeId {
     #[cfg(test)]
-    pub(crate) fn new_unchecked(id: u32) -> Self {
+    pub(crate) fn new(id: u32) -> Self {
         ScopeId(NonZeroU32::new(id).expect("Scope id was not non-zero u32"))
     }
 }
@@ -969,18 +969,12 @@ fn profile_macros_test() {
     GlobalProfiler::lock().new_frame();
 
     let lock = frame_view.lock();
-    let scope_details = lock
-        .scope_collection
-        .fetch_by_id(&ScopeId::new_unchecked(1))
-        .unwrap();
+    let scope_details = lock.scope_collection.fetch_by_id(&ScopeId::new(1)).unwrap();
     assert_eq!(scope_details.file_path, "puffin/src/lib.rs");
     assert_eq!(scope_details.function_name, "profile_macros_test::a");
     assert_eq!(scope_details.line_nr, line_nr_fn);
 
-    let scope_details = lock
-        .scope_collection
-        .fetch_by_id(&ScopeId::new_unchecked(2))
-        .unwrap();
+    let scope_details = lock.scope_collection.fetch_by_id(&ScopeId::new(2)).unwrap();
 
     assert_eq!(scope_details.file_path, "puffin/src/lib.rs");
     assert_eq!(scope_details.function_name, "profile_macros_test::a");
@@ -991,7 +985,7 @@ fn profile_macros_test() {
         .scope_collection
         .fetch_by_name(&ScopeType::scope("my-scope"))
         .unwrap();
-    assert_eq!(scope_details, &ScopeId::new_unchecked(2));
+    assert_eq!(scope_details, &ScopeId::new(2));
 
     drop(lock);
 
@@ -1004,7 +998,7 @@ fn profile_macros_test() {
 // The macro defines 'f()' at the place where macro is called.
 // This code is located at the place of call and two closures deep.
 // Strip away this useless postfix.
-static USELESS_SCOPE_NAME_SUFFIX: &str = "::{{closure}}::{{closure}}::f";
+const USELESS_SCOPE_NAME_SUFFIX: &str = "::{{closure}}::{{closure}}::f";
 
 #[allow(clippy::doc_markdown)] // clippy wants to put "MacBook" in ticks 🙄
 /// Automatically name the profiling scope based on function name.

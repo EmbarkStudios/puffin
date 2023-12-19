@@ -289,7 +289,7 @@ impl<'s> Iterator for Reader<'s> {
 #[test]
 fn write_scope() {
     let mut stream: Stream = Stream::default();
-    let start = stream.begin_scope(100, ScopeId::new_unchecked(1), "data");
+    let start = stream.begin_scope(100, ScopeId::new(1), "data");
     stream.end_scope(start, 300);
 
     let scopes = Reader::from_start(&stream).read_top_scopes().unwrap();
@@ -309,10 +309,10 @@ fn test_profile_data() {
     let stream = {
         let mut stream = Stream::default();
 
-        let t0 = stream.begin_scope(100, ScopeId::new_unchecked(1), "data_top");
-        let m1 = stream.begin_scope(200, ScopeId::new_unchecked(2), "data_middle_0");
+        let t0 = stream.begin_scope(100, ScopeId::new(1), "data_top");
+        let m1 = stream.begin_scope(200, ScopeId::new(2), "data_middle_0");
         stream.end_scope(m1, 300);
-        let m1 = stream.begin_scope(300, ScopeId::new_unchecked(3), "data_middle_1");
+        let m1 = stream.begin_scope(300, ScopeId::new(3), "data_middle_1");
         stream.end_scope(m1, 400);
         stream.end_scope(t0, 400);
         stream
