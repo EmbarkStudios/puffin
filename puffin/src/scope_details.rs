@@ -30,16 +30,15 @@ impl ScopeCollection {
     /// This method asserts the scope id is set which only puffin should do.
     /// Custom sinks might use this method to store new scope details received from puffin.
     pub fn insert(&mut self, scope_details: Arc<ScopeDetails>) -> Arc<ScopeDetails> {
-        assert!(scope_details.scope_id.is_some());
-
+        let scope_id = scope_details
+            .scope_id
+            .expect("`ScopeDetails` missing `ScopeId`");
         let scope_type = scope_details.scope_type();
 
-        self.0
-            .type_to_scope_id
-            .insert(scope_type, scope_details.scope_id.unwrap());
+        self.0.type_to_scope_id.insert(scope_type, scope_id);
         self.0
             .scope_id_to_details
-            .entry(scope_details.scope_id.unwrap())
+            .entry(scope_id)
             .or_insert(Arc::new(scope_details.deref().clone().into_readable()))
             .clone()
     }

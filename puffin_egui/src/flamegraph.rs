@@ -759,14 +759,14 @@ fn paint_scope(
 
     let result = paint_record(info, options, "", "", scope.id, &scope.record, top_y);
 
-    if !matches!(result, Some(PaintResult::Culled)) {
+    if result != Some(PaintResult::Culled) {
         let mut num_children = 0;
         for child_scope in Reader::with_offset(stream, scope.child_begin_position)? {
             let _ = paint_scope(info, options, stream, &child_scope?, depth + 1, min_y)?;
             num_children += 1;
         }
 
-        if matches!(result, Some(PaintResult::Hovered)) {
+        if result == Some(PaintResult::Hovered) {
             let Some(scope_details) = info.scope_collection.fetch_by_id(&scope.id) else {
                 return Ok(None);
             };
@@ -827,12 +827,12 @@ fn paint_merge_scope(
 
     let result = paint_record(info, options, &prefix, suffix, merge.id, &record, top_y);
 
-    if !matches!(result, Some(PaintResult::Culled)) {
+    if result != Some(PaintResult::Culled) {
         for child in &merge.children {
             paint_merge_scope(info, options, record.start_ns, child, depth + 1, min_y)?;
         }
 
-        if matches!(result, Some(PaintResult::Hovered)) {
+        if result == Some(PaintResult::Hovered) {
             egui::show_tooltip_at_pointer(&info.ctx, Id::new("puffin_profiler_tooltip"), |ui| {
                 merge_scope_tooltip(ui, info.scope_collection, merge, info.num_frames);
             });

@@ -466,16 +466,10 @@ impl FrameData {
         write.write_u8(packed_streams.compression_kind as u8)?;
         write.write_all(&packed_streams.bytes)?;
 
-        let mut to_serialize_scopes = Vec::with_capacity(self.scope_delta.len());
-
-        if send_all_scopes {
-            for scope in scope_collection.scopes_by_id().values().cloned() {
-                to_serialize_scopes.push(scope);
-            }
+        let to_serialize_scopes: Vec<_> = if send_all_scopes {
+            scope_collection.scopes_by_id().values().cloned().collect()
         } else {
-            for scope in self.scope_delta.iter() {
-                to_serialize_scopes.push(scope.clone());
-            }
+            self.scope_delta.clone()
         };
 
         let serialized_scopes = bincode::options().serialize(&to_serialize_scopes)?;
