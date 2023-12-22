@@ -308,7 +308,7 @@ impl SelectedFrames {
     ) -> Self {
         puffin::profile_function!();
         frames.sort_by_key(|f| f.frame_index());
-        frames.dedup_by_key(|f: &mut Arc<UnpackedFrameData>| f.frame_index());
+        frames.dedup_by_key(|f| f.frame_index());
 
         let mut threads: BTreeSet<ThreadInfo> = BTreeSet::new();
         for frame in &frames {
@@ -519,10 +519,10 @@ impl ProfilerUi {
                 hovered_frame = self.show_frames(ui, frame_view);
             });
 
-        let frames: Option<SelectedFrames> = if let Some(frame) = hovered_frame {
+        let frames = if let Some(frame) = hovered_frame {
             match frame.unpacked() {
                 Ok(frame) => {
-                    SelectedFrames::try_from_vec(&frame_view.scope_collection, vec![frame])
+                    SelectedFrames::try_from_vec(&frame_view.scope_collection(), vec![frame])
                 }
                 Err(err) => {
                     ui.colored_label(ERROR_COLOR, format!("Failed to load hovered frame: {err}"));
@@ -539,7 +539,7 @@ impl ProfilerUi {
                 .map(|frame| frame.unpacked())
                 .filter_map(|unpacked| unpacked.ok())
                 .collect();
-            SelectedFrames::try_from_vec(&frame_view.scope_collection, unpacked)
+            SelectedFrames::try_from_vec(&frame_view.scope_collection(), unpacked)
         };
 
         let frames = if let Some(frames) = frames {
@@ -572,13 +572,12 @@ impl ProfilerUi {
                         || space_pressed
                     {
                         let latest = frame_view.latest_frame();
-
                         if let Some(latest) = latest {
                             if let Ok(latest) = latest.unpacked() {
                                 self.pause_and_select(
                                     frame_view,
                                     SelectedFrames::from_vec1(
-                                        &frame_view.scope_collection,
+                                        &frame_view.scope_collection(),
                                         vec1::vec1![latest],
                                     ),
                                 );
@@ -608,13 +607,13 @@ impl ProfilerUi {
             View::Flamegraph => flamegraph::ui(
                 ui,
                 &mut self.flamegraph_options,
-                &frame_view.scope_collection,
+                &frame_view.scope_collection(),
                 &frames,
             ),
             View::Stats => stats::ui(
                 ui,
                 &mut self.stats_options,
-                &frame_view.scope_collection,
+                &frame_view.scope_collection(),
                 &frames.frames,
             ),
         }
@@ -836,7 +835,7 @@ impl ProfilerUi {
         }
 
         if let Some(new_selection) =
-            SelectedFrames::try_from_vec(&frame_view.scope_collection, new_selection)
+            SelectedFrames::try_from_vec(&frame_view.scope_collection(), new_selection)
         {
             self.pause_and_select(frame_view, new_selection);
         }

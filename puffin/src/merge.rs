@@ -160,7 +160,6 @@ pub fn merge_scopes_for_thread<'s>(
             let offset_ns = frame.meta.range_ns.0 - frames[0].meta.range_ns.0; // make everything relative to first frame
 
             let top_scopes = Reader::from_start(&stream_info.stream).read_top_scopes()?;
-
             for scope in top_scopes {
                 top_nodes
                     .entry(MergeId {
@@ -232,7 +231,6 @@ fn test_merge() {
     };
 
     let stream_info = StreamInfo::parse(stream).unwrap();
-
     let mut thread_streams = BTreeMap::new();
     let thread_info = ThreadInfo {
         start_time_ns: Some(0),
@@ -241,7 +239,6 @@ fn test_merge() {
     thread_streams.insert(thread_info.clone(), stream_info);
     let frame = UnpackedFrameData::new(0, thread_streams).unwrap();
     let frames = [Arc::new(frame)];
-
     let merged = merge_scopes_for_thread(&scope_collection, &frames, &thread_info).unwrap();
 
     let expected = vec![

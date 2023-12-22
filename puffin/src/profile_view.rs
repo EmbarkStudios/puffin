@@ -16,7 +16,7 @@ pub struct FrameView {
     ///
     /// Only recommended if you set a large max_recent size.
     pack_frames: bool,
-    pub scope_collection: ScopeCollection,
+    scope_collection: ScopeCollection,
 }
 
 impl Default for FrameView {
@@ -38,6 +38,10 @@ impl Default for FrameView {
 impl FrameView {
     pub fn is_empty(&self) -> bool {
         self.recent.is_empty() && self.slowest.is_empty()
+    }
+
+    pub fn scope_collection(&self) -> &ScopeCollection {
+        &self.scope_collection
     }
 
     /// Insert user scopes into puffin.

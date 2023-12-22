@@ -762,14 +762,11 @@ fn paint_scope(
             };
             egui::show_tooltip_at_pointer(&info.ctx, Id::new("puffin_profiler_tooltip"), |ui| {
                 paint_scope_details(ui, scope.id, scope.record.data, scope_details);
-
                 ui.separator();
-
                 ui.monospace(format!(
                     "duration: {:7.3} ms",
                     to_ms(scope.record.duration_ns)
                 ));
-
                 ui.monospace(format!("children: {num_children:3.3}"));
             });
         }
@@ -833,7 +830,7 @@ fn paint_merge_scope(
 }
 
 fn paint_scope_details(ui: &mut Ui, scope_id: ScopeId, data: &str, scope_details: &ScopeDetails) {
-    egui::Grid::new("merge_scope_tooltip")
+    egui::Grid::new("scope_details_tooltip")
         .num_columns(2)
         .show(ui, |ui| {
             ui.monospace("id");
@@ -845,7 +842,7 @@ fn paint_scope_details(ui: &mut Ui, scope_id: ScopeId, data: &str, scope_details
             ui.end_row();
 
             if let Some(scope_name) = &scope_details.scope_name {
-                ui.monospace("name");
+                ui.monospace("scope name");
                 ui.monospace(scope_name.as_str());
                 ui.end_row();
             }

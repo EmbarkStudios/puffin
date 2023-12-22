@@ -197,7 +197,7 @@ impl<'s> ScopeRecord<'s> {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Scope<'s> {
     // Unique identifier for the profile scope.
-    // More detailed scope information can be requested via [`ScopeCollection::instance`]
+    // More detailed scope information can be requested via [`FrameView::scope_collection()`].
     pub id: ScopeId,
     // Some dynamic data that is passed into the profiler scope.
     pub record: ScopeRecord<'s>,
@@ -541,10 +541,10 @@ impl GlobalProfiler {
 
     /// Access to the global profiler singleton.
     #[cfg(not(feature = "parking_lot"))]
-    pub fn lock() -> parking_lot::MutexGuard<'static, Self> {
-        use parking_lot::Mutex;
-        static GLOBAL_PROFILER: Lazy<Mutex<GlobalProfiler>> = Lazy::new(Default::default);
-        GLOBAL_PROFILER.lock()
+    pub fn lock() -> std::sync::MutexGuard<'static, Self> {
+        static GLOBAL_PROFILER: Lazy<std::sync::Mutex<GlobalProfiler>> =
+            Lazy::new(Default::default);
+        GLOBAL_PROFILER.lock().expect("poisoned mutex")
     }
 
     /// You need to call this once at the start of every frame.
@@ -559,7 +559,7 @@ impl GlobalProfiler {
 
         let mut scope_deltas = Vec::with_capacity(self.new_scopes.len());
 
-        // Firstly add the new scopes registered through the macros.
+        // Firstly add the new registered scopes.
         for scope_detail in self.new_scopes.drain(..) {
             scope_deltas.push(scope_detail);
         }
@@ -571,9 +571,7 @@ impl GlobalProfiler {
         let propagate_full_delta = std::mem::take(&mut self.propagate_all_scope_details);
 
         if propagate_full_delta {
-            for details in self.scope_collection.scopes_by_id().values() {
-                scope_deltas.push(details.clone());
-            }
+            scope_deltas.extend(self.scope_collection.scopes_by_id().values().cloned());
         }
 
         let new_frame = match FrameData::new(
@@ -649,7 +647,6 @@ impl GlobalProfiler {
     pub fn add_sink(&mut self, sink: FrameSink) -> FrameSinkId {
         let id = self.next_sink_id;
         self.next_sink_id.0 += 1;
-
         self.sinks.insert(id, sink);
         id
     }
@@ -660,7 +657,7 @@ impl GlobalProfiler {
 
     /// Sends a snapshot of all scopes to all sinks via the frame data.
     /// This is useful for if a sink is initialized after scopes are registered.
-    pub fn send_all_scopes_to_sinks(&mut self) {
+    pub fn emit_scope_snapshot(&mut self) {
         self.propagate_all_scope_details = true;
     }
 }
@@ -970,19 +967,25 @@ fn profile_macros_test() {
     GlobalProfiler::lock().new_frame();
 
     let lock = frame_view.lock();
-    let scope_details = lock.scope_collection.fetch_by_id(&ScopeId::new(1)).unwrap();
+    let scope_details = lock
+        .scope_collection()
+        .fetch_by_id(&ScopeId::new(1))
+        .unwrap();
     assert_eq!(scope_details.file_path, "puffin/src/lib.rs");
     assert_eq!(scope_details.function_name, "profile_macros_test::a");
     assert_eq!(scope_details.line_nr, line_nr_fn);
 
-    let scope_details = lock.scope_collection.fetch_by_id(&ScopeId::new(2)).unwrap();
+    let scope_details = lock
+        .scope_collection()
+        .fetch_by_id(&ScopeId::new(2))
+        .unwrap();
 
     assert_eq!(scope_details.file_path, "puffin/src/lib.rs");
     assert_eq!(scope_details.function_name, "profile_macros_test::a");
     assert_eq!(scope_details.scope_name, Some(Cow::Borrowed("my-scope")));
     assert_eq!(scope_details.line_nr, line_nr_scope);
 
-    let scope_details = lock.scope_collection.fetch_by_name("my-scope").unwrap();
+    let scope_details = lock.scope_collection().fetch_by_name("my-scope").unwrap();
     assert_eq!(scope_details, &ScopeId::new(2));
 
     drop(lock);
