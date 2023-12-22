@@ -776,7 +776,7 @@ pub fn clean_function_name(name: &str) -> String {
         return name.to_owned();
     };
 
-    // "foo::bar::baz" -> "baz"FS
+    // "foo::bar::baz" -> "baz"
     fn last_part(name: &str) -> &str {
         if let Some(colon) = name.rfind("::") {
             &name[colon + 2..]
@@ -982,10 +982,7 @@ fn profile_macros_test() {
     assert_eq!(scope_details.scope_name, Some(Cow::Borrowed("my-scope")));
     assert_eq!(scope_details.line_nr, line_nr_scope);
 
-    let scope_details = lock
-        .scope_collection
-        .fetch_by_name(&ScopeType::scope("my-scope"))
-        .unwrap();
+    let scope_details = lock.scope_collection.fetch_by_name("my-scope").unwrap();
     assert_eq!(scope_details, &ScopeId::new(2));
 
     drop(lock);
@@ -998,7 +995,7 @@ fn profile_macros_test() {
 
 // The macro defines 'f()' at the place where macro is called.
 // This code is located at the place of call and two closures deep.
-// Strip away this useless postfix.
+// Strip away this useless suffix.
 const USELESS_SCOPE_NAME_SUFFIX: &str = "::{{closure}}::{{closure}}::f";
 
 #[allow(clippy::doc_markdown)] // clippy wants to put "MacBook" in ticks 🙄

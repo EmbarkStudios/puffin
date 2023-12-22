@@ -76,7 +76,7 @@ pub fn ui(
                         continue;
                     };
 
-                    if !options.filter.include(&scope_details.function_name) {
+                    if !options.filter.include(&scope_details.name()) {
                         return;
                     }
 

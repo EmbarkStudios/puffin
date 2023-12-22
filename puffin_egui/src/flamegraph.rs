@@ -387,21 +387,14 @@ fn ui_canvas(
             let mut paint_streams = || -> Result<()> {
                 if options.merge_scopes {
                     for merge in &frames.threads[&thread_info].merged_scopes {
-                        let _ = paint_merge_scope(info, options, 0, merge, 0, cursor_y);
+                        paint_merge_scope(info, options, 0, merge, 0, cursor_y);
                     }
                 } else {
                     for stream_info in &frames.threads[&thread_info].streams {
                         let top_scopes =
                             Reader::from_start(&stream_info.stream).read_top_scopes()?;
                         for scope in top_scopes {
-                            let _ = paint_scope(
-                                info,
-                                options,
-                                &stream_info.stream,
-                                &scope,
-                                0,
-                                cursor_y,
-                            )?;
+                            paint_scope(info, options, &stream_info.stream, &scope, 0, cursor_y)?;
                         }
                     }
                 }
@@ -614,14 +607,14 @@ fn paint_record(
     scope_id: ScopeId,
     scope_data: &ScopeRecord<'_>,
     top_y: f32,
-) -> Option<PaintResult> {
+) -> PaintResult {
     let start_x = info.point_from_ns(options, scope_data.start_ns);
     let stop_x = info.point_from_ns(options, scope_data.stop_ns());
     if info.canvas.max.x < start_x
         || stop_x < info.canvas.min.x
         || stop_x - start_x < options.cull_width
     {
-        return Some(PaintResult::Culled);
+        return PaintResult::Culled;
     }
 
     let bottom_y = top_y + options.rect_height;
@@ -635,15 +628,13 @@ fn paint_record(
     };
 
     let Some(scope_details) = info.scope_collection.fetch_by_id(&scope_id) else {
-        return None;
+        return PaintResult::Culled;
     };
 
     if info.response.double_clicked() {
         if let Some(mouse_pos) = info.response.interact_pointer_pos() {
             if rect.contains(mouse_pos) {
-                options
-                    .filter
-                    .set_filter(scope_details.function_name.to_string());
+                options.filter.set_filter(scope_details.name().to_string());
             }
         }
     } else if is_hovered && info.response.clicked() {
@@ -665,7 +656,7 @@ fn paint_record(
     let mut min_width = options.min_width;
 
     if !options.filter.is_empty() {
-        if options.filter.include(&scope_details.function_name) {
+        if options.filter.include(&scope_details.name()) {
             // keep full opacity
             min_width *= 2.0; // make it more visible even when thin
         } else {
@@ -688,8 +679,7 @@ fn paint_record(
     if wide_enough_for_text {
         let painter = info.painter.with_clip_rect(rect.intersect(info.canvas));
 
-        let scope_type = scope_details.scope_type();
-        let scope_name = scope_type.name();
+        let scope_name = scope_details.name();
 
         let duration_ms = to_ms(scope_data.duration_ns);
         let text = if scope_data.data.is_empty() {
@@ -726,9 +716,9 @@ fn paint_record(
     }
 
     if is_hovered {
-        Some(PaintResult::Hovered)
+        PaintResult::Hovered
     } else {
-        Some(PaintResult::Normal)
+        PaintResult::Normal
     }
 }
 
@@ -754,21 +744,21 @@ fn paint_scope(
     scope: &Scope<'_>,
     depth: usize,
     min_y: f32,
-) -> Result<Option<PaintResult>> {
+) -> Result<PaintResult> {
     let top_y = min_y + (depth as f32) * (options.rect_height + options.spacing);
 
     let result = paint_record(info, options, "", "", scope.id, &scope.record, top_y);
 
-    if result != Some(PaintResult::Culled) {
+    if result != PaintResult::Culled {
         let mut num_children = 0;
         for child_scope in Reader::with_offset(stream, scope.child_begin_position)? {
-            let _ = paint_scope(info, options, stream, &child_scope?, depth + 1, min_y)?;
+            paint_scope(info, options, stream, &child_scope?, depth + 1, min_y)?;
             num_children += 1;
         }
 
-        if result == Some(PaintResult::Hovered) {
+        if result == PaintResult::Hovered {
             let Some(scope_details) = info.scope_collection.fetch_by_id(&scope.id) else {
-                return Ok(None);
+                return Ok(PaintResult::Culled);
             };
             egui::show_tooltip_at_pointer(&info.ctx, Id::new("puffin_profiler_tooltip"), |ui| {
                 paint_scope_details(ui, scope.id, scope.record.data, scope_details);
@@ -776,11 +766,11 @@ fn paint_scope(
                 ui.separator();
 
                 ui.monospace(format!(
-                    "duration:\t{:.3} ms",
+                    "duration: {:7.3} ms",
                     to_ms(scope.record.duration_ns)
                 ));
 
-                ui.monospace(format!("children:\t{num_children}"));
+                ui.monospace(format!("children: {num_children:3.3}"));
             });
         }
     }
@@ -795,7 +785,7 @@ fn paint_merge_scope(
     merge: &MergeScope<'_>,
     depth: usize,
     min_y: f32,
-) -> Option<PaintResult> {
+) -> PaintResult {
     let top_y = min_y + (depth as f32) * (options.rect_height + options.spacing);
 
     let prefix = if info.num_frames <= 1 {
@@ -827,12 +817,12 @@ fn paint_merge_scope(
 
     let result = paint_record(info, options, &prefix, suffix, merge.id, &record, top_y);
 
-    if result != Some(PaintResult::Culled) {
+    if result != PaintResult::Culled {
         for child in &merge.children {
-            paint_merge_scope(info, options, record.start_ns, child, depth + 1, min_y)?;
+            paint_merge_scope(info, options, record.start_ns, child, depth + 1, min_y);
         }
 
-        if result == Some(PaintResult::Hovered) {
+        if result == PaintResult::Hovered {
             egui::show_tooltip_at_pointer(&info.ctx, Id::new("puffin_profiler_tooltip"), |ui| {
                 merge_scope_tooltip(ui, info.scope_collection, merge, info.num_frames);
             });
@@ -843,8 +833,6 @@ fn paint_merge_scope(
 }
 
 fn paint_scope_details(ui: &mut Ui, scope_id: ScopeId, data: &str, scope_details: &ScopeDetails) {
-    let scope_type = scope_details.scope_type();
-
     egui::Grid::new("merge_scope_tooltip")
         .num_columns(2)
         .show(ui, |ui| {
@@ -852,9 +840,15 @@ fn paint_scope_details(ui: &mut Ui, scope_id: ScopeId, data: &str, scope_details
             ui.monospace(format!("{}", scope_id.0));
             ui.end_row();
 
-            ui.monospace("name");
-            ui.monospace(format!("{}", scope_type.name()));
+            ui.monospace("function name");
+            ui.monospace(scope_details.function_name.as_str());
             ui.end_row();
+
+            if let Some(scope_name) = &scope_details.scope_name {
+                ui.monospace("name");
+                ui.monospace(scope_name.as_str());
+                ui.end_row();
+            }
 
             if !scope_details.file_path.is_empty() {
                 ui.monospace("location");
@@ -868,8 +862,8 @@ fn paint_scope_details(ui: &mut Ui, scope_id: ScopeId, data: &str, scope_details
                 ui.end_row();
             }
 
-            ui.monospace("type");
-            ui.monospace(scope_type.type_str());
+            ui.monospace("scope type");
+            ui.monospace(scope_details.scope_type().type_str());
             ui.end_row();
         });
 }
@@ -893,20 +887,20 @@ fn merge_scope_tooltip(
     if num_frames <= 1 {
         if merge.num_pieces <= 1 {
             ui.monospace(format!(
-                "duration:\t{:.3} ms",
+                "duration: {:7.3} ms",
                 to_ms(merge.duration_per_frame_ns)
             ));
         } else {
             ui.monospace(format!("sum of {} scopes", merge.num_pieces));
             ui.monospace(format!(
-                "total:\t{:.3} ms",
+                "total: {:7.3} ms",
                 to_ms(merge.duration_per_frame_ns)
             ));
             ui.monospace(format!(
-                "mean:\t{:.3} ms",
+                "mean:  {:7.3} ms",
                 to_ms(merge.duration_per_frame_ns) / (merge.num_pieces as f64),
             ));
-            ui.monospace(format!("max:\t{:.3} ms", to_ms(merge.max_duration_ns)));
+            ui.monospace(format!("max:   {:7.3} ms", to_ms(merge.max_duration_ns)));
         }
     } else {
         ui.monospace(format!(

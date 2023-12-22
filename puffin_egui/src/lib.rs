@@ -684,7 +684,7 @@ impl ProfilerUi {
 
                 self.show_frame_list(
                     ui,
-                    frame_view.as_mut().unwrap(),
+                    &frame_view,
                     &slowest_of_the_slow,
                     true,
                     &mut hovered_frame,
