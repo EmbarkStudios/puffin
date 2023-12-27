@@ -605,12 +605,16 @@ impl GlobalProfiler {
     }
 
     /// Inserts user scopes into puffin.
+    /// Returns the scope id for every inserted scope in the same order as input slice.
+    ///
     /// Scopes details should only be registered once for each scope and need be inserted before being reported to puffin.
     /// This function is relevant when you're registering measurement not performed using the puffin profiler macros.
     /// Scope id is always supposed to be `None` as it will be set by puffin.
-    pub fn register_user_scopes(&mut self, scopes: &[ScopeDetails]) {
+    pub fn register_user_scopes(&mut self, scopes: &[ScopeDetails]) -> Vec<ScopeId> {
         let new_scopes = self.scope_collection.register_user_scopes(scopes);
+        let new_scope_ids = new_scopes.iter().filter_map(|x| x.scope_id).collect();
         self.new_scopes.extend(new_scopes);
+        new_scope_ids
     }
 
     /// Reports some profiling data. Called from [`ThreadProfiler`].

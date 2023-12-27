@@ -49,7 +49,7 @@ impl ScopeCollection {
         &mut self,
         scopes: &[ScopeDetails],
     ) -> Vec<Arc<ScopeDetails>> {
-        let mut new_scopes = Vec::new();
+        let mut new_scopes = Vec::with_capacity(scopes.len());
         for scope_detail in scopes {
             let new_scope_id = fetch_add_scope_id();
             let scope = self.insert(Arc::new(
