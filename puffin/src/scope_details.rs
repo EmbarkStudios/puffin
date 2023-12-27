@@ -1,5 +1,4 @@
 use crate::{clean_function_name, fetch_add_scope_id, short_file_name, ScopeId};
-use std::ops::Deref;
 use std::{borrow::Cow, collections::HashMap, sync::Arc};
 
 #[derive(Default, Clone)]
@@ -40,7 +39,7 @@ impl ScopeCollection {
         self.0
             .scope_id_to_details
             .entry(scope_id)
-            .or_insert(Arc::new(scope_details.deref().clone().into_readable()))
+            .or_insert(scope_details)
             .clone()
     }
 
@@ -53,10 +52,7 @@ impl ScopeCollection {
         for scope_detail in scopes {
             let new_scope_id = fetch_add_scope_id();
             let scope = self.insert(Arc::new(
-                (*scope_detail)
-                    .clone()
-                    .with_scope_id(new_scope_id)
-                    .into_readable(),
+                (*scope_detail).clone().with_scope_id(new_scope_id),
             ));
             new_scopes.push(scope);
         }
