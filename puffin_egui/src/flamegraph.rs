@@ -762,7 +762,7 @@ fn paint_scope(
             };
             egui::show_tooltip_at_pointer(&info.ctx, Id::new("puffin_profiler_tooltip"), |ui| {
                 paint_scope_details(ui, scope.id, scope.record.data, scope_details);
-                ui.separator();
+                add_space(ui);
                 ui.monospace(format!(
                     "duration: {:7.3} ms",
                     to_ms(scope.record.duration_ns)
@@ -879,7 +879,7 @@ fn merge_scope_tooltip(
 
     paint_scope_details(ui, merge.id, &merge.data, scope_details);
 
-    ui.separator();
+    add_space(ui);
 
     if num_frames <= 1 {
         if merge.num_pieces <= 1 {
@@ -967,4 +967,9 @@ fn paint_thread_info(info: &Info<'_>, thread: &ThreadInfo, pos: Pos2, collapsed:
     if is_hovered && info.response.clicked() {
         *collapsed = !(*collapsed);
     }
+}
+
+fn add_space(ui: &mut Ui) {
+    // a separator will make the parent tooltip unnecessarily wide (immediate mode problems)
+    ui.add_space(8.0);
 }
