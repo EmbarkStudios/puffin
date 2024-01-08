@@ -656,7 +656,7 @@ fn paint_record(
     let mut min_width = options.min_width;
 
     if !options.filter.is_empty() {
-        if options.filter.include(&scope_details.name()) {
+        if options.filter.include(scope_details.name()) {
             // keep full opacity
             min_width *= 2.0; // make it more visible even when thin
         } else {

@@ -31,11 +31,14 @@ pub struct FrameMeta {
 ///
 /// More often encoded as a [`FrameData`].
 pub struct UnpackedFrameData {
+    /// Frame metadata
     pub meta: FrameMeta,
+    /// The streams of profiling data for each thread.
     pub thread_streams: ThreadStreams,
 }
 
 impl UnpackedFrameData {
+    /// Create a new [`UnpackedFrameData`].
     pub fn new(
         frame_index: FrameIndex,
         thread_streams: BTreeMap<ThreadInfo, StreamInfo>,
@@ -72,14 +75,17 @@ impl UnpackedFrameData {
         }
     }
 
+    /// The index of this frame.
     pub fn frame_index(&self) -> u64 {
         self.meta.frame_index
     }
 
+    /// The range in nanoseconds of the entire profile frame.
     pub fn range_ns(&self) -> (NanoSecond, NanoSecond) {
         self.meta.range_ns
     }
 
+    /// The duration in nanoseconds of the entire profile frame.
     pub fn duration_ns(&self) -> NanoSecond {
         let (min, max) = self.meta.range_ns;
         max - min
@@ -317,6 +323,7 @@ pub struct FrameData {
 
 #[cfg(feature = "packing")]
 impl FrameData {
+    /// Create a new [`FrameData`].
     pub fn new(
         frame_index: FrameIndex,
         thread_streams: BTreeMap<ThreadInfo, StreamInfo>,
@@ -344,6 +351,7 @@ impl FrameData {
         }
     }
 
+    /// Returns meta data from this frame.
     #[inline]
     pub fn meta(&self) -> &FrameMeta {
         &self.meta
@@ -686,14 +694,17 @@ impl FrameData {
 // ----------------------------------------------------------------------------
 
 impl FrameData {
+    /// The index of this frame.
     pub fn frame_index(&self) -> u64 {
         self.meta().frame_index
     }
 
+    /// The range in nanoseconds of the entire profile frame.
     pub fn range_ns(&self) -> (NanoSecond, NanoSecond) {
         self.meta().range_ns
     }
 
+    /// The duration in nanoseconds of the entire profile frame.
     pub fn duration_ns(&self) -> NanoSecond {
         let (min, max) = self.meta().range_ns;
         max - min

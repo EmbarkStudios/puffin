@@ -46,11 +46,12 @@ pub struct MergeScope<'s> {
     pub id: ScopeId,
     /// only set if all children had the same
     pub data: std::borrow::Cow<'s, str>,
-
+    /// The merged children of this merged scope.
     pub children: Vec<MergeScope<'s>>,
 }
 
 impl<'s> MergeScope<'s> {
+    /// Clones the merge scope.
     pub fn into_owned(self) -> MergeScope<'static> {
         MergeScope::<'static> {
             relative_start_ns: self.relative_start_ns,

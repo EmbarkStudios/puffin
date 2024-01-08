@@ -7,86 +7,7 @@
 //! puffin_egui::profiler_window(&egui_ctx);
 //! ```
 
-// BEGIN - Embark standard lints v5 for Rust 1.55+
-// do not change or add/remove here, but one can add exceptions after this section
-// for more info see: <https://github.com/EmbarkStudios/rust-ecosystem/issues/59>
-#![deny(unsafe_code)]
-#![warn(
-    clippy::all,
-    clippy::await_holding_lock,
-    clippy::char_lit_as_u8,
-    clippy::checked_conversions,
-    clippy::dbg_macro,
-    clippy::debug_assert_with_mut_call,
-    clippy::disallowed_methods,
-    clippy::disallowed_types,
-    clippy::doc_markdown,
-    clippy::empty_enum,
-    clippy::enum_glob_use,
-    clippy::exit,
-    clippy::expl_impl_clone_on_copy,
-    clippy::explicit_deref_methods,
-    clippy::explicit_into_iter_loop,
-    clippy::fallible_impl_from,
-    clippy::filter_map_next,
-    clippy::flat_map_option,
-    clippy::float_cmp_const,
-    clippy::fn_params_excessive_bools,
-    clippy::from_iter_instead_of_collect,
-    clippy::if_let_mutex,
-    clippy::implicit_clone,
-    clippy::imprecise_flops,
-    clippy::inefficient_to_string,
-    clippy::invalid_upcast_comparisons,
-    clippy::large_digit_groups,
-    clippy::large_stack_arrays,
-    clippy::large_types_passed_by_value,
-    clippy::let_unit_value,
-    clippy::linkedlist,
-    clippy::lossy_float_literal,
-    clippy::macro_use_imports,
-    clippy::manual_ok_or,
-    clippy::map_err_ignore,
-    clippy::map_flatten,
-    clippy::map_unwrap_or,
-    clippy::match_on_vec_items,
-    clippy::match_same_arms,
-    clippy::match_wild_err_arm,
-    clippy::match_wildcard_for_single_variants,
-    clippy::mem_forget,
-    clippy::mismatched_target_os,
-    clippy::missing_enforced_import_renames,
-    clippy::mut_mut,
-    clippy::mutex_integer,
-    clippy::needless_borrow,
-    clippy::needless_continue,
-    clippy::needless_for_each,
-    clippy::option_option,
-    clippy::path_buf_push_overwrite,
-    clippy::ptr_as_ptr,
-    clippy::rc_mutex,
-    clippy::ref_option_ref,
-    clippy::rest_pat_in_fully_bound_structs,
-    clippy::same_functions_in_if_condition,
-    clippy::semicolon_if_nothing_returned,
-    clippy::single_match_else,
-    clippy::string_add_assign,
-    clippy::string_add,
-    clippy::string_lit_as_bytes,
-    clippy::string_to_string,
-    clippy::todo,
-    clippy::trait_duplication_in_bounds,
-    clippy::unimplemented,
-    clippy::unnested_or_patterns,
-    clippy::unused_self,
-    clippy::useless_transmute,
-    clippy::verbose_file_reads,
-    clippy::zero_sized_map_values,
-    future_incompatible,
-    nonstandard_style,
-    rust_2018_idioms
-)]
-// END - Embark standard lints v0.5 for Rust 1.55+
+#![forbid(unsafe_code)]
 // crate-specific exceptions:
 #![allow(clippy::float_cmp, clippy::manual_range_contains)]
 
@@ -102,7 +23,7 @@ use puffin::*;
 use std::{
     collections::{BTreeMap, BTreeSet},
     fmt::Write as _,
-    sync::{Arc, Mutex},
+    sync::Arc,
 };
 use time::OffsetDateTime;
 
@@ -162,14 +83,14 @@ pub fn profiler_window(ctx: &egui::Context) -> bool {
     open
 }
 
-static PROFILE_UI: once_cell::sync::Lazy<Mutex<GlobalProfilerUi>> =
+static PROFILE_UI: once_cell::sync::Lazy<parking_lot::Mutex<GlobalProfilerUi>> =
     once_cell::sync::Lazy::new(Default::default);
 
 /// Show the profiler.
 ///
 /// Call this from within an [`egui::Window`], or use [`profiler_window`] instead.
 pub fn profiler_ui(ui: &mut egui::Ui) {
-    let mut profile_ui = PROFILE_UI.lock().unwrap();
+    let mut profile_ui = PROFILE_UI.lock();
 
     profile_ui.ui(ui);
 }
@@ -373,11 +294,14 @@ impl Default for View {
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "serde", serde(default))]
 pub struct ProfilerUi {
+    /// Options for configuring how the flamegraph is displayed.
     #[cfg_attr(feature = "serde", serde(alias = "options"))]
     pub flamegraph_options: flamegraph::Options,
+    /// Options for configuring how the stats page is displayed.
     #[cfg_attr(feature = "serde", serde(skip))]
     pub stats_options: stats::Options,
 
+    /// What view is active.
     pub view: View,
 
     /// If `None`, we show the latest frames.
@@ -522,7 +446,7 @@ impl ProfilerUi {
         let frames = if let Some(frame) = hovered_frame {
             match frame.unpacked() {
                 Ok(frame) => {
-                    SelectedFrames::try_from_vec(&frame_view.scope_collection(), vec![frame])
+                    SelectedFrames::try_from_vec(frame_view.scope_collection(), vec![frame])
                 }
                 Err(err) => {
                     ui.colored_label(ERROR_COLOR, format!("Failed to load hovered frame: {err}"));
@@ -539,7 +463,7 @@ impl ProfilerUi {
                 .map(|frame| frame.unpacked())
                 .filter_map(|unpacked| unpacked.ok())
                 .collect();
-            SelectedFrames::try_from_vec(&frame_view.scope_collection(), unpacked)
+            SelectedFrames::try_from_vec(frame_view.scope_collection(), unpacked)
         };
 
         let frames = if let Some(frames) = frames {
@@ -577,7 +501,7 @@ impl ProfilerUi {
                                 self.pause_and_select(
                                     frame_view,
                                     SelectedFrames::from_vec1(
-                                        &frame_view.scope_collection(),
+                                        frame_view.scope_collection(),
                                         vec1::vec1![latest],
                                     ),
                                 );
@@ -607,13 +531,13 @@ impl ProfilerUi {
             View::Flamegraph => flamegraph::ui(
                 ui,
                 &mut self.flamegraph_options,
-                &frame_view.scope_collection(),
+                frame_view.scope_collection(),
                 &frames,
             ),
             View::Stats => stats::ui(
                 ui,
                 &mut self.stats_options,
-                &frame_view.scope_collection(),
+                frame_view.scope_collection(),
                 &frames.frames,
             ),
         }
@@ -683,7 +607,7 @@ impl ProfilerUi {
 
                 self.show_frame_list(
                     ui,
-                    &frame_view,
+                    frame_view,
                     &slowest_of_the_slow,
                     true,
                     &mut hovered_frame,
@@ -835,7 +759,7 @@ impl ProfilerUi {
         }
 
         if let Some(new_selection) =
-            SelectedFrames::try_from_vec(&frame_view.scope_collection(), new_selection)
+            SelectedFrames::try_from_vec(frame_view.scope_collection(), new_selection)
         {
             self.pause_and_select(frame_view, new_selection);
         }

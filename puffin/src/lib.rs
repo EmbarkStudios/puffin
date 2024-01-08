@@ -19,87 +19,8 @@
 //! # fn slow_code(){}
 //! ```
 
-// BEGIN - Embark standard lints v5 for Rust 1.55+
-// do not change or add/remove here, but one can add exceptions after this section
-// for more info see: <https://github.com/EmbarkStudios/rust-ecosystem/issues/59>
-#![deny(unsafe_code)]
-#![warn(
-    clippy::all,
-    clippy::await_holding_lock,
-    clippy::char_lit_as_u8,
-    clippy::checked_conversions,
-    clippy::dbg_macro,
-    clippy::debug_assert_with_mut_call,
-    clippy::disallowed_methods,
-    clippy::disallowed_types,
-    clippy::doc_markdown,
-    clippy::empty_enum,
-    clippy::enum_glob_use,
-    clippy::exit,
-    clippy::expl_impl_clone_on_copy,
-    clippy::explicit_deref_methods,
-    clippy::explicit_into_iter_loop,
-    clippy::fallible_impl_from,
-    clippy::filter_map_next,
-    clippy::flat_map_option,
-    clippy::float_cmp_const,
-    clippy::fn_params_excessive_bools,
-    clippy::from_iter_instead_of_collect,
-    clippy::if_let_mutex,
-    clippy::implicit_clone,
-    clippy::imprecise_flops,
-    clippy::inefficient_to_string,
-    clippy::invalid_upcast_comparisons,
-    clippy::large_digit_groups,
-    clippy::large_stack_arrays,
-    clippy::large_types_passed_by_value,
-    clippy::let_unit_value,
-    clippy::linkedlist,
-    clippy::lossy_float_literal,
-    clippy::macro_use_imports,
-    clippy::manual_ok_or,
-    clippy::map_err_ignore,
-    clippy::map_flatten,
-    clippy::map_unwrap_or,
-    clippy::match_on_vec_items,
-    clippy::match_same_arms,
-    clippy::match_wild_err_arm,
-    clippy::match_wildcard_for_single_variants,
-    clippy::mem_forget,
-    clippy::mismatched_target_os,
-    clippy::missing_enforced_import_renames,
-    clippy::mut_mut,
-    clippy::mutex_integer,
-    clippy::needless_borrow,
-    clippy::needless_continue,
-    clippy::needless_for_each,
-    clippy::option_option,
-    clippy::path_buf_push_overwrite,
-    clippy::ptr_as_ptr,
-    clippy::rc_mutex,
-    clippy::ref_option_ref,
-    clippy::rest_pat_in_fully_bound_structs,
-    clippy::same_functions_in_if_condition,
-    clippy::semicolon_if_nothing_returned,
-    clippy::single_match_else,
-    clippy::string_add_assign,
-    clippy::string_add,
-    clippy::string_lit_as_bytes,
-    clippy::string_to_string,
-    clippy::todo,
-    clippy::trait_duplication_in_bounds,
-    clippy::unimplemented,
-    clippy::unnested_or_patterns,
-    clippy::unused_self,
-    clippy::useless_transmute,
-    clippy::verbose_file_reads,
-    clippy::zero_sized_map_values,
-    future_incompatible,
-    nonstandard_style,
-    rust_2018_idioms
-)]
-// END - Embark standard lints v0.5 for Rust 1.55+
-// crate-specific exceptions:
+#![forbid(unsafe_code)]
+#![deny(missing_docs)]
 
 mod data;
 mod frame_data;
@@ -147,22 +68,27 @@ pub type NanoSecond = i64;
 pub struct Stream(Vec<u8>);
 
 impl Stream {
+    /// Returns if stream is empty.
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()
     }
 
+    /// Returns the length in bytes of this steam.
     pub fn len(&self) -> usize {
         self.0.len()
     }
 
+    /// Returns the bytes of this steam
     pub fn bytes(&self) -> &[u8] {
         &self.0
     }
 
+    /// Clears the steam of all bytes.
     pub fn clear(&mut self) {
         self.0.clear();
     }
 
+    /// Extends the stream with the given bytes.
     fn extend(&mut self, bytes: &[u8]) {
         self.0.extend(bytes);
     }
@@ -179,7 +105,9 @@ impl From<Vec<u8>> for Stream {
 /// Used when parsing a Stream.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ScopeRecord<'s> {
+    /// The start oif this scope in nanoseconds.
     pub start_ns: NanoSecond,
+    /// The duration of this scope in nanoseconds.
     pub duration_ns: NanoSecond,
     /// e.g. function argument, like a mesh name. Optional.
     /// Example: "image.png".
@@ -187,6 +115,7 @@ pub struct ScopeRecord<'s> {
 }
 
 impl<'s> ScopeRecord<'s> {
+    /// The end of this scope in nanoseconds.
     #[inline]
     pub fn stop_ns(&self) -> NanoSecond {
         self.start_ns + self.duration_ns
@@ -196,10 +125,10 @@ impl<'s> ScopeRecord<'s> {
 /// Used when parsing a Stream.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Scope<'s> {
-    // Unique identifier for the profile scope.
-    // More detailed scope information can be requested via [`FrameView::scope_collection()`].
+    /// Unique identifier for the profile scope.
+    /// More detailed scope information can be requested via [`FrameView::scope_collection()`].
     pub id: ScopeId,
-    // Some dynamic data that is passed into the profiler scope.
+    /// Some dynamic data that is passed into the profiler scope.
     pub record: ScopeRecord<'s>,
     /// Stream offset for first child.
     pub child_begin_position: u64,
@@ -221,6 +150,7 @@ pub struct ThreadInfo {
 
 // ----------------------------------------------------------------------------
 
+/// An incremental monolithic counter to identify frames.
 pub type FrameIndex = u64;
 
 /// A [`Stream`] plus some info about it.
@@ -281,6 +211,7 @@ impl StreamInfo {
         }
     }
 
+    /// Extends this [`StreamInfo`] with another [`StreamInfo`].
     pub fn extend(&mut self, other: &StreamInfoRef<'_>) {
         self.stream.extend(other.stream);
         self.num_scopes += other.num_scopes;
@@ -289,6 +220,7 @@ impl StreamInfo {
         self.range_ns.1 = self.range_ns.1.max(other.range_ns.1);
     }
 
+    /// Clears the contents of this [`StreamInfo`].
     pub fn clear(&mut self) {
         let Self {
             stream,
@@ -302,6 +234,7 @@ impl StreamInfo {
         *range_ns = (NanoSecond::MAX, NanoSecond::MIN);
     }
 
+    /// Returns a reference to the contents of this [`StreamInfo`].
     pub fn as_stream_into_ref(&self) -> StreamInfoRef<'_> {
         StreamInfoRef {
             stream: self.stream.bytes(),
@@ -388,6 +321,7 @@ impl ThreadProfiler {
         });
     }
 
+    /// Register a function scope.
     #[must_use]
     pub fn register_function_scope(
         &mut self,
@@ -405,6 +339,7 @@ impl ThreadProfiler {
         new_id
     }
 
+    /// Register a named scope.
     #[must_use]
     pub fn register_scope(
         &mut self,
@@ -424,6 +359,7 @@ impl ThreadProfiler {
         new_id
     }
 
+    /// Marks the beginning of the scope.
     /// Returns position where to write scope size once the scope is closed.
     #[must_use]
     pub fn begin_scope(&mut self, scope_id: ScopeId, data: &str) -> usize {
@@ -436,6 +372,8 @@ impl ThreadProfiler {
         self.stream_info.stream.begin_scope(now_ns, scope_id, data)
     }
 
+    /// Marks the end of the scope.
+    /// Returns the current depth.
     pub fn end_scope(&mut self, start_offset: usize) {
         let now_ns = (self.now_ns)();
         self.stream_info.depth = self.stream_info.depth.max(self.depth);
@@ -531,20 +469,10 @@ impl Default for GlobalProfiler {
 
 impl GlobalProfiler {
     /// Access to the global profiler singleton.
-    #[cfg(feature = "parking_lot")]
     pub fn lock() -> parking_lot::MutexGuard<'static, Self> {
-        use once_cell::sync::Lazy;
         static GLOBAL_PROFILER: Lazy<parking_lot::Mutex<GlobalProfiler>> =
             Lazy::new(Default::default);
         GLOBAL_PROFILER.lock()
-    }
-
-    /// Access to the global profiler singleton.
-    #[cfg(not(feature = "parking_lot"))]
-    pub fn lock() -> std::sync::MutexGuard<'static, Self> {
-        static GLOBAL_PROFILER: Lazy<std::sync::Mutex<GlobalProfiler>> =
-            Lazy::new(Default::default);
-        GLOBAL_PROFILER.lock().expect("poisoned mutex")
     }
 
     /// You need to call this once at the start of every frame.
@@ -658,6 +586,7 @@ impl GlobalProfiler {
     /// Tells [`GlobalProfiler`] to call this function with each new finished frame.
     ///
     /// The returned [`FrameSinkId`] can be used to remove the sink with [`Self::remove_sink()`].
+    /// If the sink is registered later in the application make sure to call [`Self::emit_scope_snapshot()`] to send a snapshot of all scopes.
     pub fn add_sink(&mut self, sink: FrameSink) -> FrameSinkId {
         let id = self.next_sink_id;
         self.next_sink_id.0 += 1;
@@ -665,6 +594,7 @@ impl GlobalProfiler {
         id
     }
 
+    /// Removes a sink from the global profiler.
     pub fn remove_sink(&mut self, id: FrameSinkId) -> Option<FrameSink> {
         self.sinks.remove(&id)
     }

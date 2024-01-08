@@ -1,4 +1,4 @@
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 use crate::{FrameData, FrameSinkId, ScopeCollection};
 
@@ -36,14 +36,18 @@ impl Default for FrameView {
 }
 
 impl FrameView {
+    /// Returns `true` if there are no recent or slowest frames.
     pub fn is_empty(&self) -> bool {
         self.recent.is_empty() && self.slowest.is_empty()
     }
 
+    /// Returns the collection of scope details.
+    /// This can be used to fetch more information about a specific scope.
     pub fn scope_collection(&self) -> &ScopeCollection {
         &self.scope_collection
     }
 
+    /// Adds a new frame to the view.
     pub fn add_frame(&mut self, new_frame: Arc<FrameData>) {
         // Register all scopes from the new frame into the scope collection.
         for new_scope in &new_frame.scope_delta {
@@ -150,10 +154,13 @@ impl FrameView {
         self.max_slow = max_slow;
     }
 
+    /// Returns if frames are packed (compressed).
     pub fn pack_frames(&self) -> bool {
         self.pack_frames
     }
 
+    /// Sets wether frames should be packed (compressed).
+    /// Packing frames will increase CPU time and decrease memory usage.
     pub fn set_pack_frames(&mut self, pack_frames: bool) {
         self.pack_frames = pack_frames;
     }
@@ -241,15 +248,15 @@ impl Ord for OrderedByDuration {
 /// Automatically connects to [`crate::GlobalProfiler`].
 pub struct GlobalFrameView {
     sink_id: FrameSinkId,
-    view: Arc<Mutex<FrameView>>,
+    view: Arc<parking_lot::Mutex<FrameView>>,
 }
 
 impl Default for GlobalFrameView {
     fn default() -> Self {
-        let view = Arc::new(Mutex::new(FrameView::default()));
+        let view = Arc::new(parking_lot::Mutex::new(FrameView::default()));
         let view_clone = view.clone();
         let sink_id = crate::GlobalProfiler::lock().add_sink(Box::new(move |frame| {
-            view_clone.lock().unwrap().add_frame(frame);
+            view_clone.lock().add_frame(frame);
         }));
         Self { sink_id, view }
     }
@@ -268,7 +275,7 @@ impl GlobalFrameView {
     }
 
     /// View the latest profiling data.
-    pub fn lock(&self) -> std::sync::MutexGuard<'_, FrameView> {
-        self.view.lock().unwrap()
+    pub fn lock(&self) -> parking_lot::MutexGuard<'_, FrameView> {
+        self.view.lock()
     }
 }
