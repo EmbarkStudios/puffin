@@ -627,7 +627,7 @@ impl FrameData {
                     full_delta: false,
                 }))
             } else if &header == b"PFD4" {
-                // Added 2023-12-01: Split up stream scope details from the record stream.
+                // Added 2024-01-08: Split up stream scope details from the record stream.
                 let meta_length = read.read_u32::<LE>()? as usize;
                 let meta = {
                     let mut meta = vec![0_u8; meta_length];
