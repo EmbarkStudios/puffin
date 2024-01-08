@@ -32,36 +32,79 @@ use std::mem::size_of;
 const SCOPE_BEGIN: u8 = b'(';
 const SCOPE_END: u8 = b')';
 
-/// Used to encode number of bytes covered by a scope.
-#[derive(Clone, Copy, Eq, PartialEq)]
-struct ScopeSize(u64);
+/// Used when parsing a Stream.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ScopeRecord<'s> {
+    /// The start oif this scope in nanoseconds.
+    pub start_ns: NanoSecond,
+    /// The duration of this scope in nanoseconds.
+    pub duration_ns: NanoSecond,
+    /// e.g. function argument, like a mesh name. Optional.
+    /// Example: "image.png".
+    pub data: &'s str,
+}
 
-impl ScopeSize {
-    /// Special value to indicate that this profile scope was never closed
-    pub fn unfinished() -> Self {
-        Self(u64::MAX)
+impl<'s> ScopeRecord<'s> {
+    /// The end of this scope in nanoseconds.
+    #[inline]
+    pub fn stop_ns(&self) -> NanoSecond {
+        self.start_ns + self.duration_ns
     }
 }
 
-/// Errors that can happen when parsing a [`Stream`] of profile data.
-#[derive(Debug)]
-pub enum Error {
-    /// Could not read data from the stream because it ended prematurely.
-    PrematureEnd,
-    /// The stream is invalid.
-    InvalidStream,
-    /// The stream was not ended.
-    ScopeNeverEnded,
-    /// The offset into the stream is invalid.
-    InvalidOffset,
-    /// Empty stream.
-    Empty,
+/// Used when parsing a Stream.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Scope<'s> {
+    /// Unique identifier for the profile scope.
+    /// More detailed scope information can be requested via [`FrameView::scope_collection()`].
+    pub id: ScopeId,
+    /// Some dynamic data that is passed into the profiler scope.
+    pub record: ScopeRecord<'s>,
+    /// Stream offset for first child.
+    pub child_begin_position: u64,
+    /// Stream offset after last child.
+    pub child_end_position: u64,
+    /// Stream offset for next sibling (if any).
+    pub next_sibling_position: u64,
 }
 
-/// Custom puffin result type.
-pub type Result<T> = std::result::Result<T, Error>;
+/// Stream of profiling events from one thread.
+#[derive(Clone, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+pub struct Stream(Vec<u8>);
 
-// ----------------------------------------------------------------------------
+impl Stream {
+    /// Returns if stream is empty.
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
+    /// Returns the length in bytes of this steam.
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+
+    /// Returns the bytes of this steam
+    pub fn bytes(&self) -> &[u8] {
+        &self.0
+    }
+
+    /// Clears the steam of all bytes.
+    pub fn clear(&mut self) {
+        self.0.clear();
+    }
+
+    /// Extends the stream with the given bytes.
+    fn extend(&mut self, bytes: &[u8]) {
+        self.0.extend(bytes);
+    }
+}
+
+impl From<Vec<u8>> for Stream {
+    fn from(v: Vec<u8>) -> Self {
+        Self(v)
+    }
+}
 
 impl Stream {
     /// Marks the beginning of the scope.
@@ -123,8 +166,145 @@ impl Stream {
     }
 }
 
-// ----------------------------------------------------------------------------
+/// A [`Stream`] plus some info about it.
+#[derive(Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+pub struct StreamInfo {
+    /// The raw profile data.
+    pub stream: Stream,
 
+    /// Total number of scopes in the stream.
+    pub num_scopes: usize,
+
+    /// The depth of the deepest scope.
+    /// `0` mean no scopes, `1` some scopes without children, etc.
+    pub depth: usize,
+
+    /// The smallest and largest nanosecond value in the stream.
+    ///
+    /// The default value is ([`NanoSecond::MAX`], [`NanoSecond::MIN`]) which indicates an empty stream.
+    pub range_ns: (NanoSecond, NanoSecond),
+}
+
+impl Default for StreamInfo {
+    fn default() -> Self {
+        Self {
+            stream: Default::default(),
+            num_scopes: 0,
+            depth: 0,
+            range_ns: (NanoSecond::MAX, NanoSecond::MIN),
+        }
+    }
+}
+
+impl StreamInfo {
+    /// Parse a stream to count the depth, number of scopes in it etc.
+    ///
+    /// Try to avoid calling this, and instead keep score while collecting a [`StreamInfo`].
+    pub fn parse(stream: Stream) -> Result<StreamInfo> {
+        let top_scopes = Reader::from_start(&stream).read_top_scopes()?;
+        if top_scopes.is_empty() {
+            Ok(StreamInfo {
+                stream,
+                num_scopes: 0,
+                depth: 0,
+                range_ns: (NanoSecond::MAX, NanoSecond::MIN),
+            })
+        } else {
+            let (num_scopes, depth) = Reader::count_scope_and_depth(&stream)?;
+            let min_ns = top_scopes.first().unwrap().record.start_ns;
+            let max_ns = top_scopes.last().unwrap().record.stop_ns();
+
+            Ok(StreamInfo {
+                stream,
+                num_scopes,
+                depth,
+                range_ns: (min_ns, max_ns),
+            })
+        }
+    }
+
+    /// Extends this [`StreamInfo`] with another [`StreamInfo`].
+    pub fn extend(&mut self, other: &StreamInfoRef<'_>) {
+        self.stream.extend(other.stream);
+        self.num_scopes += other.num_scopes;
+        self.depth = self.depth.max(other.depth);
+        self.range_ns.0 = self.range_ns.0.min(other.range_ns.0);
+        self.range_ns.1 = self.range_ns.1.max(other.range_ns.1);
+    }
+
+    /// Clears the contents of this [`StreamInfo`].
+    pub fn clear(&mut self) {
+        let Self {
+            stream,
+            num_scopes,
+            depth,
+            range_ns,
+        } = self;
+        stream.clear();
+        *num_scopes = 0;
+        *depth = 0;
+        *range_ns = (NanoSecond::MAX, NanoSecond::MIN);
+    }
+
+    /// Returns a reference to the contents of this [`StreamInfo`].
+    pub fn as_stream_into_ref(&self) -> StreamInfoRef<'_> {
+        StreamInfoRef {
+            stream: self.stream.bytes(),
+            num_scopes: self.num_scopes,
+            depth: self.depth,
+            range_ns: self.range_ns,
+        }
+    }
+}
+
+/// A reference to the contents of a [`StreamInfo`].
+#[derive(Clone, Copy)]
+pub struct StreamInfoRef<'a> {
+    /// The raw profile data.
+    pub stream: &'a [u8],
+
+    /// Total number of scopes in the stream.
+    pub num_scopes: usize,
+
+    /// The depth of the deepest scope.
+    /// `0` mean no scopes, `1` some scopes without children, etc.
+    pub depth: usize,
+
+    /// The smallest and largest nanosecond value in the stream.
+    ///
+    /// The default value is ([`NanoSecond::MAX`], [`NanoSecond::MIN`]) which indicates an empty stream.
+    pub range_ns: (NanoSecond, NanoSecond),
+}
+
+/// Used to encode number of bytes covered by a scope.
+#[derive(Clone, Copy, Eq, PartialEq)]
+struct ScopeSize(u64);
+
+impl ScopeSize {
+    /// Special value to indicate that this profile scope was never closed
+    pub fn unfinished() -> Self {
+        Self(u64::MAX)
+    }
+}
+
+/// Errors that can happen when parsing a [`Stream`] of profile data.
+#[derive(Debug)]
+pub enum Error {
+    /// Could not read data from the stream because it ended prematurely.
+    PrematureEnd,
+    /// The stream is invalid.
+    InvalidStream,
+    /// The stream was not ended.
+    ScopeNeverEnded,
+    /// The offset into the stream is invalid.
+    InvalidOffset,
+    /// Empty stream.
+    Empty,
+}
+
+/// Custom puffin result type.
+pub type Result<T> = std::result::Result<T, Error>;
 /// Parses a [`Stream`] of profiler data.
 pub struct Reader<'s>(std::io::Cursor<&'s [u8]>);
 
@@ -284,8 +464,6 @@ fn longest_valid_utf8_prefix(data: &[u8]) -> &str {
     }
 }
 
-// ----------------------------------------------------------------------------
-
 /// Read each top-level sibling scopes
 impl<'s> Iterator for Reader<'s> {
     type Item = Result<Scope<'s>>;
@@ -293,8 +471,6 @@ impl<'s> Iterator for Reader<'s> {
         self.parse_scope().transpose()
     }
 }
-
-// ----------------------------------------------------------------------------
 
 #[test]
 fn write_scope() {
