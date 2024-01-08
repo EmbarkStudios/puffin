@@ -767,7 +767,7 @@ fn paint_scope(
                     "duration: {:7.3} ms",
                     to_ms(scope.record.duration_ns)
                 ));
-                ui.monospace(format!("children: {num_children:3.3}"));
+                ui.monospace(format!("children: {num_children:3}"));
             });
         }
     }
