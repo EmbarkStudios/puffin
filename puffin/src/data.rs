@@ -46,18 +46,25 @@ impl ScopeSize {
 /// Errors that can happen when parsing a [`Stream`] of profile data.
 #[derive(Debug)]
 pub enum Error {
+    /// Could not read data from the stream because it ended prematurely.
     PrematureEnd,
+    /// The stream is invalid.
     InvalidStream,
+    /// The stream was not ended.
     ScopeNeverEnded,
+    /// The offset into the stream is invalid.
     InvalidOffset,
+    /// Empty stream.
     Empty,
 }
 
+/// Custom puffin result type.
 pub type Result<T> = std::result::Result<T, Error>;
 
 // ----------------------------------------------------------------------------
 
 impl Stream {
+    /// Marks the beginning of the scope.
     /// Returns position where to write scope size once the scope is closed
     #[inline]
     pub fn begin_scope(&mut self, start_ns: NanoSecond, scope_id: ScopeId, data: &str) -> usize {
@@ -71,6 +78,7 @@ impl Stream {
         offset
     }
 
+    /// Marks the end of the scope.
     #[inline]
     pub fn end_scope(&mut self, start_offset: usize, stop_ns: NanoSecond) {
         // Write total scope size where scope was started:
@@ -121,10 +129,12 @@ impl Stream {
 pub struct Reader<'s>(std::io::Cursor<&'s [u8]>);
 
 impl<'s> Reader<'s> {
+    /// Returns a reader that starts reading from the start of the stream.
     pub fn from_start(stream: &'s Stream) -> Self {
         Self(std::io::Cursor::new(&stream.0[..]))
     }
 
+    /// Returns a reader that starts reading from an offset into the stream.
     pub fn with_offset(stream: &'s Stream, offset: u64) -> Result<Self> {
         if offset <= stream.len() as u64 {
             let mut cursor = std::io::Cursor::new(&stream.0[..]);

@@ -75,6 +75,7 @@ pub enum ScopeType {
 }
 
 impl ScopeType {
+    /// Returns a string representation of this scope type.
     pub fn type_str(&self) -> &'static str {
         match self {
             ScopeType::Function => "function scope",
@@ -133,6 +134,7 @@ impl ScopeDetails {
         }
     }
 
+    /// Scope in a function.
     #[inline]
     pub fn with_function_name<T>(mut self, name: T) -> Self
     where
@@ -142,6 +144,7 @@ impl ScopeDetails {
         self
     }
 
+    /// Scope in a file.
     #[inline]
     pub fn with_file<T>(mut self, file: T) -> Self
     where
@@ -151,6 +154,7 @@ impl ScopeDetails {
         self
     }
 
+    /// Scope at a line number.
     #[inline]
     pub fn with_line_nr(mut self, line_nr: u32) -> Self {
         self.line_nr = line_nr;

@@ -1,0 +1,25 @@
+msrv = "1.75.0"
+
+avoid-breaking-exported-api = false
+allow-expect-in-tests = true
+allow-unwrap-in-tests = true
+
+# for `disallowed_methods`: https://rust-lang.github.io/rust-clippy/master/index.html#disallowed_methods
+disallowed-methods = [
+    # std functions
+    { path = "std::env::var_os", reason = "use std::env::var and UTF-8 strings instead, including for paths" },
+    { path = "std::env::env_os", reason = "use std::env::var and UTF-8 strings instead, including for paths" },
+    { path = "std::env::args_os", reason = "use std::env::var and UTF-8 strings instead, including for paths" },
+    { path = "std::env::set_var", reason = "this is unsound in (at least) glibc, and its usage in multi-threaded programs is _heavily_ discouraged" },
+    { path = "std::thread::spawn", reason = "spawn threads with std::thread::Builder instead to ensure they have a name specified" },
+]
+
+# for `disallowed_types`: https://rust-lang.github.io/rust-clippy/master/index.html#disallowed_types
+disallowed-types = [
+    { path = "std::sync::Mutex", reason = "Use the faster & simpler non-poisonable primitives in `parking_lot` instead" },
+    { path = "std::sync::RwLock", reason = "Use the faster & simpler non-poisonable primitives in `parking_lot` instead" },
+    { path = "std::sync::Condvar", reason = "Use the faster & simpler non-poisonable primitives in `parking_lot` instead" },
+    { path = "std::sync::Once", reason = "Use the faster & simpler non-poisonable primitives in `parking_lot` instead" },
+
+    { path = "ring::digest::SHA1_FOR_LEGACY_USE_ONLY", reason = "SHA-1 is cryptographically broken, and we are building new code so should not use it" },
+]

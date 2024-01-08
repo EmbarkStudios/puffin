@@ -16,6 +16,7 @@ include = ["**/*.rs", "Cargo.toml", "README.md"]
 anyhow = "1.0"
 crossbeam-channel = "0.5"
 log = "0.4"
+parking_lot = "0.12"
 puffin = { version = "0.18.1", path = "../puffin", features = [
     "packing",
     "lz4",

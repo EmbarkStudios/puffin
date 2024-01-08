@@ -1749,6 +1749,7 @@ dependencies = [
  "indexmap",
  "natord",
  "once_cell",
+ "parking_lot",
  "puffin",
  "serde",
  "time",
@@ -1763,6 +1764,7 @@ dependencies = [
  "anyhow",
  "crossbeam-channel",
  "log",
+ "parking_lot",
  "puffin",
  "simple_logger",
 ]

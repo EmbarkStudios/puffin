@@ -177,7 +177,7 @@ impl PuffinServerImpl {
 
         frame
             .write_into(
-                &self.frame_view.scope_collection(),
+                self.frame_view.scope_collection(),
                 self.send_all_scopes,
                 &mut packet,
             )
