@@ -1,6 +1,6 @@
 use std::sync::{Arc, Mutex};
 
-use crate::{FrameData, FrameSinkId, ScopeCollection, ScopeDetails};
+use crate::{FrameData, FrameSinkId, ScopeCollection};
 
 /// A view of recent and slowest frames, used by GUIs.
 #[derive(Clone)]
@@ -42,13 +42,6 @@ impl FrameView {
 
     pub fn scope_collection(&self) -> &ScopeCollection {
         &self.scope_collection
-    }
-
-    /// Insert user scopes into puffin.
-    /// Scopes details should only be registered once for each scope and need be inserted before being reported to puffin.
-    /// This function should only be relevant when your not using puffin through the profiler macros.
-    pub fn register_user_scopes(&mut self, scopes: &[ScopeDetails]) {
-        self.scope_collection.register_user_scopes(scopes);
     }
 
     pub fn add_frame(&mut self, new_frame: Arc<FrameData>) {

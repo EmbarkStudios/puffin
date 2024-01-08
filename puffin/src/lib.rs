@@ -611,7 +611,14 @@ impl GlobalProfiler {
     /// This function is relevant when you're registering measurement not performed using the puffin profiler macros.
     /// Scope id is always supposed to be `None` as it will be set by puffin.
     pub fn register_user_scopes(&mut self, scopes: &[ScopeDetails]) -> Vec<ScopeId> {
-        let new_scopes = self.scope_collection.register_user_scopes(scopes);
+        let mut new_scopes = Vec::with_capacity(scopes.len());
+        for scope_detail in scopes {
+            let new_scope_id = fetch_add_scope_id();
+            let scope = self.scope_collection.insert(Arc::new(
+                (*scope_detail).clone().with_scope_id(new_scope_id),
+            ));
+            new_scopes.push(scope);
+        }
         let new_scope_ids = new_scopes.iter().filter_map(|x| x.scope_id).collect();
         self.new_scopes.extend(new_scopes);
         new_scope_ids

@@ -1,4 +1,4 @@
-use crate::{clean_function_name, fetch_add_scope_id, short_file_name, ScopeId};
+use crate::{clean_function_name, short_file_name, ScopeId};
 use std::{borrow::Cow, collections::HashMap, sync::Arc};
 
 #[derive(Default, Clone)]
@@ -41,22 +41,6 @@ impl ScopeCollection {
             .entry(scope_id)
             .or_insert(scope_details)
             .clone()
-    }
-
-    /// Manually register scope details. After a scope is inserted it can be reported to puffin.
-    pub(crate) fn register_user_scopes(
-        &mut self,
-        scopes: &[ScopeDetails],
-    ) -> Vec<Arc<ScopeDetails>> {
-        let mut new_scopes = Vec::with_capacity(scopes.len());
-        for scope_detail in scopes {
-            let new_scope_id = fetch_add_scope_id();
-            let scope = self.insert(Arc::new(
-                (*scope_detail).clone().with_scope_id(new_scope_id),
-            ));
-            new_scopes.push(scope);
-        }
-        new_scopes
     }
 
     /// Fetches all registered scopes and their ids.
