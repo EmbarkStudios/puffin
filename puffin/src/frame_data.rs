@@ -113,6 +113,7 @@ pub enum Never {}
 
 #[cfg(not(feature = "packing"))]
 impl FrameData {
+    /// Create a new [`FrameData`].
     pub fn new(
         frame_index: FrameIndex,
         thread_streams: BTreeMap<ThreadInfo, StreamInfo>,
@@ -138,29 +139,43 @@ impl FrameData {
         }
     }
 
+    /// Returns meta data from this frame.
     #[inline]
     pub fn meta(&self) -> &FrameMeta {
         &self.unpacked_frame.meta
     }
 
+    /// Always returns `None`.
     pub fn packed_size(&self) -> Option<usize> {
         None
     }
+
+    /// Number of bytes used when unpacked.
     pub fn unpacked_size(&self) -> Option<usize> {
         Some(self.unpacked_frame.meta.num_bytes)
     }
+
+    /// Bytes currently used by the unpacked data.
     pub fn bytes_of_ram_used(&self) -> usize {
         self.unpacked_frame.meta.num_bytes
     }
+
+    /// Always returns `false`.
     pub fn has_packed(&self) -> bool {
         false
     }
+
+    /// Always returns `true`.
     pub fn has_unpacked(&self) -> bool {
         true
     }
+
+    /// Return the unpacked data.
     pub fn unpacked(&self) -> std::result::Result<Arc<UnpackedFrameData>, Never> {
         Ok(self.unpacked_frame.clone())
     }
+
+    /// Does nothing because this [`FrameData`] is unpacked by default.
     pub fn pack(&self) {}
 }
 

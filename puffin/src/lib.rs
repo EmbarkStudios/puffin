@@ -638,6 +638,7 @@ pub fn now_ns() -> NanoSecond {
     START_TIME.0 + START_TIME.1.elapsed().as_nanos() as NanoSecond
 }
 
+/// Should not be used.
 #[inline]
 #[cfg(all(target_arch = "wasm32", not(feature = "web")))]
 pub fn now_ns() -> NanoSecond {
