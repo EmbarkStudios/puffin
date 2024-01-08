@@ -830,37 +830,6 @@ pub fn clean_function_name(name: &str) -> String {
     }
 }
 
-#[test]
-fn test_clean_function_name() {
-    assert_eq!(clean_function_name(""), "");
-    assert_eq!(
-        clean_function_name(&format!("foo{}", USELESS_SCOPE_NAME_SUFFIX)),
-        "foo"
-    );
-    assert_eq!(
-        clean_function_name(&format!("foo::bar{}", USELESS_SCOPE_NAME_SUFFIX)),
-        "foo::bar"
-    );
-    assert_eq!(
-        clean_function_name(&format!("foo::bar::baz{}", USELESS_SCOPE_NAME_SUFFIX)),
-        "bar::baz"
-    );
-    assert_eq!(
-        clean_function_name(&format!(
-            "some::GenericThing<_, _>::function_name{}",
-            USELESS_SCOPE_NAME_SUFFIX
-        )),
-        "GenericThing<_, _>::function_name"
-    );
-    assert_eq!(
-        clean_function_name(&format!(
-            "<some::ConcreteType as some::bloody::Trait>::function_name{}",
-            USELESS_SCOPE_NAME_SUFFIX
-        )),
-        "<ConcreteType as Trait>::function_name"
-    );
-}
-
 /// Shortens a long `file!()` path to the essentials.
 ///
 /// We want to keep it short for two reasons: readability, and bandwidth
@@ -926,88 +895,6 @@ pub fn short_file_name(path: &str) -> String {
         // NOTE: we've already checked that n > 1 easily in the function
         format!("{}/{}", components[n - 2], components[n - 1])
     }
-}
-
-#[test]
-fn test_short_file_name() {
-    for (before, after) in [
-        ("", ""),
-        ("foo.rs", "foo.rs"),
-        ("foo/bar.rs", "foo/bar.rs"),
-        ("foo/bar/baz.rs", "bar/baz.rs"),
-        ("crates/cratename/src/main.rs", "cratename/src/main.rs"),
-        ("crates/cratename/src/module/lib.rs", "cratename/…/module/lib.rs"),
-        ("workspace/cratename/examples/hello_world.rs", "examples/hello_world.rs"),
-        ("/rustc/d5a82bbd26e1ad8b7401f6a718a9c57c96905483/library/core/src/ops/function.rs", "core/…/function.rs"),
-        ("/Users/emilk/.cargo/registry/src/github.com-1ecc6299db9ec823/tokio-1.24.1/src/runtime/runtime.rs", "tokio-1.24.1/…/runtime.rs"),
-        ]
-        {
-        assert_eq!(short_file_name(before), after);
-    }
-}
-
-#[test]
-fn profile_macros_test() {
-    set_scopes_on(true);
-
-    let frame_view = GlobalFrameView::default();
-
-    GlobalProfiler::lock().add_sink(Box::new(|data| {
-        if data.frame_index() == 0 {
-            assert_eq!(data.frame_index(), 0);
-            assert_eq!(data.meta().num_scopes, 2);
-            assert_eq!(data.meta().num_bytes, 62);
-        } else if data.frame_index() == 1 {
-            assert_eq!(data.frame_index(), 1);
-            assert_eq!(data.meta().num_scopes, 2);
-            assert_eq!(data.meta().num_bytes, 62);
-        } else {
-            panic!("Only two frames in this test");
-        }
-    }));
-
-    let line_nr_fn = line!() + 3;
-    let line_nr_scope = line!() + 4;
-    fn a() {
-        profile_function!();
-        {
-            profile_scope!("my-scope");
-        }
-    }
-
-    a();
-
-    // First frame
-    GlobalProfiler::lock().new_frame();
-
-    let lock = frame_view.lock();
-    let scope_details = lock
-        .scope_collection()
-        .fetch_by_id(&ScopeId::new(1))
-        .unwrap();
-    assert_eq!(scope_details.file_path, "puffin/src/lib.rs");
-    assert_eq!(scope_details.function_name, "profile_macros_test::a");
-    assert_eq!(scope_details.line_nr, line_nr_fn);
-
-    let scope_details = lock
-        .scope_collection()
-        .fetch_by_id(&ScopeId::new(2))
-        .unwrap();
-
-    assert_eq!(scope_details.file_path, "puffin/src/lib.rs");
-    assert_eq!(scope_details.function_name, "profile_macros_test::a");
-    assert_eq!(scope_details.scope_name, Some(Cow::Borrowed("my-scope")));
-    assert_eq!(scope_details.line_nr, line_nr_scope);
-
-    let scope_details = lock.scope_collection().fetch_by_name("my-scope").unwrap();
-    assert_eq!(scope_details, &ScopeId::new(2));
-
-    drop(lock);
-
-    // Second frame
-    a();
-
-    GlobalProfiler::lock().new_frame();
 }
 
 // The macro defines 'f()' at the place where macro is called.
@@ -1105,4 +992,127 @@ macro_rules! profile_scope {
             None
         };
     };
+}
+
+#[cfg(test)]
+mod tests {
+    use std::borrow::Cow;
+
+    use crate::{
+        clean_function_name, set_scopes_on, short_file_name, GlobalFrameView, GlobalProfiler,
+        ScopeId, USELESS_SCOPE_NAME_SUFFIX,
+    };
+
+    #[test]
+    fn test_short_file_name() {
+        for (before, after) in [
+            ("", ""),
+            ("foo.rs", "foo.rs"),
+            ("foo/bar.rs", "foo/bar.rs"),
+            ("foo/bar/baz.rs", "bar/baz.rs"),
+            ("crates/cratename/src/main.rs", "cratename/src/main.rs"),
+            ("crates/cratename/src/module/lib.rs", "cratename/…/module/lib.rs"),
+            ("workspace/cratename/examples/hello_world.rs", "examples/hello_world.rs"),
+            ("/rustc/d5a82bbd26e1ad8b7401f6a718a9c57c96905483/library/core/src/ops/function.rs", "core/…/function.rs"),
+            ("/Users/emilk/.cargo/registry/src/github.com-1ecc6299db9ec823/tokio-1.24.1/src/runtime/runtime.rs", "tokio-1.24.1/…/runtime.rs"),
+            ]
+            {
+            assert_eq!(short_file_name(before), after);
+        }
+    }
+
+    #[test]
+    fn test_clean_function_name() {
+        assert_eq!(clean_function_name(""), "");
+        assert_eq!(
+            clean_function_name(&format!("foo{}", USELESS_SCOPE_NAME_SUFFIX)),
+            "foo"
+        );
+        assert_eq!(
+            clean_function_name(&format!("foo::bar{}", USELESS_SCOPE_NAME_SUFFIX)),
+            "foo::bar"
+        );
+        assert_eq!(
+            clean_function_name(&format!("foo::bar::baz{}", USELESS_SCOPE_NAME_SUFFIX)),
+            "bar::baz"
+        );
+        assert_eq!(
+            clean_function_name(&format!(
+                "some::GenericThing<_, _>::function_name{}",
+                USELESS_SCOPE_NAME_SUFFIX
+            )),
+            "GenericThing<_, _>::function_name"
+        );
+        assert_eq!(
+            clean_function_name(&format!(
+                "<some::ConcreteType as some::bloody::Trait>::function_name{}",
+                USELESS_SCOPE_NAME_SUFFIX
+            )),
+            "<ConcreteType as Trait>::function_name"
+        );
+    }
+
+    #[test]
+    fn profile_macros_test() {
+        set_scopes_on(true);
+
+        let frame_view = GlobalFrameView::default();
+
+        GlobalProfiler::lock().add_sink(Box::new(|data| {
+            if data.frame_index() == 0 {
+                assert_eq!(data.frame_index(), 0);
+                assert_eq!(data.meta().num_scopes, 2);
+                assert_eq!(data.meta().num_bytes, 62);
+            } else if data.frame_index() == 1 {
+                assert_eq!(data.frame_index(), 1);
+                assert_eq!(data.meta().num_scopes, 2);
+                assert_eq!(data.meta().num_bytes, 62);
+            } else {
+                panic!("Only two frames in this test");
+            }
+        }));
+
+        let line_nr_fn = line!() + 3;
+        let line_nr_scope = line!() + 4;
+        fn a() {
+            profile_function!();
+            {
+                profile_scope!("my-scope");
+            }
+        }
+
+        a();
+
+        // First frame
+        GlobalProfiler::lock().new_frame();
+
+        let lock = frame_view.lock();
+        let scope_details = lock
+            .scope_collection()
+            .fetch_by_id(&ScopeId::new(1))
+            .unwrap();
+        assert_eq!(scope_details.file_path, "puffin/src/lib.rs");
+        assert_eq!(scope_details.function_name, "profile_macros_test::a");
+        assert_eq!(scope_details.line_nr, line_nr_fn);
+
+        let scope_details = lock
+            .scope_collection()
+            .fetch_by_id(&ScopeId::new(2))
+            .unwrap();
+
+        assert_eq!(scope_details.file_path, "puffin/src/lib.rs");
+        assert_eq!(scope_details.function_name, "profile_macros_test::a");
+        assert_eq!(scope_details.scope_name, Some(Cow::Borrowed("my-scope")));
+        assert_eq!(scope_details.line_nr, line_nr_scope);
+
+        let scope_details = lock.scope_collection().fetch_by_name("my-scope").unwrap();
+        assert_eq!(scope_details, &ScopeId::new(2));
+
+        drop(lock);
+
+        // Second frame
+        a();
+
+        GlobalProfiler::lock().new_frame();
+    }
 }
