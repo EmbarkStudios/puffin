@@ -29,6 +29,7 @@ mod merge;
 mod profile_view;
 mod scope_details;
 mod thread_profiler;
+mod utils;
 
 use std::num::NonZeroU32;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -41,6 +42,7 @@ pub use merge::{merge_scopes_for_thread, MergeScope};
 pub use profile_view::{select_slowest, FrameView, GlobalFrameView};
 pub use scope_details::{ScopeCollection, ScopeDetails, ScopeType};
 pub use thread_profiler::{ThreadInfo, ThreadProfiler};
+pub use utils::{clean_function_name, short_file_name, type_name_of};
 
 static MACROS_ON: AtomicBool = AtomicBool::new(false);
 
@@ -165,12 +167,6 @@ impl ScopeId {
     }
 }
 
-#[doc(hidden)]
-#[inline(always)]
-pub fn type_name_of<T>(_: T) -> &'static str {
-    std::any::type_name::<T>()
-}
-
 /// Returns the name of the calling function without a long module path prefix.
 #[macro_export]
 macro_rules! current_function_name {
@@ -179,129 +175,6 @@ macro_rules! current_function_name {
         $crate::type_name_of(f)
     }};
 }
-
-#[doc(hidden)]
-#[inline(never)]
-pub fn clean_function_name(name: &str) -> String {
-    let Some(name) = name.strip_suffix(USELESS_SCOPE_NAME_SUFFIX) else {
-        // Probably the user registered a user scope name.
-        return name.to_owned();
-    };
-
-    // "foo::bar::baz" -> "baz"
-    fn last_part(name: &str) -> &str {
-        if let Some(colon) = name.rfind("::") {
-            &name[colon + 2..]
-        } else {
-            name
-        }
-    }
-
-    // look for:  <some::ConcreteType as some::Trait>::function_name
-    if let Some(end_caret) = name.rfind('>') {
-        if let Some(trait_as) = name.rfind(" as ") {
-            if trait_as < end_caret {
-                let concrete_name = if let Some(start_caret) = name[..trait_as].rfind('<') {
-                    &name[start_caret + 1..trait_as]
-                } else {
-                    name
-                };
-
-                let trait_name = &name[trait_as + 4..end_caret];
-
-                let concrete_name = last_part(concrete_name);
-                let trait_name = last_part(trait_name);
-
-                let dubcolon_function_name = &name[end_caret + 1..];
-                return format!("<{concrete_name} as {trait_name}>{dubcolon_function_name}");
-            }
-        }
-    }
-
-    if let Some(colon) = name.rfind("::") {
-        if let Some(colon) = name[..colon].rfind("::") {
-            // "foo::bar::baz::function_name" -> "baz::function_name"
-            name[colon + 2..].to_owned()
-        } else {
-            // "foo::function_name" -> "foo::function_name"
-            name.to_owned()
-        }
-    } else {
-        name.to_owned()
-    }
-}
-
-/// Shortens a long `file!()` path to the essentials.
-///
-/// We want to keep it short for two reasons: readability, and bandwidth
-#[doc(hidden)]
-#[inline(never)]
-pub fn short_file_name(path: &str) -> String {
-    if path.is_empty() {
-        return "".to_string();
-    }
-
-    let path = path.replace('\\', "/"); // Handle Windows
-    let components: Vec<&str> = path.split('/').collect();
-    if components.len() <= 2 {
-        return path;
-    }
-
-    // Look for `src` folder:
-
-    let mut src_idx = None;
-    for (i, c) in components.iter().enumerate() {
-        if *c == "src" {
-            src_idx = Some(i);
-        }
-    }
-
-    if let Some(src_idx) = src_idx {
-        // Before `src` comes the name of the crate - let's include that:
-        let crate_index = src_idx.saturating_sub(1);
-        let file_index = components.len() - 1;
-
-        if crate_index + 2 == file_index {
-            // Probably "crate/src/lib.rs" - include it all
-            format!(
-                "{}/{}/{}",
-                components[crate_index],
-                components[crate_index + 1],
-                components[file_index]
-            )
-        } else if components[file_index] == "lib.rs" {
-            // "lib.rs" is very unhelpful - include folder name:
-            let folder_index = file_index - 1;
-
-            if crate_index + 1 == folder_index {
-                format!(
-                    "{}/{}/{}",
-                    components[crate_index], components[folder_index], components[file_index]
-                )
-            } else {
-                // Ellide for brevity:
-                format!(
-                    "{}/…/{}/{}",
-                    components[crate_index], components[folder_index], components[file_index]
-                )
-            }
-        } else {
-            // Ellide for brevity:
-            format!("{}/…/{}", components[crate_index], components[file_index])
-        }
-    } else {
-        // No `src` directory found - could be an example (`examples/hello_world.rs`).
-        // Include the folder and file name.
-        let n = components.len();
-        // NOTE: we've already checked that n > 1 easily in the function
-        format!("{}/{}", components[n - 2], components[n - 1])
-    }
-}
-
-// The macro defines 'f()' at the place where macro is called.
-// This code is located at the place of call and two closures deep.
-// Strip away this useless suffix.
-const USELESS_SCOPE_NAME_SUFFIX: &str = "::{{closure}}::{{closure}}::f";
 
 #[allow(clippy::doc_markdown)] // clippy wants to put "MacBook" in ticks 🙄
 /// Automatically name the profiling scope based on function name.
@@ -400,8 +273,8 @@ mod tests {
     use std::borrow::Cow;
 
     use crate::{
-        clean_function_name, set_scopes_on, short_file_name, GlobalFrameView, GlobalProfiler,
-        ScopeId, USELESS_SCOPE_NAME_SUFFIX,
+        clean_function_name, set_scopes_on, short_file_name, utils::USELESS_SCOPE_NAME_SUFFIX,
+        GlobalFrameView, GlobalProfiler, ScopeId,
     };
 
     #[test]
