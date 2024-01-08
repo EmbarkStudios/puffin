@@ -31,7 +31,7 @@ pub struct FrameMeta {
 ///
 /// More often encoded as a [`FrameData`].
 pub struct UnpackedFrameData {
-    /// Frame metadata
+    /// Frame metadata.
     pub meta: FrameMeta,
     /// The streams of profiling data for each thread.
     pub thread_streams: ThreadStreams,

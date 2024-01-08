@@ -341,7 +341,7 @@ impl ThreadProfiler {
 
     /// Register a named scope.
     #[must_use]
-    pub fn register_scope(
+    pub fn register_named_scope(
         &mut self,
         scope_name: impl Into<Cow<'static, str>>,
         function_name: impl Into<Cow<'static, str>>,
@@ -1021,7 +1021,7 @@ macro_rules! profile_scope {
             static SCOPE_ID: std::sync::OnceLock<$crate::ScopeId> = std::sync::OnceLock::new();
             let scope_id = SCOPE_ID.get_or_init(|| {
                 $crate::ThreadProfiler::call(|tp| {
-                    let id = tp.register_scope(
+                    let id = tp.register_named_scope(
                         $name,
                         $crate::current_function_name!(),
                         file!(),
