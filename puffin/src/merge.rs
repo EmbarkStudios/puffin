@@ -184,6 +184,8 @@ pub fn merge_scopes_for_thread<'s>(
 
 #[cfg(test)]
 mod tests {
+    use std::{collections::BTreeMap, sync::Arc};
+
     #[test]
     fn test_merge() {
         use crate::*;
