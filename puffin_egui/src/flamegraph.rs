@@ -938,7 +938,7 @@ fn paint_thread_info(info: &Info<'_>, thread: &ThreadInfo, pos: Pos2, collapsed:
         f.layout_no_wrap(
             format!("{} {}", collapsed_symbol, thread.name.clone()),
             info.font_id.clone(),
-            Rgba::from_white_alpha(0.9).into(),
+            egui::Color32::PLACEHOLDER,
         )
     });
 
