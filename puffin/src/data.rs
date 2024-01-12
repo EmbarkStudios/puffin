@@ -110,7 +110,13 @@ impl Stream {
     /// Marks the beginning of the scope.
     /// Returns position where to write scope size once the scope is closed
     #[inline]
-    pub fn begin_scope(&mut self, now_ns: &NsSource, scope_id: ScopeId, data: &str) -> (usize, NanoSecond) {
+    pub fn begin_scope(
+        &mut self,
+        now_ns: &NsSource,
+        offset_for_test: i64,
+        scope_id: ScopeId,
+        data: &str,
+    ) -> (usize, NanoSecond) {
         self.0.push(SCOPE_BEGIN);
 
         self.write_scope_id(scope_id);
@@ -126,8 +132,8 @@ impl Stream {
 
         // Do the timing last such that it doesn't include serialization
         let mut time_stamp_dest =
-        &mut self.0[time_stamp_offset..time_stamp_offset + size_of::<NanoSecond>()];
-        let start_ns = now_ns();
+            &mut self.0[time_stamp_offset..time_stamp_offset + size_of::<NanoSecond>()];
+        let start_ns = now_ns() + offset_for_test;
         time_stamp_dest
             .write_i64::<LE>(start_ns)
             .expect("can't fail");
@@ -488,8 +494,8 @@ impl<'s> Iterator for Reader<'s> {
 #[test]
 fn write_scope() {
     let mut stream: Stream = Stream::default();
-    let start = stream.begin_scope(100, ScopeId::new(1), "data");
-    stream.end_scope(start, 300);
+    let start = stream.begin_scope(&(now_ns as fn() -> i64), 100, ScopeId::new(1), "data");
+    stream.end_scope(start.0, 300);
 
     let scopes = Reader::from_start(&stream).read_top_scopes().unwrap();
     assert_eq!(scopes.len(), 1);
@@ -507,11 +513,11 @@ fn write_scope() {
 fn test_profile_data() {
     let stream = {
         let mut stream = Stream::default();
-
-        let t0 = stream.begin_scope(100, ScopeId::new(1), "data_top");
-        let m1 = stream.begin_scope(200, ScopeId::new(2), "data_middle_0");
+        let ptr = &(now_ns as fn() -> i64);
+        let (t0, _) = stream.begin_scope(ptr, 100, ScopeId::new(1), "data_top");
+        let (m1, _) = stream.begin_scope(ptr, 200, ScopeId::new(2), "data_middle_0");
         stream.end_scope(m1, 300);
-        let m1 = stream.begin_scope(300, ScopeId::new(3), "data_middle_1");
+        let (m1, _) = stream.begin_scope(ptr, 300, ScopeId::new(3), "data_middle_1");
         stream.end_scope(m1, 400);
         stream.end_scope(t0, 400);
         stream

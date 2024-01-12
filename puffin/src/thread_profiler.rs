@@ -106,7 +106,7 @@ impl ThreadProfiler {
         let (offset, start_ns) =
             self.stream_info
                 .stream
-                .begin_scope(&self.now_ns, scope_id, data);
+                .begin_scope(&self.now_ns, 0, scope_id, data);
 
         self.stream_info.range_ns.0 = self.stream_info.range_ns.0.min(start_ns);
         self.start_time_ns = Some(self.start_time_ns.unwrap_or(start_ns));
