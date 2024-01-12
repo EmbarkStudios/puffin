@@ -938,7 +938,7 @@ fn paint_thread_info(info: &Info<'_>, thread: &ThreadInfo, pos: Pos2, collapsed:
         f.layout_no_wrap(
             format!("{} {}", collapsed_symbol, thread.name.clone()),
             info.font_id.clone(),
-            Rgba::from_white_alpha(0.9).into(),
+            egui::Color32::PLACEHOLDER,
         )
     });
 
@@ -962,7 +962,7 @@ fn paint_thread_info(info: &Info<'_>, thread: &ThreadInfo, pos: Pos2, collapsed:
     };
 
     info.painter.rect_filled(rect.expand(2.0), 0.0, back_color);
-    info.painter.galley_with_color(rect.min, galley, text_color);
+    info.painter.galley(rect.min, galley, text_color);
 
     if is_hovered && info.response.clicked() {
         *collapsed = !(*collapsed);
