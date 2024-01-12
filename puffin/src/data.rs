@@ -110,15 +110,28 @@ impl Stream {
     /// Marks the beginning of the scope.
     /// Returns position where to write scope size once the scope is closed
     #[inline]
-    pub fn begin_scope(&mut self, start_ns: NanoSecond, scope_id: ScopeId, data: &str) -> usize {
+    pub fn begin_scope(&mut self, now_ns: &NsSource, scope_id: ScopeId, data: &str) -> (usize, NanoSecond) {
         self.0.push(SCOPE_BEGIN);
+
         self.write_scope_id(scope_id);
-        self.0.write_i64::<LE>(start_ns).expect("can't fail");
+        let time_stamp_offset = self.0.len();
+        self.0
+            .write_i64::<LE>(NanoSecond::default())
+            .expect("can't fail");
+
         self.write_str(data);
         // Put place-holder value for total scope size.
         let offset = self.0.len();
         self.write_scope_size(ScopeSize::unfinished());
-        offset
+
+        // Do the timing last such that it doesn't include serialization
+        let mut time_stamp_dest =
+        &mut self.0[time_stamp_offset..time_stamp_offset + size_of::<NanoSecond>()];
+        let start_ns = now_ns();
+        time_stamp_dest
+            .write_i64::<LE>(start_ns)
+            .expect("can't fail");
+        (offset, start_ns)
     }
 
     /// Marks the end of the scope.
