@@ -101,13 +101,17 @@ impl ThreadProfiler {
     /// Returns position where to write scope size once the scope is closed.
     #[must_use]
     pub fn begin_scope(&mut self, scope_id: ScopeId, data: &str) -> usize {
-        let now_ns = (self.now_ns)();
-        self.start_time_ns = Some(self.start_time_ns.unwrap_or(now_ns));
-
         self.depth += 1;
 
-        self.stream_info.range_ns.0 = self.stream_info.range_ns.0.min(now_ns);
-        self.stream_info.stream.begin_scope(now_ns, scope_id, data)
+        let (offset, start_ns) = self
+            .stream_info
+            .stream
+            .begin_scope(self.now_ns, scope_id, data);
+
+        self.stream_info.range_ns.0 = self.stream_info.range_ns.0.min(start_ns);
+        self.start_time_ns = Some(self.start_time_ns.unwrap_or(start_ns));
+
+        offset
     }
 
     /// Marks the end of the scope.
