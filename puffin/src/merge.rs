@@ -215,18 +215,17 @@ mod tests {
 
             for i in 0..2 {
                 let ns = 1000 * i;
-                let ptr = &(now_ns as fn() -> i64);
 
-                let (a, _) = stream.begin_scope(ptr, 200, ScopeId::new(1), "");
+                let (a, _) = stream.begin_scope(|| ns + 100, ScopeId::new(1), "");
                 stream.end_scope(a, ns + 200);
 
-                let (b, _) = stream.begin_scope(ptr, ns + 200, ScopeId::new(2), "");
+                let (b, _) = stream.begin_scope(|| ns + 200, ScopeId::new(2), "");
 
-                let (ba, _) = stream.begin_scope(ptr, ns + 400, ScopeId::new(3), "");
+                let (ba, _) = stream.begin_scope(|| ns + 400, ScopeId::new(3), "");
                 stream.end_scope(ba, ns + 600);
 
-                let (bb, _) = stream.begin_scope(ptr, ns + 600, ScopeId::new(4), "");
-                let (bba, _) = stream.begin_scope(ptr, ns + 600, ScopeId::new(5), "");
+                let (bb, _) = stream.begin_scope(|| ns + 600, ScopeId::new(4), "");
+                let (bba, _) = stream.begin_scope(|| ns + 600, ScopeId::new(5), "");
                 stream.end_scope(bba, ns + 700);
                 stream.end_scope(bb, ns + 800);
                 stream.end_scope(b, ns + 900);

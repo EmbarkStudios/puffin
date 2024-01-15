@@ -103,10 +103,10 @@ impl ThreadProfiler {
     pub fn begin_scope(&mut self, scope_id: ScopeId, data: &str) -> usize {
         self.depth += 1;
 
-        let (offset, start_ns) =
-            self.stream_info
-                .stream
-                .begin_scope(&self.now_ns, 0, scope_id, data);
+        let (offset, start_ns) = self
+            .stream_info
+            .stream
+            .begin_scope(&self.now_ns, scope_id, data);
 
         self.stream_info.range_ns.0 = self.stream_info.range_ns.0.min(start_ns);
         self.start_time_ns = Some(self.start_time_ns.unwrap_or(start_ns));
