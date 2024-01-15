@@ -135,11 +135,8 @@ impl GlobalProfiler {
     ) {
         if !scope_details.is_empty() {
             // Here we can run slightly heavy logic as its only ran once for each scope.
-            self.new_scopes.extend(
-                scope_details
-                    .iter()
-                    .map(|x| Arc::new(x.clone().into_readable().clone())),
-            );
+            self.new_scopes
+                .extend(scope_details.iter().map(|x| Arc::new(x.clone())));
         }
 
         self.current_frame
