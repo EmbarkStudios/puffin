@@ -216,8 +216,8 @@ macro_rules! profile_function {
             let scope_id = SCOPE_ID.get_or_init(|| {
                 $crate::ThreadProfiler::call(|tp| {
                     let id = tp.register_function_scope(
-                        $crate::current_function_name!(),
-                        file!(),
+                        $crate::clean_function_name($crate::current_function_name!()),
+                        $crate::short_file_name(file!()),
                         line!(),
                     );
                     id
@@ -254,8 +254,8 @@ macro_rules! profile_scope {
                 $crate::ThreadProfiler::call(|tp| {
                     let id = tp.register_named_scope(
                         $name,
-                        $crate::current_function_name!(),
-                        file!(),
+                        $crate::clean_function_name($crate::current_function_name!()),
+                        $crate::short_file_name(file!()),
                         line!(),
                     );
                     id

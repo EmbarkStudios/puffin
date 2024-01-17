@@ -1,4 +1,4 @@
-use crate::{clean_function_name, short_file_name, ScopeId};
+use crate::ScopeId;
 use std::{borrow::Cow, collections::HashMap, sync::Arc};
 
 #[derive(Default, Clone)]
@@ -183,21 +183,6 @@ impl ScopeDetails {
             format!("{}:{}", self.file_path, self.line_nr)
         } else {
             format!("{}", self.file_path)
-        }
-    }
-
-    /// Turns the scope details into a more readable version:
-    ///
-    /// * Consistent / shortened file path across platforms
-    /// * Consistent / shortened function name
-    #[inline]
-    pub(crate) fn into_readable(self) -> Self {
-        Self {
-            scope_id: self.scope_id,
-            scope_name: self.scope_name,
-            function_name: clean_function_name(&self.function_name).into(),
-            file_path: short_file_name(&self.file_path).into(),
-            line_nr: self.line_nr,
         }
     }
 
