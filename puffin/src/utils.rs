@@ -10,7 +10,22 @@ pub fn clean_function_name(name: &str) -> String {
         // Probably the user registered a user scope name.
         return name.to_owned();
     };
+    shorten_rust_function_name(name)
+}
 
+/// Shorten a rust function name by removing the leading parts of module paths.
+///
+/// While the puffin profiling macros takes care of this internally, this function can be
+/// useful for those registering custom scopes for rust functions.
+///
+/// # Example
+/// ```
+/// use puffin::shorten_rust_function_name;
+///
+/// assert_eq!(shorten_rust_function_name("foo::bar::baz::function_name"), "baz::function_name");
+/// assert_eq!(shorten_rust_function_name("<some::ConcreteType as some::Trait>::function_name"), "<ConcreteType as Trait>::function_name");
+/// ```
+pub fn shorten_rust_function_name(name: &str) -> String {
     // "foo::bar::baz" -> "baz"
     fn last_part(name: &str) -> &str {
         if let Some(colon) = name.rfind("::") {
