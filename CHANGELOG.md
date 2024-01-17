@@ -8,8 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <!-- next-header -->
 ## [Unreleased] - ReleaseDate
+## [0.19.0] - 2024-01-17
 
-- [PR#169](https://github.com/EmbarkStudios/puffin/pull/169) Stream scope information only once. Breaking change! See PR for migration guide.
+- [PR#169](https://github.com/EmbarkStudios/puffin/pull/169) Stream scope information only once, drastically reduce bandwidth and increased performance. Allow better usage of static strings in profile scopes. Breaking change! See PR for migration guide.
+- [PR#179](https://github.com/EmbarkStudios/puffin/pull/179) Update egui to v0.25 and a updates many other dependencies in process.
+- [PR#181](https://github.com/EmbarkStudios/puffin/pull/181) Measure profile scope start time after serialization functions.
 
 ## [0.18.1] - 2023-12-11
 
@@ -133,7 +136,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * `GlobalProfiler` now store recent history and the slowest frames.
 
 <!-- next-url -->
-[Unreleased]: https://github.com/EmbarkStudios/puffin/compare/0.18.1...HEAD
+[Unreleased]: https://github.com/EmbarkStudios/puffin/compare/0.19.0...HEAD
+[0.19.0]: https://github.com/EmbarkStudios/puffin/compare/0.18.1...0.19.0
 [0.18.1]: https://github.com/EmbarkStudios/puffin/compare/0.18.0...0.18.1
 [0.18.0]: https://github.com/EmbarkStudios/puffin/compare/0.17.1...0.18.0
 [0.17.1]: https://github.com/EmbarkStudios/puffin/compare/0.17.0...0.17.1
