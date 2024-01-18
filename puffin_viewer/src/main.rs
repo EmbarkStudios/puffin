@@ -4,7 +4,7 @@
 static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
 #[cfg(not(target_arch = "wasm32"))]
-fn main() {
+fn main() -> Result<(), eframe::Error> {
     env_logger::init(); // Log to stderr (if you run with `RUST_LOG=debug`).
 
     /// puffin profile viewer.
@@ -64,11 +64,11 @@ fn main() {
         ..Default::default()
     };
 
-    let _ = eframe::run_native(
+    eframe::run_native(
         "puffin viewer",
         native_options,
         Box::new(|_cc| Box::new(PuffinViewer::new(source))),
-    );
+    )
 }
 
 #[cfg(target_arch = "wasm32")]
