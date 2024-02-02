@@ -150,7 +150,7 @@ impl Default for Options {
             frame_list_height: 48.0,
             frame_width: 10.0,
 
-            merge_scopes: true,
+            merge_scopes: false, // off, because it really only works well for single-threaded profiling
 
             sorting: Default::default(),
             filter: Default::default(),
