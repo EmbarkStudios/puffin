@@ -67,7 +67,7 @@ fn main() -> Result<(), eframe::Error> {
     eframe::run_native(
         "puffin viewer",
         native_options,
-        Box::new(|_cc| Box::new(PuffinViewer::new(source))),
+        Box::new(|cc| Box::new(PuffinViewer::new(source, cc.storage))),
     )
 }
 
