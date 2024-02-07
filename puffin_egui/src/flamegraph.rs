@@ -429,8 +429,8 @@ fn interact_with_canvas(options: &mut Options, response: &Response, info: &Info<
 
     if response.hovered() {
         // Sideways pan with e.g. a touch pad:
-        if info.ctx.input(|i| i.scroll_delta.x != 0.0) {
-            options.sideways_pan_in_points += info.ctx.input(|i| i.scroll_delta.x);
+        if info.ctx.input(|i| i.smooth_scroll_delta.x != 0.0) {
+            options.sideways_pan_in_points += info.ctx.input(|i| i.smooth_scroll_delta.x);
             options.zoom_to_relative_ns_range = None;
         }
 
