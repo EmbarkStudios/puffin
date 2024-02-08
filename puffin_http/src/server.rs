@@ -21,7 +21,13 @@ pub struct Server {
     sink_id: FrameSinkId,
     join_handle: Option<std::thread::JoinHandle<()>>,
     num_clients: Arc<AtomicUsize>,
-    sink_remove: Option<Box<dyn FnOnce(FrameSinkId) -> ()>>,
+    // The Fn is required to be static, since we need to be able to call for
+    // any possible lifetime up to `&'static`. The other alternative is a
+    // lifetime parameter: `Box< T + 'life>`, or `&'life GlobalProfiler`
+    // However a lifetime param would not be backwards compatible
+    // (cannot give it a default, so it must be specified)
+    // sink_remove: &'profiler GlobalProfiler,
+    sink_remove: Option<Box<dyn FnOnce(FrameSinkId) -> () + Send + 'static>>,
 }
 
 impl Server {
@@ -219,7 +225,7 @@ impl Server {
     pub fn new_custom(
         bind_addr: &str,
         sink_install: impl FnOnce(FrameSink) -> FrameSinkId,
-        sink_remove: impl FnOnce(FrameSinkId) -> (),
+        sink_remove: impl FnOnce(FrameSinkId) -> () + Send + 'static,
     ) -> anyhow::Result<Self> {
         let tcp_listener = TcpListener::bind(bind_addr).context("binding server TCP socket")?;
         tcp_listener
@@ -281,7 +287,7 @@ impl Drop for Server {
         match self.sink_remove.take()
         {
             None => log::warn!("puffin server could not remove sink: was `None`"),
-            Some(sink_remove) => sink_remove(self.sink_id)
+            Some(sink_remove) => sink_remove(self.sink_id),
         };
 
         // Take care to send everything before we shut down:
