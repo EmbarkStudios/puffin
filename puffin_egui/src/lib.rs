@@ -663,7 +663,7 @@ impl ProfilerUi {
         };
 
         let desired_size = Vec2::new(desired_width, self.flamegraph_options.frame_list_height);
-        let (response, painter) = ui.allocate_painter(desired_size, Sense::click_and_drag());
+        let (response, painter) = ui.allocate_painter(desired_size, Sense::drag());
         let rect = response.rect;
 
         let frame_spacing = 2.0;
