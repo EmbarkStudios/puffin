@@ -691,8 +691,9 @@ fn paint_record(
                 suffix
             )
         } else {
+            // Note: we don't escape the scope data (`{:?}`), because that often leads to ugly extra backslashes.
             format!(
-                "{}{} {:?} {:6.3} ms {}",
+                "{}{} '{}' {:6.3} ms {}",
                 prefix,
                 scope_name.as_str(),
                 scope_data.data,
