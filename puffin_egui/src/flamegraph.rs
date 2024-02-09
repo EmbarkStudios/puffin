@@ -150,7 +150,7 @@ impl Default for Options {
             frame_list_height: 48.0,
             frame_width: 10.0,
 
-            merge_scopes: true,
+            merge_scopes: false, // off, because it really only works well for single-threaded profiling
 
             sorting: Default::default(),
             filter: Default::default(),
@@ -691,8 +691,9 @@ fn paint_record(
                 suffix
             )
         } else {
+            // Note: we don't escape the scope data (`{:?}`), because that often leads to ugly extra backslashes.
             format!(
-                "{}{} {:?} {:6.3} ms {}",
+                "{}{} '{}' {:6.3} ms {}",
                 prefix,
                 scope_name.as_str(),
                 scope_data.data,

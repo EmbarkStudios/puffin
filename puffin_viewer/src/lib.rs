@@ -58,9 +58,13 @@ pub struct PuffinViewer {
 }
 
 impl PuffinViewer {
-    pub fn new(source: Source) -> Self {
+    pub fn new(source: Source, storage: Option<&dyn eframe::Storage>) -> Self {
+        let profiler_ui = storage
+            .and_then(|storage| eframe::get_value(storage, eframe::APP_KEY))
+            .unwrap_or_default();
+
         Self {
-            profiler_ui: Default::default(),
+            profiler_ui,
             source,
             error: None,
             profile_self: false,
@@ -211,6 +215,10 @@ impl PuffinViewer {
 }
 
 impl eframe::App for PuffinViewer {
+    fn save(&mut self, storage: &mut dyn eframe::Storage) {
+        eframe::set_value(storage, eframe::APP_KEY, &self.profiler_ui);
+    }
+
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         puffin::GlobalProfiler::lock().new_frame();
 
