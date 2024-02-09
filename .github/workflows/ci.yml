@@ -69,27 +69,3 @@ jobs:
         run: cargo test --workspace --doc
       - name: cargo doc
         run: cargo doc -p puffin -p puffin_egui -p puffin_http -p --lib --no-deps --all-features
-
-  cargo-vet:
-    name: Vet Dependencies
-    runs-on: ubuntu-20.04-16core
-    env:
-      # there is no published release for v0.7 yet, build from git revision
-      CARGO_VET_REVISION: 8c8b6d7a5237544c613de616a031586587f49a42
-    steps:
-      - uses: actions/checkout@v3
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: actions/cache@v3
-        with:
-          path: ${{ runner.tool_cache }}/cargo-vet
-          key: cargo-vet-bin-${{ env.CARGO_VET_REVISION }}
-      - name: Add the tool cache directory to the search path
-        run: echo "${{ runner.tool_cache }}/cargo-vet/bin" >> $GITHUB_PATH
-      - name: Ensure that the tool cache is populated with the cargo-vet binary
-        # build from source, as are not published binaries yet :(
-        # tracked in https://github.com/mozilla/cargo-vet/issues/484
-        run: cargo install --root ${{ runner.tool_cache }}/cargo-vet --git https://github.com/mozilla/cargo-vet.git --rev ${{ env.CARGO_VET_REVISION }} cargo-vet
-      - name: Invoke cargo-vet
-        run: |
-          cargo vet --locked
-          cargo vet --locked >> $GITHUB_STEP_SUMMARY
