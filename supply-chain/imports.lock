@@ -57,43 +57,43 @@ user-login = "jrmuizel"
 user-name = "Jeff Muizelaar"
 
 [[publisher.ecolor]]
-version = "0.25.0"
-when = "2024-01-08"
+version = "0.26.1"
+when = "2024-02-11"
 user-id = 5619
 user-login = "emilk"
 user-name = "Emil Ernerfeldt"
 
 [[publisher.eframe]]
-version = "0.25.0"
-when = "2024-01-08"
+version = "0.26.0"
+when = "2024-02-05"
 user-id = 5619
 user-login = "emilk"
 user-name = "Emil Ernerfeldt"
 
 [[publisher.egui]]
-version = "0.25.0"
-when = "2024-01-08"
+version = "0.26.1"
+when = "2024-02-11"
 user-id = 5619
 user-login = "emilk"
 user-name = "Emil Ernerfeldt"
 
 [[publisher.egui-winit]]
-version = "0.25.0"
-when = "2024-01-08"
+version = "0.26.0"
+when = "2024-02-05"
 user-id = 5619
 user-login = "emilk"
 user-name = "Emil Ernerfeldt"
 
 [[publisher.egui_glow]]
-version = "0.25.0"
-when = "2024-01-08"
+version = "0.26.0"
+when = "2024-02-05"
 user-id = 5619
 user-login = "emilk"
 user-name = "Emil Ernerfeldt"
 
 [[publisher.emath]]
-version = "0.25.0"
-when = "2024-01-08"
+version = "0.26.1"
+when = "2024-02-11"
 user-id = 5619
 user-login = "emilk"
 user-name = "Emil Ernerfeldt"
@@ -106,8 +106,8 @@ user-login = "dtolnay"
 user-name = "David Tolnay"
 
 [[publisher.epaint]]
-version = "0.25.0"
-when = "2024-01-08"
+version = "0.26.1"
+when = "2024-02-11"
 user-id = 5619
 user-login = "emilk"
 user-name = "Emil Ernerfeldt"
@@ -816,6 +816,11 @@ notes = "I looked through all the sources of the v0.5.0 crate."
 who = "Mike Hommey <mh+mozilla@glandium.org>"
 criteria = "safe-to-deploy"
 delta = "0.5.0 -> 0.5.2"
+
+[[audits.firefox.audits.raw-window-handle]]
+who = "Nicolas Silva <nical@fastmail.com>"
+criteria = "safe-to-deploy"
+delta = "0.5.2 -> 0.6.0"
 
 [[audits.firefox.audits.ron]]
 who = "Mike Hommey <mh+mozilla@glandium.org>"
