@@ -8,6 +8,7 @@ All notable changes to the egui crate will be documented in this file.
 ## [Unreleased] - ReleaseDate
 
 - [PR#188](https://github.com/EmbarkStudios/puffin/pull/188) Update to egui `0.26`
+- [PR#186](https://github.com/EmbarkStudios/puffin/pull/186) Change default value of the `merge_scopes` flamegraph option from `true` to `false`
 
 ## [0.25.0] - 2024-01-17
 
