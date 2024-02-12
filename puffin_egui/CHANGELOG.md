@@ -1,12 +1,18 @@
 <!-- markdownlint-disable blanks-around-headings blanks-around-lists no-duplicate-heading -->
 
-# `egui_puffin` changelog
+# `puffin_egui` changelog
 
 All notable changes to the egui crate will be documented in this file.
 
 <!-- next-header -->
 ## [Unreleased] - ReleaseDate
+
+- [PR#188](https://github.com/EmbarkStudios/puffin/pull/188) Update to egui `0.26`
+
 ## [0.25.0] - 2024-01-17
+
+- [PR#179](https://github.com/EmbarkStudios/puffin/pull/179) Update to egui `0.25`
+
 ## [0.24.0] - 2023-11-24
 
 - [PR#166](https://github.com/EmbarkStudios/puffin/pull/166) Add `show_viewport_if_enabled` method, which will show the profiler UI in a separate viewport, if possible.
