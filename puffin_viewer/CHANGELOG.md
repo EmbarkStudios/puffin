@@ -6,7 +6,14 @@ All notable changes to `puffin_viewer` will be documented in this file.
 
 <!-- next-header -->
 ## [Unreleased] - ReleaseDate
+
+- [PR#188](https://github.com/EmbarkStudios/puffin/pull/188) Update to `puffin_egui` version `0.26`
+- [PR#184](https://github.com/EmbarkStudios/puffin/pull/184) Propagate errors from `eframe::run_native`
+
 ## [0.19.0] - 2024-01-17
+
+- [PR#179](https://github.com/EmbarkStudios/puffin/pull/179) Update to `puffin_egui` version `0.25`
+
 ## [0.18.0] - 2023-11-24
 - [PR#161](https://github.com/EmbarkStudios/puffin/pull/166) Update to egui and eframe `0.24`
 
