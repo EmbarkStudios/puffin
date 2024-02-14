@@ -6,6 +6,7 @@ All notable changes to the egui crate will be documented in this file.
 
 <!-- next-header -->
 ## [Unreleased] - ReleaseDate
+## [0.26.0] - 2024-02-14
 
 - [PR#188](https://github.com/EmbarkStudios/puffin/pull/188) Update to egui `0.26`
 - [PR#186](https://github.com/EmbarkStudios/puffin/pull/186) Change default value of the `merge_scopes` flamegraph option from `true` to `false`
@@ -169,7 +170,8 @@ All notable changes to the egui crate will be documented in this file.
 - The view supports viewing merged sibling scopes.
 
 <!-- next-url -->
-[Unreleased]: https://github.com/EmbarkStudios/puffin/compare/puffin_egui-0.25.0...HEAD
+[Unreleased]: https://github.com/EmbarkStudios/puffin/compare/puffin_egui-0.26.0...HEAD
+[0.26.0]: https://github.com/EmbarkStudios/puffin/compare/puffin_egui-0.25.0...puffin_egui-0.26.0
 [0.25.0]: https://github.com/EmbarkStudios/puffin/compare/puffin_egui-0.24.0...puffin_egui-0.25.0
 [0.24.0]: https://github.com/EmbarkStudios/puffin/compare/puffin_egui-0.23.0...puffin_egui-0.24.0
 [0.23.0]: https://github.com/EmbarkStudios/puffin/compare/puffin_egui-0.22.0...puffin_egui-0.23.0
