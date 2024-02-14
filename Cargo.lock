@@ -1728,7 +1728,7 @@ dependencies = [
 
 [[package]]
 name = "puffin_egui"
-version = "0.26.0"
+version = "0.25.0"
 dependencies = [
  "eframe",
  "egui",
