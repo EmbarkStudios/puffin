@@ -2,7 +2,6 @@ use std::vec;
 
 use super::{SelectedFrames, ERROR_COLOR, HOVER_COLOR};
 use crate::filter::Filter;
-use crate::grid_spacing::GridSpacing;
 use egui::*;
 use indexmap::IndexMap;
 use puffin::*;
@@ -126,8 +125,7 @@ pub struct Options {
     pub flamegraph_threads: IndexMap<String, ThreadVisualizationSettings>,
 
     /// Interval of vertical timeline indicators.
-    #[cfg_attr(feature = "serde", serde(skip))]
-    grid_spacing: GridSpacing,
+    grid_spacing_ms: f64,
 
     #[cfg_attr(feature = "serde", serde(skip))]
     filter: Filter,
@@ -157,7 +155,8 @@ impl Default for Options {
 
             merge_scopes: false, // off, because it really only works well for single-threaded profiling
 
-            grid_spacing: Default::default(),
+            grid_spacing_ms: 1.,
+
             sorting: Default::default(),
             filter: Default::default(),
 
@@ -260,7 +259,15 @@ pub fn ui(
             });
 
             options.filter.ui(ui);
-            options.grid_spacing.ui(ui);
+
+            // Grid spacing interval selector.
+            ui.horizontal(|ui| {
+                ui.label("Grid spacing:");
+                let grid_spacing_drag = DragValue::new(&mut options.grid_spacing_ms)
+                    .speed(0.1)
+                    .clamp_range(1.0..=100.0);
+                grid_spacing_drag.ui(ui);
+            });
         });
 
         ui.collapsing("Visible Threads", |ui| {
@@ -509,7 +516,7 @@ fn paint_timeline(
     // We show all measurements relative to start_ns
 
     let max_lines = canvas.width() / 4.0;
-    let mut grid_spacing_ns = options.grid_spacing.grid_spacing_ns();
+    let mut grid_spacing_ns = (options.grid_spacing_ms * 1_000.) as i64;
     while options.canvas_width_ns / (grid_spacing_ns as f32) > max_lines {
         grid_spacing_ns *= 10;
     }

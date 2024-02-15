@@ -12,7 +12,6 @@
 #![allow(clippy::float_cmp, clippy::manual_range_contains)]
 
 mod filter;
-mod grid_spacing;
 mod flamegraph;
 mod maybe_mut_ref;
 mod stats;
