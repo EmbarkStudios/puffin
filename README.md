@@ -79,8 +79,8 @@ Please read our [Contributor Guide](CONTRIBUTING.md) for more information on how
 
 We use the [cargo release](https://github.com/crate-ci/cargo-release) tool to manage changelogs, git tags and publishing crates.
 
-Each substantial pull request should have a changelog entry (see [keep a changelog](https://keepachangelog.com)) and never update
-a crate version directly.
+Each substantial pull request should add a changelog entry under the `[Unreleased]` section (see [keep a changelog](https://keepachangelog.com)
+and previous changelog entries). The crate version in `Cargo.toml` is never updated manually in a PR as it's handled by `cargo release`.
 
 ## License
 
