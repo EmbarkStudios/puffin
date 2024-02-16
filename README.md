@@ -75,6 +75,13 @@ We welcome community contributions to this project.
 
 Please read our [Contributor Guide](CONTRIBUTING.md) for more information on how to get started.
 
+## Releasing
+
+We use the [cargo release](https://github.com/crate-ci/cargo-release) tool to manage changelogs, git tags and publishing crates.
+
+Each substantial pull request should have a changelog entry (see [keep a changelog](https://keepachangelog.com)) and never update
+a crate version directly.
+
 ## License
 
 Licensed under either of
