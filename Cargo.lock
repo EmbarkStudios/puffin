@@ -668,9 +668,9 @@ checksum = "9ea835d29036a4087793836fa931b08837ad5e957da9e23886b29586fb9b6650"
 
 [[package]]
 name = "ecolor"
-version = "0.26.1"
+version = "0.27.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9c912193fa5698d4fbc857b831fb96b42215dcf565e06012993a65901299a21f"
+checksum = "fb152797942f72b84496eb2ebeff0060240e0bf55096c4525ffa22dd54722d86"
 dependencies = [
  "bytemuck",
  "serde",
@@ -678,9 +678,9 @@ dependencies = [
 
 [[package]]
 name = "eframe"
-version = "0.26.0"
+version = "0.27.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2230537c7ee42c4c329461bad5933e91a8f938a9314645961e12e57080478731"
+checksum = "3bcc8e06df6f0a6cf09a3247ff7e85fdfffc28dda4fe5561e05314bf7618a918"
 dependencies = [
  "bytemuck",
  "cocoa",
@@ -714,9 +714,9 @@ dependencies = [
 
 [[package]]
 name = "egui"
-version = "0.26.1"
+version = "0.27.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "abecd396ede556116fceaa0098a1c9278ef526119c5097311eac4bcf57484c52"
+checksum = "6d1b8cc14b0b260aa6bd124ef12c8a94f57ffe8e40aa970f3db710c21bb945f3"
 dependencies = [
  "accesskit",
  "ahash",
@@ -729,9 +729,9 @@ dependencies = [
 
 [[package]]
 name = "egui-winit"
-version = "0.26.0"
+version = "0.27.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d85f8f89d6a937535e164a5bd6e31719fd7db01bc188d7b59425414b160a2ee1"
+checksum = "3733435d6788c760bb98ce4cb1b8b7a2d953a3a7b421656ba8b3e014019be3d0"
 dependencies = [
  "arboard",
  "egui",
@@ -746,16 +746,15 @@ dependencies = [
 
 [[package]]
 name = "egui_glow"
-version = "0.26.0"
+version = "0.27.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e3b8d8d33da3d2ae4db39b30ddcbc5f31e9b0d74e65dc028cf711e94b68ec4d6"
+checksum = "f933e9e64c4d074c78ce71785a5778f648453c2b2a3efd28eea189dac3f19c28"
 dependencies = [
  "bytemuck",
  "egui",
  "glow",
  "log",
- "memoffset",
- "raw-window-handle 0.5.2",
+ "memoffset 0.9.1",
  "wasm-bindgen",
  "web-sys",
 ]
@@ -768,9 +767,9 @@ checksum = "a26ae43d7bcc3b814de94796a5e736d4029efb0ee900c12e2d54c993ad1a1e07"
 
 [[package]]
 name = "emath"
-version = "0.26.1"
+version = "0.27.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2386663fafbd043f2cd14f0ded4702deb9348fb7e7bacba9c9087a31b17487f1"
+checksum = "555a7cbfcc52c81eb5f8f898190c840fa1c435f67f30b7ef77ce7cf6b7dcd987"
 dependencies = [
  "bytemuck",
  "serde",
@@ -802,9 +801,9 @@ dependencies = [
 
 [[package]]
 name = "epaint"
-version = "0.26.1"
+version = "0.27.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "36ac8c9ca960f0263856a7fbc90d7ad41280e8865a7cd3c64d3daec016bd7115"
+checksum = "bd63c37156e949bda80f7e39cc11508bc34840aecf52180567e67cdb2bf1a5fe"
 dependencies = [
  "ab_glyph",
  "ahash",
@@ -1367,6 +1366,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "memoffset"
+version = "0.9.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "488016bfae457b036d996092f6cb448677611ce4449e970ceaf42695203f218a"
+dependencies = [
+ "autocfg",
+]
+
+[[package]]
 name = "mimalloc"
 version = "0.1.39"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1431,7 +1439,7 @@ dependencies = [
  "bitflags 1.3.2",
  "cfg-if",
  "libc",
- "memoffset",
+ "memoffset 0.7.1",
 ]
 
 [[package]]
