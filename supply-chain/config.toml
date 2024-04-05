@@ -79,10 +79,6 @@ criteria = "safe-to-deploy"
 version = "0.8.6"
 criteria = "safe-to-deploy"
 
-[[exemptions.aho-corasick]]
-version = "1.1.1"
-criteria = "safe-to-deploy"
-
 [[exemptions.android-activity]]
 version = "0.5.1"
 criteria = "safe-to-deploy"
@@ -171,10 +167,6 @@ criteria = "safe-to-run"
 version = "0.2.1"
 criteria = "safe-to-run"
 
-[[exemptions.clap_lex]]
-version = "0.6.0"
-criteria = "safe-to-run"
-
 [[exemptions.clipboard-win]]
 version = "4.5.0"
 criteria = "safe-to-deploy"
@@ -239,20 +231,12 @@ criteria = "safe-to-deploy"
 version = "2.0.0"
 criteria = "safe-to-deploy"
 
-[[exemptions.dirs-sys-next]]
-version = "0.1.2"
-criteria = "safe-to-deploy"
-
 [[exemptions.dispatch]]
 version = "0.2.0"
 criteria = "safe-to-deploy"
 
 [[exemptions.dlib]]
 version = "0.5.2"
-criteria = "safe-to-deploy"
-
-[[exemptions.document-features]]
-version = "0.2.8"
 criteria = "safe-to-deploy"
 
 [[exemptions.downcast-rs]]
@@ -269,10 +253,6 @@ criteria = "safe-to-deploy"
 
 [[exemptions.fdeflate]]
 version = "0.3.3"
-criteria = "safe-to-deploy"
-
-[[exemptions.flate2]]
-version = "1.0.28"
 criteria = "safe-to-deploy"
 
 [[exemptions.gdk-pixbuf-sys]]
@@ -379,10 +359,6 @@ criteria = "safe-to-deploy"
 version = "0.1.35"
 criteria = "safe-to-deploy"
 
-[[exemptions.litrs]]
-version = "0.4.1"
-criteria = "safe-to-deploy"
-
 [[exemptions.lz4_flex]]
 version = "0.11.2"
 criteria = "safe-to-deploy"
@@ -393,6 +369,10 @@ criteria = "safe-to-deploy"
 
 [[exemptions.memoffset]]
 version = "0.6.5"
+criteria = "safe-to-deploy"
+
+[[exemptions.memoffset]]
+version = "0.9.1"
 criteria = "safe-to-deploy"
 
 [[exemptions.mimalloc]]
@@ -539,10 +519,6 @@ criteria = "safe-to-deploy"
 version = "0.12.13"
 criteria = "safe-to-deploy"
 
-[[exemptions.termcolor]]
-version = "1.4.1"
-criteria = "safe-to-deploy"
-
 [[exemptions.thiserror-core]]
 version = "1.0.50"
 criteria = "safe-to-deploy"
@@ -635,10 +611,6 @@ criteria = "safe-to-deploy"
 version = "0.8.12"
 criteria = "safe-to-deploy"
 
-[[exemptions.winapi]]
-version = "0.3.9"
-criteria = "safe-to-deploy"
-
 [[exemptions.winapi-i686-pc-windows-gnu]]
 version = "0.4.0"
 criteria = "safe-to-deploy"
@@ -725,8 +697,4 @@ criteria = "safe-to-deploy"
 
 [[exemptions.zstd-safe]]
 version = "6.0.6"
-criteria = "safe-to-deploy"
-
-[[exemptions.zstd-sys]]
-version = "2.0.9+zstd.1.5.5"
 criteria = "safe-to-deploy"
