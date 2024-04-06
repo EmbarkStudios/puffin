@@ -6,6 +6,7 @@ All notable changes to the egui crate will be documented in this file.
 
 <!-- next-header -->
 ## [Unreleased] - ReleaseDate
+## [0.27.0] - 2024-04-06
 - [PR#201](https://github.com/EmbarkStudios/puffin/pull/201) Update to egui `0.27`
 
 ## [0.26.0] - 2024-02-14
@@ -172,7 +173,8 @@ All notable changes to the egui crate will be documented in this file.
 - The view supports viewing merged sibling scopes.
 
 <!-- next-url -->
-[Unreleased]: https://github.com/EmbarkStudios/puffin/compare/puffin_egui-0.26.0...HEAD
+[Unreleased]: https://github.com/EmbarkStudios/puffin/compare/puffin_egui-0.27.0...HEAD
+[0.27.0]: https://github.com/EmbarkStudios/puffin/compare/puffin_egui-0.26.0...puffin_egui-0.27.0
 [0.26.0]: https://github.com/EmbarkStudios/puffin/compare/puffin_egui-0.25.0...puffin_egui-0.26.0
 [0.25.0]: https://github.com/EmbarkStudios/puffin/compare/puffin_egui-0.24.0...puffin_egui-0.25.0
 [0.24.0]: https://github.com/EmbarkStudios/puffin/compare/puffin_egui-0.23.0...puffin_egui-0.24.0
