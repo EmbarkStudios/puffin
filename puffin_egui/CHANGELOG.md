@@ -6,6 +6,8 @@ All notable changes to the egui crate will be documented in this file.
 
 <!-- next-header -->
 ## [Unreleased] - ReleaseDate
+- [PR#207](https://github.com/EmbarkStudios/puffin/pull/207) Fixed frame selection input handling
+
 ## [0.27.0] - 2024-04-06
 - [PR#201](https://github.com/EmbarkStudios/puffin/pull/201) Update to egui `0.27`
 
