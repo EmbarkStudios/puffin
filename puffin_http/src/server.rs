@@ -21,7 +21,7 @@ pub struct Server {
     sink_id: puffin::FrameSinkId,
     join_handle: Option<std::thread::JoinHandle<()>>,
     num_clients: Arc<AtomicUsize>,
-    sink_remove: Option<Box<dyn FnOnce(puffin::FrameSinkId) -> () + Send + 'static>>,
+    sink_remove: fn(puffin::FrameSinkId) -> (),
 }
 
 impl Server {
@@ -222,8 +222,8 @@ impl Server {
     /// ```
     pub fn new_custom(
         bind_addr: &str,
-        sink_install: impl FnOnce(puffin::FrameSink) -> puffin::FrameSinkId,
-        sink_remove: impl FnOnce(puffin::FrameSinkId) -> () + Send + 'static,
+        sink_install: fn (puffin::FrameSink) -> puffin::FrameSinkId,
+        sink_remove: fn (puffin::FrameSinkId) -> (),
     ) -> anyhow::Result<Self> {
         let tcp_listener = TcpListener::bind(bind_addr).context("binding server TCP socket")?;
         tcp_listener
@@ -273,7 +273,7 @@ impl Server {
             sink_id,
             join_handle: Some(join_handle),
             num_clients,
-            sink_remove: Some(Box::new(sink_remove)),
+            sink_remove,
         })
     }
 
@@ -286,10 +286,7 @@ impl Server {
 impl Drop for Server {
     fn drop(&mut self) {
         // Remove ourselves from the profiler
-        match self.sink_remove.take() {
-            None => log::warn!("puffin server could not remove sink: was `None`"),
-            Some(sink_remove) => sink_remove(self.sink_id),
-        };
+        (self.sink_remove)(self.sink_id);
 
         // Take care to send everything before we shut down:
         if let Some(join_handle) = self.join_handle.take() {
