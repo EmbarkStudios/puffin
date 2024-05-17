@@ -202,6 +202,7 @@ enum CompressionKind {
     Zstd = 2,
 }
 
+#[cfg(feature = "packing")]
 impl CompressionKind {
     #[cfg(feature = "serialization")]
     fn from_u8(value: u8) -> anyhow::Result<Self> {
