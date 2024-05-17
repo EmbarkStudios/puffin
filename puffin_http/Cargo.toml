@@ -25,3 +25,5 @@ puffin = { version = "0.19.0", path = "../puffin", features = [
 
 [dev-dependencies]
 simple_logger = "4.2"
+paste = "1.0.15"
+once_cell = "1.19.0"

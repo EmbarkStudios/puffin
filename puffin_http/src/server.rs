@@ -59,9 +59,6 @@ impl Server {
     /// ## Per-Thread Profiling
     /// ```
     /// # use puffin::GlobalProfiler;
-    /// # use std::sync::Mutex;
-    /// # use std::thread::sleep;
-    /// # use std::time::Duration;
     /// # use puffin::{StreamInfoRef, ThreadInfo, ScopeDetails};
     /// # use puffin_http::Server;
     /// # use puffin::ThreadProfiler;
@@ -73,42 +70,46 @@ impl Server {
     /// let default_server = Server::new("localhost:8585").expect("failed to create default profiling server");
     /// puffin::profile_scope!("main_scope");
     ///
-    /// // Create some custom threads
+    /// // Create a new [GlobalProfiler] instance. This is where we will be sending the events to for our threads.
+    /// // [OnceLock] and [Mutex] are there so that we can safely get exclusive mutable access.
+    /// static CUSTOM_PROFILER: std::sync::OnceLock<std::sync::Mutex<GlobalProfiler>> = std::sync::OnceLock::new();
+    /// // Helper function to access the profiler
+    /// fn get_custom_profiler() -> std::sync::MutexGuard<'static, GlobalProfiler> {
+    ///    CUSTOM_PROFILER.get_or_init(|| std::sync::Mutex::new(GlobalProfiler::default()))
+    ///         .lock().expect("failed to lock custom profiler")
+    /// }
+    /// // Create the custom profiling server that uses our custom profiler instead of the global/default one
+    /// let thread_server = Server::new_custom(
+    ///     "localhost:6969",
+    ///     // Adds the [Server]'s sink to our custom profiler
+    ///     |sink| get_custom_profiler().add_sink(sink),
+    ///     // Remove
+    ///     |id| _ = get_custom_profiler().remove_sink(id)
+    /// );
+    /// 
+    /// // Create some custom threads where we use the custom profiler and server
     /// std::thread::scope(|scope| {
-    ///     // Create a new [GlobalProfiler] instance. This is where we will be sending the events to for our threads
-    ///     // In a real app this would be `static`, and you would need to use a [Mutex] anyway
-    ///     let mut custom_profiler = Mutex::new(GlobalProfiler::default());
-    ///     // Create the custom profiling server that uses our custom profiler instead of the global/default one
-    ///     let thread_server = Server::new_custom(
-    ///         "localhost:6969",
-    ///         // Adds the [Server]'s sink to our custom profiler
-    ///         |sink| custom_profiler.lock().unwrap().add_sink(sink),
-    ///         // Remove
-    ///         |id| _ = custom_profiler.lock().unwrap().remove_sink(id)
-    ///     );
-    ///
-    ///     // Spawn some threads where we use the custom profiler and server
-    ///     scope.spawn(||{
+    ///     scope.spawn(move ||{
     ///         // Tell this thread to use the custom profiler
     ///         let _ = ThreadProfiler::initialize(
     ///             // Use the same time source as default puffin
     ///             puffin::now_ns,
     ///             // However redirect the events to our `custom_profiler`, instead of the default
     ///             // which would be the one returned by [GlobalProfiler::lock()]
-    ///             |info: ThreadInfo, details:  &[ScopeDetails], stream: &StreamInfoRef<'_>|
-    ///                 custom_profiler.lock().unwrap().report(info, details, stream)
+    ///             |info: ThreadInfo, details: &[ScopeDetails], stream: &StreamInfoRef<'_>|
+    ///                 get_custom_profiler().report(info, details, stream)
     ///         );
     ///
     ///         // Do work
     ///         {
     ///             puffin::profile_scope!("inside_thread");
     ///             println!("hello from the thread");
-    ///             sleep(Duration::from_secs(1));
+    ///             std::thread::sleep(std::time::Duration::from_secs(1));
     ///         }
     ///
     ///         // Tell our profiler that we are done with this frame
     ///         // This will be sent to the server on port 6969
-    ///         custom_profiler.lock().unwrap().new_frame();
+    ///         get_custom_profiler().new_frame();
     ///     });
     /// });
     ///
@@ -120,27 +121,28 @@ impl Server {
     /// ```
     ///
     /// ## Helpful Macro
-    /// ```rust,ignore
+    /// ```rust
+    /// # use std::thread::sleep;
+    /// # use std::time::Duration;
+    /// 
     /// /// This macro makes it much easier to define profilers
     /// ///
     /// /// This macro makes use of the `paste` crate to generate unique identifiers, and `tracing` to log events
-    /// use std::thread::sleep;
-    /// use std::time::Duration;
     /// macro_rules! profiler {
     ///     ($(
-    ///         {name: $name:ident, port: $port:expr $(,install: |$install_var:ident| $install:block, drop: |$drop_var:ident| $drop:block)? $(,)?}),*
-    ///     $(,)?)
+    ///          {name: $name:ident, port: $port:expr $(,install: |$install_var:ident| $install:block, drop: |$drop_var:ident| $drop:block)? $(,)?}
+    ///      ),* $(,)?)
     ///     => {
     ///         $(
-    ///             $crate::profiler!(@inner {name: $name, port: $port $(,install: |$install_var| $install, drop: |$drop_var| $drop)?});
+    ///             profiler!(@inner { name: $name, port: $port $(,install: |$install_var| $install, drop: |$drop_var| $drop)? });
     ///         )*
     ///     };
-    ///
-    ///     (@inner {name: $name:ident, port: $port:expr}) => {
+    /// 
+    ///     (@inner { name: $name:ident, port: $port:expr }) => {
     ///         paste::paste!{
-    ///             #[doc = concat!("The address to bind the ", std::stringify!([< $name:lower >]), " thread profiler's server to")]
+    ///             #[doc = concat!("The address to bind the ", std::stringify!([< $name:lower >]), " thread profilers' server to")]
     ///                 pub const [< $name:upper _PROFILER_ADDR >] : &'static str
-    ///                     = std::concat!("127.0.0.1:", $port);
+    ///                     = concat!("127.0.0.1:", $port);
     ///
     ///                 /// Installs the server's sink into the custom profiler
     ///                 #[doc(hidden)]
@@ -157,11 +159,11 @@ impl Server {
     ///                 #[doc = concat!("The instance of the ", std::stringify!([< $name:lower >]), " thread profiler's server")]
     ///                 pub static [< $name:upper _PROFILER_SERVER >] : once_cell::sync::Lazy<std::sync::Mutex<puffin_http::Server>>
     ///                     = once_cell::sync::Lazy::new(|| {
-    ///                         tracing::debug!(
+    ///                         eprintln!(
     ///                             "starting puffin_http server for {} profiler at {}",
     ///                             std::stringify!([<$name:lower>]),
-    ///                             [< $name:upper _PROFILER_ADDR >])
-    ///                         ;
+    ///                             [< $name:upper _PROFILER_ADDR >]
+    ///                         );
     ///                         std::sync::Mutex::new(
     ///                             puffin_http::Server::new_custom(
     ///                                 [< $name:upper _PROFILER_ADDR >],
@@ -174,8 +176,8 @@ impl Server {
     ///                     });
     ///
     ///                 #[doc = concat!("A custom reporter for the ", std::stringify!([< $name:lower >]), " thread reporter")]
-    ///                 pub fn [< $name:lower _profiler_reporter >] (info: puffin::ThreadInfo, stream: &puffin::StreamInfoRef<'_>) {
-    ///                     [< $name:lower _profiler_lock >]().report(info, stream)
+    ///                 pub fn [< $name:lower _profiler_reporter >] (info: puffin::ThreadInfo, details: &[puffin::ScopeDetails],  stream: &puffin::StreamInfoRef<'_>) {
+    ///                     [< $name:lower _profiler_lock >]().report(info, details, stream)
     ///                 }
     ///
     ///                 #[doc = concat!("Accessor for the ", std::stringify!([< $name:lower >]), " thread reporter")]
@@ -187,20 +189,19 @@ impl Server {
     ///                 #[doc = concat!("Initialises the ", std::stringify!([< $name:lower >]), " thread reporter and server.\
     ///                 Call this on each different thread you want to register with this profiler")]
     ///                 pub fn [< $name:lower _profiler_init >]() {
-    ///                     tracing::trace!("init thread profiler \"{}\"", std::stringify!([<$name:lower>]));
+    ///                     eprintln!("init thread profiler \"{}\"", std::stringify!([<$name:lower>]));
     ///                     std::mem::drop([< $name:upper _PROFILER_SERVER >].lock());
-    ///                     tracing::trace!("set thread custom profiler \"{}\"", std::stringify!([<$name:lower>]));
+    ///                     eprintln!("set thread custom profiler \"{}\"", std::stringify!([<$name:lower>]));
     ///                     puffin::ThreadProfiler::initialize(::puffin::now_ns, [< $name:lower _profiler_reporter >]);
     ///                 }
     ///         }
     ///     };
     /// }
     ///
-    ///
     /// profiler! {
-    ///     {name: UI,          port: 8585},
-    ///     {name: RENDERER,    port: 8586},
-    ///     {name: BACKGROUND,  port: 8587},
+    ///     { name: UI,          port: "2a" },
+    ///     { name: RENDERER,    port: 8586 },
+    ///     { name: BACKGROUND,  port: 8587 },
     /// }
     /// 
     /// pub fn demo() {
@@ -208,7 +209,7 @@ impl Server {
     ///         // Initialise the custom profiler for this thread
     ///         // Now all puffin events are sent to the custom profiling server instead
     ///         //
-    ///         self::background_profiler_init();
+    ///         background_profiler_init();
     ///
     ///         for i in 0..100{
     ///             puffin::profile_scope!("test");
@@ -216,7 +217,7 @@ impl Server {
     ///         }
     ///
     ///         // Mark a new frame so the data is flushed to the server
-    ///         self::background_profiler_lock().new_frame();
+    ///         background_profiler_lock().new_frame();
     ///     });
     /// }
     /// ```

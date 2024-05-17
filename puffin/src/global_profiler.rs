@@ -127,7 +127,7 @@ impl GlobalProfiler {
     }
 
     /// Reports some profiling data. Called from [`ThreadProfiler`].
-    pub(crate) fn report(
+    pub fn report(
         &mut self,
         info: ThreadInfo,
         scope_details: &[ScopeDetails],
