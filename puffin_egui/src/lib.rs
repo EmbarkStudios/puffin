@@ -475,8 +475,8 @@ impl ProfilerUi {
 
         ui.horizontal(|ui| {
             let play_pause_button_size = Vec2::splat(24.0);
-            let space_pressed =
-                ui.input(|i| i.key_pressed(egui::Key::Space)) && ui.memory(|m| m.focus().is_none());
+            let space_pressed = ui.input(|i| i.key_pressed(egui::Key::Space))
+                && ui.memory(|m| m.focused().is_none());
 
             if self.paused.is_some() {
                 if ui

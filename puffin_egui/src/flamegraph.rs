@@ -279,7 +279,7 @@ pub fn ui(
         ScrollArea::vertical().show(ui, |ui| {
             let mut canvas = ui.available_rect_before_wrap();
             canvas.max.y = f32::INFINITY;
-            let response = ui.interact(canvas, ui.id(), Sense::click_and_drag());
+            let response = ui.interact(canvas, ui.id().with("canvas"), Sense::click_and_drag());
 
             let (min_ns, max_ns) = if options.merge_scopes {
                 frames.merged_range_ns
