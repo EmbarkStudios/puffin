@@ -187,10 +187,10 @@ compile_error!(
 // ----------------------------------------------------------------------------
 
 /// See <https://github.com/EmbarkStudios/puffin/pull/130> for pros-and-cons of different compression algorithms.
+#[cfg(feature = "packing")]
 #[repr(u8)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum CompressionKind {
-    #[allow(dead_code)] // with some feature sets
     Uncompressed = 0,
 
     /// Very fast, and lightweight dependency
@@ -202,6 +202,7 @@ enum CompressionKind {
     Zstd = 2,
 }
 
+#[cfg(feature = "packing")]
 impl CompressionKind {
     #[cfg(feature = "serialization")]
     fn from_u8(value: u8) -> anyhow::Result<Self> {
