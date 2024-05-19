@@ -270,7 +270,7 @@ macro_rules! profile_scope_custom {
     ($name:expr) => {
         $crate::profile_scope_custom!($name, "")
     };
-    ($name:expr, $data:expr) => {
+    ($name:expr, $data:expr) => {{
         if $crate::are_scopes_on() {
             static SCOPE_ID: std::sync::OnceLock<$crate::ScopeId> = std::sync::OnceLock::new();
             let scope_id = SCOPE_ID.get_or_init(|| {
@@ -288,7 +288,7 @@ macro_rules! profile_scope_custom {
         } else {
             None
         }
-    };
+    }};
 }
 
 #[allow(clippy::doc_markdown)] // clippy wants to put "MacBook" in ticks 🙄
