@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <!-- next-header -->
 ## [Unreleased] - ReleaseDate
+
 ## [0.19.0] - 2024-01-17
 
 - [PR#169](https://github.com/EmbarkStudios/puffin/pull/169) Stream scope information only once, drastically reduce bandwidth and increased performance. Allow better usage of static strings in profile scopes. Breaking change! See PR for migration guide.

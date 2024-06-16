@@ -6,6 +6,9 @@ All notable changes to the egui crate will be documented in this file.
 
 <!-- next-header -->
 ## [Unreleased] - ReleaseDate
+
+- [PR#211](https://github.com/EmbarkStudios/puffin/pull/211/) Fix broken flamegraph interaction with egui 0.27.1
+
 ## [0.27.0] - 2024-04-06
 - [PR#201](https://github.com/EmbarkStudios/puffin/pull/201) Update to egui `0.27`
 
