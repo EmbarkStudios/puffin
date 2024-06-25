@@ -689,7 +689,7 @@ impl ProfilerUi {
             };
 
             let frame_rect = Rect::from_min_max(
-                Pos2::new(x, rect.top()),
+                Pos2::new(x - 0.5 * frame_spacing, rect.top() + 0.5 * frame_spacing),
                 Pos2::new(x + frame_width, rect.bottom()),
             );
 
@@ -700,11 +700,9 @@ impl ProfilerUi {
                 let is_selected = self.is_selected(frame_view, frame.frame_index());
 
                 let is_hovered = if let Some(mouse_pos) = response.hover_pos() {
-                    response.hovered()
-                        && !response.dragged()
-                        && frame_rect
-                            .expand2(vec2(0.5 * frame_spacing, 0.0))
-                            .contains(mouse_pos)
+                    !response.dragged()
+                    && frame_rect
+                        .contains(mouse_pos)
                 } else {
                     false
                 };
