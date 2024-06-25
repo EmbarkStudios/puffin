@@ -231,6 +231,66 @@ macro_rules! profile_function {
     };
 }
 
+
+/// Profile the current scope with the given name (unique in the parent scope).
+/// 
+/// This macro is identical to [profile_scope], except that it expands to the expression
+/// containing the profiling scope, as opposed to [profile_scope] which expands to a
+/// variable (which cannot be accessed due to macro hygiene).
+///
+/// This allows for profiling scopes to persist for a custom duration.
+/// 
+/// # Example
+/// 
+/// ```rust
+/// # use std::iter::FromIterator as _;
+/// # 
+/// # pub mod rayon { pub mod prelude {
+/// #     pub fn for_each_init<T, I>(vec: &std::vec::Vec<T>, init: fn() -> I, body: fn ((I, T)) -> ()) {
+/// #     }
+/// # } }
+/// #
+/// let some_large_vec = Vec::from_iter(0..1000);
+///
+/// // Use rayon's parallel for loop over our large iterator
+/// rayon::prelude::for_each_init(
+///         &some_large_vec,
+///         // This gets called to init each work segment, and is passed into the calls
+///         // Rayon keeps the profiling scope stored for the entire duration of the work segment
+///         // So we can track the entire segment as one, instead of each loop iteration
+///         || puffin::profile_scope_custom!("rayon_work_segment"),
+///         |((_profiler_scope), i)| {
+///             // All calls here gets profiled on the same scope
+///             println!("{i}")
+///         },
+/// );
+/// ```
+#[macro_export]
+macro_rules! profile_scope_custom {
+    ($name:expr) => {
+        $crate::profile_scope_custom!($name, "")
+    };
+    ($name:expr, $data:expr) => {{
+        if $crate::are_scopes_on() {
+            static SCOPE_ID: std::sync::OnceLock<$crate::ScopeId> = std::sync::OnceLock::new();
+            let scope_id = SCOPE_ID.get_or_init(|| {
+                $crate::ThreadProfiler::call(|tp| {
+                    let id = tp.register_named_scope(
+                        $name,
+                        $crate::clean_function_name($crate::current_function_name!()),
+                        $crate::short_file_name(file!()),
+                        line!(),
+                    );
+                    id
+                })
+            });
+            Some($crate::ProfilerScope::new(*scope_id, $data))
+        } else {
+            None
+        }
+    }};
+}
+
 #[allow(clippy::doc_markdown)] // clippy wants to put "MacBook" in ticks 🙄
 /// Profile the current scope with the given name (unique in the parent scope).
 ///
@@ -248,23 +308,7 @@ macro_rules! profile_scope {
         $crate::profile_scope!($name, "");
     };
     ($name:expr, $data:expr) => {
-        let _profiler_scope = if $crate::are_scopes_on() {
-            static SCOPE_ID: std::sync::OnceLock<$crate::ScopeId> = std::sync::OnceLock::new();
-            let scope_id = SCOPE_ID.get_or_init(|| {
-                $crate::ThreadProfiler::call(|tp| {
-                    let id = tp.register_named_scope(
-                        $name,
-                        $crate::clean_function_name($crate::current_function_name!()),
-                        $crate::short_file_name(file!()),
-                        line!(),
-                    );
-                    id
-                })
-            });
-            Some($crate::ProfilerScope::new(*scope_id, $data))
-        } else {
-            None
-        };
+        let _profiler_scope = $crate::profile_scope_custom!($name, $data);
     };
 }
 
