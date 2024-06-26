@@ -663,7 +663,7 @@ impl ProfilerUi {
         };
 
         let desired_size = Vec2::new(desired_width, self.flamegraph_options.frame_list_height);
-        let (response, painter) = ui.allocate_painter(desired_size, Sense::drag());
+        let (response, painter) = ui.allocate_painter(desired_size, Sense::click_and_drag());
         let rect = response.rect;
 
         let frame_spacing = 2.0;
@@ -721,17 +721,26 @@ impl ProfilerUi {
                     );
                 }
 
-                if response.dragged() {
-                    if let (Some(start), Some(curr)) =
+                if response.dragged() || response.clicked() {
+                    // Check if user is dragging
+                    let intersects = if let (Some(start), Some(curr)) =
                         ui.input(|i| (i.pointer.press_origin(), i.pointer.interact_pos()))
                     {
                         let min_x = start.x.min(curr.x);
                         let max_x = start.x.max(curr.x);
-                        let intersects = min_x <= frame_rect.right() && frame_rect.left() <= max_x;
-                        if intersects {
-                            if let Ok(frame) = frame.unpacked() {
-                                new_selection.push(frame);
-                            }
+                        min_x <= frame_rect.right() && frame_rect.left() <= max_x
+                    }
+                    // Check if user clicked
+                    else if let Some(click) = ui.input(|i|i.pointer.latest_pos()) {
+                        frame_rect.contains(click)
+                    }
+                    else {
+                        false
+                    };
+
+                    if intersects {
+                        if let Ok(frame) = frame.unpacked() {
+                            new_selection.push(frame);
                         }
                     }
                 }
