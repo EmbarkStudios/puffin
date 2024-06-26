@@ -689,9 +689,9 @@ impl ProfilerUi {
             };
 
             let frame_rect = Rect::from_min_max(
-                Pos2::new(x - 0.5 * frame_spacing, rect.top() + 0.5 * frame_spacing),
-                Pos2::new(x + frame_width, rect.bottom()),
-            );
+                Pos2::new(x, rect.top()),
+                Pos2::new(x + frame_width , rect.bottom()),
+            ).expand2(vec2(0.5 * frame_spacing, 0.0));
 
             if ui.clip_rect().intersects(frame_rect) {
                 let duration = frame.duration_ns();
@@ -742,14 +742,18 @@ impl ProfilerUi {
                     Rgba::from_rgb(0.6, 0.6, 0.4)
                 };
 
+                // Shrink the rect as the visual representation of the frame rect includes empty 
+                // space between each bar
+                let visual_rect = frame_rect.expand2(vec2(-0.5 * frame_spacing, 0.0));
+
                 // Transparent, full height:
-                let alpha = if is_selected || is_hovered { 0.6 } else { 0.25 };
-                painter.rect_filled(frame_rect, 0.0, color * alpha);
+                let alpha: f32 = if is_selected || is_hovered { 0.6 } else { 0.25 };
+                painter.rect_filled(visual_rect, 0.0, color * alpha);
 
                 // Opaque, height based on duration:
-                let mut short_rect = frame_rect;
+                let mut short_rect = visual_rect;
                 short_rect.min.y = lerp(
-                    frame_rect.bottom_up_range(),
+                    visual_rect.bottom_up_range(),
                     duration as f32 / slowest_frame,
                 );
                 painter.rect_filled(short_rect, 0.0, color);
