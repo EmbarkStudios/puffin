@@ -86,7 +86,7 @@ impl Server {
     ///     // Remove
     ///     |id| _ = get_custom_profiler().remove_sink(id)
     /// );
-    /// 
+    ///
     /// // Create some custom threads where we use the custom profiler and server
     /// std::thread::scope(|scope| {
     ///     scope.spawn(move ||{
@@ -124,7 +124,7 @@ impl Server {
     /// ```rust
     /// # use std::thread::sleep;
     /// # use std::time::Duration;
-    /// 
+    ///
     /// /// This macro makes it much easier to define profilers
     /// ///
     /// /// This macro makes use of the `paste` crate to generate unique identifiers, and `tracing` to log events
@@ -137,7 +137,7 @@ impl Server {
     ///             profiler!(@inner { name: $name, port: $port $(,install: |$install_var| $install, drop: |$drop_var| $drop)? });
     ///         )*
     ///     };
-    /// 
+    ///
     ///     (@inner { name: $name:ident, port: $port:expr }) => {
     ///         paste::paste!{
     ///             #[doc = concat!("The address to bind the ", std::stringify!([< $name:lower >]), " thread profilers' server to")]
@@ -203,7 +203,7 @@ impl Server {
     ///     { name: RENDERER,    port: 8586 },
     ///     { name: BACKGROUND,  port: 8587 },
     /// }
-    /// 
+    ///
     /// pub fn demo() {
     ///     std::thread::spawn(|| {
     ///         // Initialise the custom profiler for this thread
@@ -223,8 +223,8 @@ impl Server {
     /// ```
     pub fn new_custom(
         bind_addr: &str,
-        sink_install: fn (puffin::FrameSink) -> puffin::FrameSinkId,
-        sink_remove: fn (puffin::FrameSinkId) -> (),
+        sink_install: fn(puffin::FrameSink) -> puffin::FrameSinkId,
+        sink_remove: fn(puffin::FrameSinkId) -> (),
     ) -> anyhow::Result<Self> {
         let tcp_listener = TcpListener::bind(bind_addr).context("binding server TCP socket")?;
         tcp_listener
