@@ -31,10 +31,6 @@ url = "https://raw.githubusercontent.com/bytecodealliance/wasmtime/main/supply-c
 [imports.zcash]
 url = "https://raw.githubusercontent.com/zcash/rust-ecosystem/main/supply-chain/audits.toml"
 
-[policy.errno-dragonfly]
-criteria = []
-notes = "Not used, unsupported target"
-
 [policy.orbclient]
 criteria = []
 notes = "Not used, Redox OS-only"
@@ -143,10 +139,6 @@ criteria = "safe-to-deploy"
 version = "0.2.0"
 criteria = "safe-to-deploy"
 
-[[exemptions.cast]]
-version = "0.3.0"
-criteria = "safe-to-run"
-
 [[exemptions.cesu8]]
 version = "1.1.0"
 criteria = "safe-to-deploy"
@@ -191,14 +183,6 @@ criteria = "safe-to-deploy"
 version = "2.4.0"
 criteria = "safe-to-deploy"
 
-[[exemptions.core-foundation]]
-version = "0.9.4"
-criteria = "safe-to-deploy"
-
-[[exemptions.core-graphics-types]]
-version = "0.1.3"
-criteria = "safe-to-deploy"
-
 [[exemptions.crc32fast]]
 version = "1.3.2"
 criteria = "safe-to-deploy"
@@ -209,14 +193,6 @@ criteria = "safe-to-run"
 
 [[exemptions.criterion-plot]]
 version = "0.5.0"
-criteria = "safe-to-run"
-
-[[exemptions.crossbeam-deque]]
-version = "0.8.5"
-criteria = "safe-to-run"
-
-[[exemptions.crossbeam-epoch]]
-version = "0.9.18"
 criteria = "safe-to-run"
 
 [[exemptions.crossbeam-utils]]
@@ -237,10 +213,6 @@ criteria = "safe-to-deploy"
 
 [[exemptions.dlib]]
 version = "0.5.2"
-criteria = "safe-to-deploy"
-
-[[exemptions.downcast-rs]]
-version = "1.2.0"
 criteria = "safe-to-deploy"
 
 [[exemptions.env_logger]]
@@ -363,14 +335,6 @@ criteria = "safe-to-deploy"
 version = "0.11.2"
 criteria = "safe-to-deploy"
 
-[[exemptions.memmap2]]
-version = "0.5.4"
-criteria = "safe-to-deploy"
-
-[[exemptions.memoffset]]
-version = "0.6.5"
-criteria = "safe-to-deploy"
-
 [[exemptions.memoffset]]
 version = "0.9.1"
 criteria = "safe-to-deploy"
@@ -427,6 +391,10 @@ criteria = "safe-to-deploy"
 version = "0.15.10"
 criteria = "safe-to-deploy"
 
+[[exemptions.paste]]
+version = "1.0.15"
+criteria = "safe-to-run"
+
 [[exemptions.pkg-config]]
 version = "0.3.28"
 criteria = "safe-to-deploy"
@@ -453,10 +421,6 @@ criteria = "safe-to-deploy"
 
 [[exemptions.proc-macro-crate]]
 version = "3.0.0"
-criteria = "safe-to-deploy"
-
-[[exemptions.quick-xml]]
-version = "0.30.0"
 criteria = "safe-to-deploy"
 
 [[exemptions.regex-syntax]]
@@ -534,10 +498,6 @@ criteria = "safe-to-deploy"
 [[exemptions.time-macros]]
 version = "0.2.9"
 criteria = "safe-to-deploy"
-
-[[exemptions.tinytemplate]]
-version = "1.2.1"
-criteria = "safe-to-run"
 
 [[exemptions.toml]]
 version = "0.8.8"
