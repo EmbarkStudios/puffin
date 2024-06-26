@@ -690,8 +690,9 @@ impl ProfilerUi {
 
             let frame_rect = Rect::from_min_max(
                 Pos2::new(x, rect.top()),
-                Pos2::new(x + frame_width , rect.bottom()),
-            ).expand2(vec2(0.5 * frame_spacing, 0.0));
+                Pos2::new(x + frame_width, rect.bottom()),
+            )
+            .expand2(vec2(0.5 * frame_spacing, 0.0));
 
             if ui.clip_rect().intersects(frame_rect) {
                 let duration = frame.duration_ns();
@@ -700,9 +701,7 @@ impl ProfilerUi {
                 let is_selected = self.is_selected(frame_view, frame.frame_index());
 
                 let is_hovered = if let Some(mouse_pos) = response.hover_pos() {
-                    !response.dragged()
-                    && frame_rect
-                        .contains(mouse_pos)
+                    !response.dragged() && frame_rect.contains(mouse_pos)
                 } else {
                     false
                 };
@@ -742,7 +741,7 @@ impl ProfilerUi {
                     Rgba::from_rgb(0.6, 0.6, 0.4)
                 };
 
-                // Shrink the rect as the visual representation of the frame rect includes empty 
+                // Shrink the rect as the visual representation of the frame rect includes empty
                 // space between each bar
                 let visual_rect = frame_rect.expand2(vec2(-0.5 * frame_spacing, 0.0));
 
