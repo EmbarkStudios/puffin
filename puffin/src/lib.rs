@@ -231,20 +231,19 @@ macro_rules! profile_function {
     };
 }
 
-
 /// Profile the current scope with the given name (unique in the parent scope).
-/// 
+///
 /// This macro is identical to [profile_scope], except that it expands to the expression
 /// containing the profiling scope, as opposed to [profile_scope] which expands to a
 /// variable (which cannot be accessed due to macro hygiene).
 ///
 /// This allows for profiling scopes to persist for a custom duration.
-/// 
+///
 /// # Example
-/// 
+///
 /// ```rust
 /// # use std::iter::FromIterator as _;
-/// # 
+/// #
 /// # pub mod rayon { pub mod prelude {
 /// #     pub fn for_each_init<T, I>(vec: &std::vec::Vec<T>, init: fn() -> I, body: fn ((I, T)) -> ()) {
 /// #     }
