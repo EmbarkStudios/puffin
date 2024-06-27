@@ -6,6 +6,9 @@ All notable changes to the egui crate will be documented in this file.
 
 <!-- next-header -->
 ## [Unreleased] - ReleaseDate
+
+- [PR#218](https://github.com/EmbarkStudios/puffin/pull/218) Fix flamegraph click intersection
+
 ## [0.27.1] - 2024-06-16
 
 - [PR#211](https://github.com/EmbarkStudios/puffin/pull/211/) Fix broken flamegraph interaction with egui 0.27.1
