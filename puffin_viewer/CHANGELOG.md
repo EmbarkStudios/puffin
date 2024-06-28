@@ -6,11 +6,34 @@ All notable changes to `puffin_viewer` will be documented in this file.
 
 <!-- next-header -->
 ## [Unreleased] - ReleaseDate
+## [0.21.1] - 2024-06-16
+
+- [PR#211](https://github.com/EmbarkStudios/puffin/pull/211/) Fix broken flamegraph interaction with egui 0.27.1 ()
+
+## [0.21.0] - 2024-04-06
+- [PR#201](https://github.com/EmbarkStudios/puffin/pull/201) Update to egui `0.27`
+
+## [0.20.0] - 2024-02-14
+
+- [PR#188](https://github.com/EmbarkStudios/puffin/pull/188) Update to `puffin_egui` version `0.26`
+- [PR#184](https://github.com/EmbarkStudios/puffin/pull/184) Propagate errors from `eframe::run_native`
+
+## [0.19.0] - 2024-01-17
+
+- [PR#179](https://github.com/EmbarkStudios/puffin/pull/179) Update to `puffin_egui` version `0.25`
+
+## [0.18.0] - 2023-11-24
+- [PR#161](https://github.com/EmbarkStudios/puffin/pull/166) Update to egui and eframe `0.24`
+
+## [0.17.0] - 2023-09-28
+
+- [PR#161](https://github.com/EmbarkStudios/puffin/pull/161) Update to egui `0.23`
+
 ## [0.16.0] - 2023-05-24
 
 * Upgrade to `eframe` 0.22
 - Upgrade to `puffin` 0.16
-- 
+-
 ## [0.15.0] - 2023-04-24
 ## [0.14.0] - 2023-02-09
 * Upgrade to `puffin_egui` 0.21
@@ -42,7 +65,7 @@ All notable changes to `puffin_viewer` will be documented in this file.
 ## [0.10.1] - 2022-01-11
 ### Changed
 - Update to latest `eframe` and `winit`
-- Swich renderer from `egui_glium` to `egui_glow`.
+- Switch renderer from `egui_glium` to `egui_glow`.
 
 ## [0.10.0] - 2021-11-16
 ### Changed
@@ -100,7 +123,13 @@ All notable changes to `puffin_viewer` will be documented in this file.
 First release: connect to a `puffin_server` over HTTP to live view a profiler stream
 
 <!-- next-url -->
-[Unreleased]: https://github.com/EmbarkStudios/puffin/compare/puffin_viewer-0.16.0...HEAD
+[Unreleased]: https://github.com/EmbarkStudios/puffin/compare/puffin_viewer-0.21.1...HEAD
+[0.21.1]: https://github.com/EmbarkStudios/puffin/compare/puffin_viewer-0.21.0...puffin_viewer-0.21.1
+[0.21.0]: https://github.com/EmbarkStudios/puffin/compare/puffin_viewer-0.20.0...puffin_viewer-0.21.0
+[0.20.0]: https://github.com/EmbarkStudios/puffin/compare/puffin_viewer-0.19.0...puffin_viewer-0.20.0
+[0.19.0]: https://github.com/EmbarkStudios/puffin/compare/puffin_viewer-0.18.0...puffin_viewer-0.19.0
+[0.18.0]: https://github.com/EmbarkStudios/puffin/compare/puffin_viewer-0.17.0...puffin_viewer-0.18.0
+[0.17.0]: https://github.com/EmbarkStudios/puffin/compare/puffin_viewer-0.16.0...puffin_viewer-0.17.0
 [0.16.0]: https://github.com/EmbarkStudios/puffin/compare/puffin_viewer-0.15.0...puffin_viewer-0.16.0
 [0.15.0]: https://github.com/EmbarkStudios/puffin/compare/puffin_viewer-0.14.0...puffin_viewer-0.15.0
 [0.14.0]: https://github.com/EmbarkStudios/puffin/compare/puffin_viewer-0.13.2...puffin_viewer-0.14.0

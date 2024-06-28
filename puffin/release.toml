@@ -1,6 +1,6 @@
-pre-release-commit-message = "Release puffin-imgui-{{version}}"
-tag-message = "Release puffin-imgui-{{version}}"
-tag-name = "puffin-imgui-{{version}}"
+pre-release-commit-message = "Release puffin-{{version}}"
+tag-message = "Release puffin-{{version}}"
+tag-name = "puffin-{{version}}"
 pre-release-replacements = [
     { file = "CHANGELOG.md", search = "Unreleased", replace = "{{version}}" },
     { file = "CHANGELOG.md", search = "\\.\\.\\.HEAD", replace = "...{{tag_name}}" },

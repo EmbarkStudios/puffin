@@ -1,10 +1,7 @@
-use std::cmp::Ordering;
-
-use std::sync::{Arc, Mutex};
-
 use itertools::Itertools;
+use std::{cmp::Ordering, sync::Arc};
 
-use crate::{FrameData, FrameSinkId};
+use crate::{FrameData, FrameSinkId, ScopeCollection};
 
 /// A view of recent and slowest frames, used by GUIs.
 #[derive(Clone)]
@@ -24,13 +21,14 @@ pub struct FrameView {
 
     /// Maintain stats as we add/remove frames
     stats: FrameStats,
+
+    scope_collection: ScopeCollection,
 }
 
 impl Default for FrameView {
     fn default() -> Self {
         let max_recent = 60 * 60 * 5;
         let max_slow = 256;
-        let stats = Default::default();
 
         Self {
             recent: std::collections::VecDeque::with_capacity(max_recent),
@@ -39,17 +37,31 @@ impl Default for FrameView {
             slowest_by_duration: std::collections::BTreeSet::new(),
             max_slow,
             pack_frames: true,
-            stats,
+            stats: Default::default(),
+            scope_collection: Default::default(),
         }
     }
 }
 
 impl FrameView {
+    /// Returns `true` if there are no recent or slowest frames.
     pub fn is_empty(&self) -> bool {
         self.recent.is_empty() && self.slowest_by_duration.is_empty()
     }
 
+    /// Returns the collection of scope details.
+    /// This can be used to fetch more information about a specific scope.
+    pub fn scope_collection(&self) -> &ScopeCollection {
+        &self.scope_collection
+    }
+
+    /// Adds a new frame to the view.
     pub fn add_frame(&mut self, new_frame: Arc<FrameData>) {
+        // Register all scopes from the new frame into the scope collection.
+        for new_scope in &new_frame.scope_delta {
+            self.scope_collection.insert(new_scope.clone());
+        }
+
         if let Some(last) = self.recent.iter().last() {
             if new_frame.frame_index() <= last.0.frame_index() {
                 // A frame from the past!?
@@ -183,10 +195,13 @@ impl FrameView {
         self.max_slow = max_slow;
     }
 
+    /// Returns if frames are packed (compressed).
     pub fn pack_frames(&self) -> bool {
         self.pack_frames
     }
 
+    /// Sets wether frames should be packed (compressed).
+    /// Packing frames will increase CPU time and decrease memory usage.
     pub fn set_pack_frames(&mut self, pack_frames: bool) {
         self.pack_frames = pack_frames;
     }
@@ -203,36 +218,21 @@ impl FrameView {
         FrameStats::from_frames(self.all_uniq().map(Arc::as_ref))
     }
 
-    /// Export profile data as a `.puffin` file.
+    /// Export profile data as a `.puffin` file/stream.
     #[cfg(feature = "serialization")]
     #[cfg(not(target_arch = "wasm32"))] // compression not supported on wasm
-    pub fn save_to_path(&self, path: &std::path::Path) -> anyhow::Result<()> {
-        let mut file = std::fs::File::create(path)?;
-        self.save_to_writer(&mut file)
-    }
-
-    /// Export profile data as a `.puffin` file.
-    #[cfg(feature = "serialization")]
-    #[cfg(not(target_arch = "wasm32"))] // compression not supported on wasm
-    pub fn save_to_writer(&self, write: &mut impl std::io::Write) -> anyhow::Result<()> {
+    pub fn write(&self, write: &mut impl std::io::Write) -> anyhow::Result<()> {
         write.write_all(b"PUF0")?;
 
         for frame in self.all_uniq() {
-            frame.write_into(write)?;
+            frame.write_into(&self.scope_collection, false, write)?;
         }
         Ok(())
     }
 
-    /// Import profile data from a `.puffin` file.
+    /// Import profile data from a `.puffin` file/stream.
     #[cfg(feature = "serialization")]
-    pub fn load_path(path: &std::path::Path) -> anyhow::Result<Self> {
-        let mut file = std::fs::File::open(path)?;
-        Self::load_reader(&mut file)
-    }
-
-    /// Import profile data from a `.puffin` file.
-    #[cfg(feature = "serialization")]
-    pub fn load_reader(read: &mut impl std::io::Read) -> anyhow::Result<Self> {
+    pub fn read(read: &mut impl std::io::Read) -> anyhow::Result<Self> {
         let mut magic = [0_u8; 4];
         read.read_exact(&mut magic)?;
         if &magic != b"PUF0" {
@@ -329,15 +329,15 @@ impl PartialEq for OrderedByIndex {
 /// Automatically connects to [`crate::GlobalProfiler`].
 pub struct GlobalFrameView {
     sink_id: FrameSinkId,
-    view: Arc<Mutex<FrameView>>,
+    view: Arc<parking_lot::Mutex<FrameView>>,
 }
 
 impl Default for GlobalFrameView {
     fn default() -> Self {
-        let view = Arc::new(Mutex::new(FrameView::default()));
+        let view = Arc::new(parking_lot::Mutex::new(FrameView::default()));
         let view_clone = view.clone();
         let sink_id = crate::GlobalProfiler::lock().add_sink(Box::new(move |frame| {
-            view_clone.lock().unwrap().add_frame(frame);
+            view_clone.lock().add_frame(frame);
         }));
         Self { sink_id, view }
     }
@@ -350,9 +350,14 @@ impl Drop for GlobalFrameView {
 }
 
 impl GlobalFrameView {
+    /// Sink ID
+    pub fn sink_id(&self) -> FrameSinkId {
+        self.sink_id
+    }
+
     /// View the latest profiling data.
-    pub fn lock(&self) -> std::sync::MutexGuard<'_, FrameView> {
-        self.view.lock().unwrap()
+    pub fn lock(&self) -> parking_lot::MutexGuard<'_, FrameView> {
+        self.view.lock()
     }
 }
 
@@ -375,6 +380,7 @@ pub struct FrameStats {
 }
 
 impl FrameStats {
+    /// Creates a `FrameStats` instance from an iterator of frames.
     pub fn from_frames<'a>(frames: impl Iterator<Item = &'a FrameData>) -> Self {
         let mut stats = FrameStats::default();
 
@@ -385,6 +391,7 @@ impl FrameStats {
         stats
     }
 
+    /// Adds a frame's statistics to the `FrameStats`.
     fn add(&mut self, frame: &FrameData) {
         let (total, unpacked) = stats_entry(frame);
 
@@ -393,6 +400,7 @@ impl FrameStats {
         self.unique_frames = self.unique_frames.saturating_add(1);
     }
 
+    /// Removes a frame's statistics from the `FrameStats`.
     fn remove(&mut self, frame: &FrameData) {
         let (total, unpacked) = stats_entry(frame);
 
@@ -401,18 +409,22 @@ impl FrameStats {
         self.unique_frames = self.unique_frames.saturating_sub(1);
     }
 
+    /// Returns the number of unique frames.
     pub fn frames(&self) -> usize {
         self.unique_frames
     }
 
+    /// Returns the number of unpacked frames.
     pub fn unpacked_frames(&self) -> usize {
         self.unpacked_frames
     }
 
+    /// Returns the total bytes of RAM used.
     pub fn bytes_of_ram_used(&self) -> usize {
         self.total_ram_used
     }
 
+    /// Clears all statistics in `FrameStats`.
     pub fn clear(&mut self) {
         self.unique_frames = 0;
         self.unpacked_frames = 0;

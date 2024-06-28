@@ -8,6 +8,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <!-- next-header -->
 ## [Unreleased] - ReleaseDate
+
+## [0.19.0] - 2024-01-17
+
+- [PR#169](https://github.com/EmbarkStudios/puffin/pull/169) Stream scope information only once, drastically reduce bandwidth and increased performance. Allow better usage of static strings in profile scopes. Breaking change! See PR for migration guide.
+- [PR#179](https://github.com/EmbarkStudios/puffin/pull/179) Update egui to v0.25 and a updates many other dependencies in process.
+- [PR#181](https://github.com/EmbarkStudios/puffin/pull/181) Measure profile scope start time after serialization functions.
+
+## [0.18.1] - 2023-12-11
+
+- [PR#175](https://github.com/EmbarkStudios/puffin/pull/175) Remove accidental `::{{closure}}` suffix from all `profile_function` scopes.
+
+## [0.18.0] - 2023-11-21
+
+- [PR#165](https://github.com/EmbarkStudios/puffin/pull/165) Faster profiling, add line numbers, better paths, and better function names
+
+## [0.17.1] - 2023-11-20 - YANKED
+
+- Accidentally introduced a breaking change in [PR#165](https://github.com/EmbarkStudios/puffin/pull/165)
+
+## [0.17.0] - 2023-09-28
+
+- [PR#140](https://github.com/EmbarkStudios/puffin/pull/140) Remove imgui support for
+- [PR#158](https://github.com/EmbarkStudios/puffin/pull/158) Remove file I/O from
+- [PR#157](https://github.com/EmbarkStudios/puffin/pull/157) Remove `instant` dependency when not building for web
+
 ## [0.16.0] - 2023-05-24
 
 - [PR#136](https://github.com/EmbarkStudios/puffin/pull/136) Upgrade `ruzstd` to 0.4
@@ -22,7 +47,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.14.2] - 2023-01-30
 
-- [PR#123](https://github.com/EmbarkStudios/puffin/pull/123) Fix `puffin` build for non-web wasm enviroments. 
+- [PR#123](https://github.com/EmbarkStudios/puffin/pull/123) Fix `puffin` build for non-web wasm environments.
 
 ## [0.14.1] - 2022-12-13
 
@@ -112,7 +137,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * `GlobalProfiler` now store recent history and the slowest frames.
 
 <!-- next-url -->
-[Unreleased]: https://github.com/EmbarkStudios/puffin/compare/0.16.0...HEAD
+[Unreleased]: https://github.com/EmbarkStudios/puffin/compare/0.19.0...HEAD
+[0.19.0]: https://github.com/EmbarkStudios/puffin/compare/0.18.1...0.19.0
+[0.18.1]: https://github.com/EmbarkStudios/puffin/compare/0.18.0...0.18.1
+[0.18.0]: https://github.com/EmbarkStudios/puffin/compare/0.17.1...0.18.0
+[0.17.1]: https://github.com/EmbarkStudios/puffin/compare/0.17.0...0.17.1
+[0.17.0]: https://github.com/EmbarkStudios/puffin/compare/0.16.0...0.17.0
 [0.16.0]: https://github.com/EmbarkStudios/puffin/compare/0.15.0...0.16.0
 [0.15.0]: https://github.com/EmbarkStudios/puffin/compare/0.14.3...0.15.0
 [0.14.3]: https://github.com/EmbarkStudios/puffin/compare/0.14.2...0.14.3

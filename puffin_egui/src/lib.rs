@@ -7,86 +7,7 @@
 //! puffin_egui::profiler_window(&egui_ctx);
 //! ```
 
-// BEGIN - Embark standard lints v5 for Rust 1.55+
-// do not change or add/remove here, but one can add exceptions after this section
-// for more info see: <https://github.com/EmbarkStudios/rust-ecosystem/issues/59>
-#![deny(unsafe_code)]
-#![warn(
-    clippy::all,
-    clippy::await_holding_lock,
-    clippy::char_lit_as_u8,
-    clippy::checked_conversions,
-    clippy::dbg_macro,
-    clippy::debug_assert_with_mut_call,
-    clippy::disallowed_methods,
-    clippy::disallowed_types,
-    clippy::doc_markdown,
-    clippy::empty_enum,
-    clippy::enum_glob_use,
-    clippy::exit,
-    clippy::expl_impl_clone_on_copy,
-    clippy::explicit_deref_methods,
-    clippy::explicit_into_iter_loop,
-    clippy::fallible_impl_from,
-    clippy::filter_map_next,
-    clippy::flat_map_option,
-    clippy::float_cmp_const,
-    clippy::fn_params_excessive_bools,
-    clippy::from_iter_instead_of_collect,
-    clippy::if_let_mutex,
-    clippy::implicit_clone,
-    clippy::imprecise_flops,
-    clippy::inefficient_to_string,
-    clippy::invalid_upcast_comparisons,
-    clippy::large_digit_groups,
-    clippy::large_stack_arrays,
-    clippy::large_types_passed_by_value,
-    clippy::let_unit_value,
-    clippy::linkedlist,
-    clippy::lossy_float_literal,
-    clippy::macro_use_imports,
-    clippy::manual_ok_or,
-    clippy::map_err_ignore,
-    clippy::map_flatten,
-    clippy::map_unwrap_or,
-    clippy::match_on_vec_items,
-    clippy::match_same_arms,
-    clippy::match_wild_err_arm,
-    clippy::match_wildcard_for_single_variants,
-    clippy::mem_forget,
-    clippy::mismatched_target_os,
-    clippy::missing_enforced_import_renames,
-    clippy::mut_mut,
-    clippy::mutex_integer,
-    clippy::needless_borrow,
-    clippy::needless_continue,
-    clippy::needless_for_each,
-    clippy::option_option,
-    clippy::path_buf_push_overwrite,
-    clippy::ptr_as_ptr,
-    clippy::rc_mutex,
-    clippy::ref_option_ref,
-    clippy::rest_pat_in_fully_bound_structs,
-    clippy::same_functions_in_if_condition,
-    clippy::semicolon_if_nothing_returned,
-    clippy::single_match_else,
-    clippy::string_add_assign,
-    clippy::string_add,
-    clippy::string_lit_as_bytes,
-    clippy::string_to_string,
-    clippy::todo,
-    clippy::trait_duplication_in_bounds,
-    clippy::unimplemented,
-    clippy::unnested_or_patterns,
-    clippy::unused_self,
-    clippy::useless_transmute,
-    clippy::verbose_file_reads,
-    clippy::zero_sized_map_values,
-    future_incompatible,
-    nonstandard_style,
-    rust_2018_idioms
-)]
-// END - Embark standard lints v0.5 for Rust 1.55+
+#![forbid(unsafe_code)]
 // crate-specific exceptions:
 #![allow(clippy::float_cmp, clippy::manual_range_contains)]
 
@@ -102,7 +23,7 @@ use puffin::*;
 use std::{
     collections::{BTreeMap, BTreeSet},
     fmt::Write as _,
-    sync::{Arc, Mutex},
+    sync::Arc,
 };
 use time::OffsetDateTime;
 
@@ -110,6 +31,42 @@ const ERROR_COLOR: Color32 = Color32::RED;
 const HOVER_COLOR: Rgba = Rgba::from_rgb(0.8, 0.8, 0.8);
 
 // ----------------------------------------------------------------------------
+
+/// Show the puffin profiler if [`puffin::are_scopes_on`] is true,
+/// i.e. if profiling is enabled for your app.
+///
+/// The profiler will be shown in its own viewport (native window)
+/// if the egui backend supports it (e.g. when using `eframe`);
+/// else it will be shown in a floating [`egui::Window`].
+///
+/// Closing the viewport or window will call `puffin::set_scopes_on(false)`.
+pub fn show_viewport_if_enabled(ctx: &egui::Context) {
+    if !puffin::are_scopes_on() {
+        return;
+    }
+
+    ctx.show_viewport_deferred(
+        egui::ViewportId::from_hash_of("puffin_profiler"),
+        egui::ViewportBuilder::default().with_title("Puffin Profiler"),
+        move |ctx, class| {
+            if class == egui::ViewportClass::Embedded {
+                // Viewports not supported. Show it as a floating egui window instead.
+                let mut open = true;
+                egui::Window::new("Puffin Profiler")
+                    .default_size([1024.0, 600.0])
+                    .open(&mut open)
+                    .show(ctx, profiler_ui);
+                puffin::set_scopes_on(open);
+            } else {
+                // A proper viewport!
+                egui::CentralPanel::default().show(ctx, profiler_ui);
+                if ctx.input(|i| i.viewport().close_requested()) {
+                    puffin::set_scopes_on(false);
+                }
+            }
+        },
+    );
+}
 
 /// Show an [`egui::Window`] with the profiler contents.
 ///
@@ -126,14 +83,14 @@ pub fn profiler_window(ctx: &egui::Context) -> bool {
     open
 }
 
-static PROFILE_UI: once_cell::sync::Lazy<Mutex<GlobalProfilerUi>> =
+static PROFILE_UI: once_cell::sync::Lazy<parking_lot::Mutex<GlobalProfilerUi>> =
     once_cell::sync::Lazy::new(Default::default);
 
 /// Show the profiler.
 ///
 /// Call this from within an [`egui::Window`], or use [`profiler_window`] instead.
 pub fn profiler_ui(ui: &mut egui::Ui) {
-    let mut profile_ui = PROFILE_UI.lock().unwrap();
+    let mut profile_ui = PROFILE_UI.lock();
 
     profile_ui.ui(ui);
 }
@@ -209,7 +166,11 @@ pub struct Streams {
 }
 
 impl Streams {
-    fn new(frames: &[Arc<UnpackedFrameData>], thread_info: &ThreadInfo) -> Self {
+    fn new(
+        scope_collection: &ScopeCollection,
+        frames: &[Arc<UnpackedFrameData>],
+        thread_info: &ThreadInfo,
+    ) -> Self {
         crate::profile_function!();
 
         let mut streams = vec![];
@@ -221,7 +182,7 @@ impl Streams {
 
         let merges = {
             puffin::profile_scope!("merge_scopes_for_thread");
-            puffin::merge_scopes_for_thread(frames, thread_info).unwrap()
+            puffin::merge_scopes_for_thread(scope_collection, frames, thread_info).unwrap()
         };
         let merges = merges.into_iter().map(|ms| ms.into_owned()).collect();
 
@@ -250,12 +211,18 @@ pub struct SelectedFrames {
 }
 
 impl SelectedFrames {
-    fn try_from_vec(frames: Vec<Arc<UnpackedFrameData>>) -> Option<Self> {
+    fn try_from_vec(
+        scope_collection: &ScopeCollection,
+        frames: Vec<Arc<UnpackedFrameData>>,
+    ) -> Option<Self> {
         let frames = vec1::Vec1::try_from_vec(frames).ok()?;
-        Some(Self::from_vec1(frames))
+        Some(Self::from_vec1(scope_collection, frames))
     }
 
-    fn from_vec1(mut frames: vec1::Vec1<Arc<UnpackedFrameData>>) -> Self {
+    fn from_vec1(
+        scope_collection: &ScopeCollection,
+        mut frames: vec1::Vec1<Arc<UnpackedFrameData>>,
+    ) -> Self {
         puffin::profile_function!();
         frames.sort_by_key(|f| f.frame_index());
         frames.dedup_by_key(|f| f.frame_index());
@@ -269,7 +236,7 @@ impl SelectedFrames {
 
         let threads: BTreeMap<ThreadInfo, Streams> = threads
             .iter()
-            .map(|ti| (ti.clone(), Streams::new(&frames, ti)))
+            .map(|ti| (ti.clone(), Streams::new(scope_collection, &frames, ti)))
             .collect();
 
         let mut merged_min_ns = NanoSecond::MAX;
@@ -323,11 +290,14 @@ impl Default for View {
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "serde", serde(default))]
 pub struct ProfilerUi {
+    /// Options for configuring how the flamegraph is displayed.
     #[cfg_attr(feature = "serde", serde(alias = "options"))]
     pub flamegraph_options: flamegraph::Options,
+    /// Options for configuring how the stats page is displayed.
     #[cfg_attr(feature = "serde", serde(skip))]
     pub stats_options: stats::Options,
 
+    /// What view is active.
     pub view: View,
 
     /// If `None`, we show the latest frames.
@@ -342,7 +312,7 @@ pub struct ProfilerUi {
 
     /// When did we last run a pass to pack all the frames?
     #[cfg_attr(feature = "serde", serde(skip))]
-    last_pack_pass: Option<instant::Instant>,
+    last_pack_pass: Option<web_time::Instant>,
 }
 
 impl Default for ProfilerUi {
@@ -437,16 +407,16 @@ impl ProfilerUi {
         }
         let last_pack_pass = self
             .last_pack_pass
-            .get_or_insert_with(instant::Instant::now);
+            .get_or_insert_with(web_time::Instant::now);
         let time_since_last_pack = last_pack_pass.elapsed();
-        if time_since_last_pack > instant::Duration::from_secs(1) {
+        if time_since_last_pack > web_time::Duration::from_secs(1) {
             puffin::profile_scope!("pack_pass");
             for frame in self.all_known_frames(frame_view) {
                 if !self.is_selected(frame_view, frame.frame_index()) {
                     frame.pack();
                 }
             }
-            self.last_pack_pass = Some(instant::Instant::now());
+            self.last_pack_pass = Some(web_time::Instant::now());
         }
     }
 
@@ -479,7 +449,9 @@ impl ProfilerUi {
 
         let frames = if let Some(frame) = hovered_frame {
             match frame.unpacked() {
-                Ok(frame) => SelectedFrames::try_from_vec(vec![frame]),
+                Ok(frame) => {
+                    SelectedFrames::try_from_vec(frame_view.scope_collection(), vec![frame])
+                }
                 Err(err) => {
                     ui.colored_label(ERROR_COLOR, format!("Failed to load hovered frame: {err}"));
                     return;
@@ -490,13 +462,12 @@ impl ProfilerUi {
         } else {
             puffin::profile_scope!("select_latest_frames");
             let latest = frame_view.latest_frames(self.max_num_latest);
-            SelectedFrames::try_from_vec(
-                latest
-                    .into_iter()
-                    .map(|frame| frame.unpacked())
-                    .filter_map(|unpacked| unpacked.ok())
-                    .collect(),
-            )
+            let unpacked: Vec<Arc<UnpackedFrameData>> = latest
+                .into_iter()
+                .map(|frame| frame.unpacked())
+                .filter_map(|unpacked| unpacked.ok())
+                .collect();
+            SelectedFrames::try_from_vec(frame_view.scope_collection(), unpacked)
         };
 
         let frames = if let Some(frames) = frames {
@@ -508,12 +479,15 @@ impl ProfilerUi {
 
         ui.horizontal(|ui| {
             let play_pause_button_size = Vec2::splat(24.0);
+            let space_pressed = ui.input(|i| i.key_pressed(egui::Key::Space))
+                && ui.memory(|m| m.focused().is_none());
+
             if self.paused.is_some() {
                 if ui
                     .add_sized(play_pause_button_size, egui::Button::new("▶"))
                     .on_hover_text("Show latest data. Toggle with space.")
                     .clicked()
-                    || ui.input(|i| i.key_pressed(egui::Key::Space))
+                    || space_pressed
                 {
                     self.paused = None;
                 }
@@ -523,14 +497,17 @@ impl ProfilerUi {
                         .add_sized(play_pause_button_size, egui::Button::new("⏸"))
                         .on_hover_text("Pause on this frame. Toggle with space.")
                         .clicked()
-                        || ui.input(|i| i.key_pressed(egui::Key::Space))
+                        || space_pressed
                     {
                         let latest = frame_view.latest_frame();
                         if let Some(latest) = latest {
                             if let Ok(latest) = latest.unpacked() {
                                 self.pause_and_select(
                                     frame_view,
-                                    SelectedFrames::from_vec1(vec1::vec1![latest]),
+                                    SelectedFrames::from_vec1(
+                                        frame_view.scope_collection(),
+                                        vec1::vec1![latest],
+                                    ),
                                 );
                             }
                         }
@@ -555,8 +532,18 @@ impl ProfilerUi {
         ui.separator();
 
         match self.view {
-            View::Flamegraph => flamegraph::ui(ui, &mut self.flamegraph_options, &frames),
-            View::Stats => stats::ui(ui, &mut self.stats_options, &frames.frames),
+            View::Flamegraph => flamegraph::ui(
+                ui,
+                &mut self.flamegraph_options,
+                frame_view.scope_collection(),
+                &frames,
+            ),
+            View::Stats => stats::ui(
+                ui,
+                &mut self.stats_options,
+                frame_view.scope_collection(),
+                &frames.frames,
+            ),
         }
     }
 
@@ -676,7 +663,7 @@ impl ProfilerUi {
         };
 
         let desired_size = Vec2::new(desired_width, self.flamegraph_options.frame_list_height);
-        let (response, painter) = ui.allocate_painter(desired_size, Sense::click_and_drag());
+        let (response, painter) = ui.allocate_painter(desired_size, Sense::drag());
         let rect = response.rect;
 
         let frame_spacing = 2.0;
@@ -704,7 +691,8 @@ impl ProfilerUi {
             let frame_rect = Rect::from_min_max(
                 Pos2::new(x, rect.top()),
                 Pos2::new(x + frame_width, rect.bottom()),
-            );
+            )
+            .expand2(vec2(0.5 * frame_spacing, 0.0));
 
             if ui.clip_rect().intersects(frame_rect) {
                 let duration = frame.duration_ns();
@@ -713,11 +701,7 @@ impl ProfilerUi {
                 let is_selected = self.is_selected(frame_view, frame.frame_index());
 
                 let is_hovered = if let Some(mouse_pos) = response.hover_pos() {
-                    response.hovered()
-                        && !response.dragged()
-                        && frame_rect
-                            .expand2(vec2(0.5 * frame_spacing, 0.0))
-                            .contains(mouse_pos)
+                    !response.dragged() && frame_rect.contains(mouse_pos)
                 } else {
                     false
                 };
@@ -757,21 +741,27 @@ impl ProfilerUi {
                     Rgba::from_rgb(0.6, 0.6, 0.4)
                 };
 
+                // Shrink the rect as the visual representation of the frame rect includes empty
+                // space between each bar
+                let visual_rect = frame_rect.expand2(vec2(-0.5 * frame_spacing, 0.0));
+
                 // Transparent, full height:
-                let alpha = if is_selected || is_hovered { 0.6 } else { 0.25 };
-                painter.rect_filled(frame_rect, 0.0, color * alpha);
+                let alpha: f32 = if is_selected || is_hovered { 0.6 } else { 0.25 };
+                painter.rect_filled(visual_rect, 0.0, color * alpha);
 
                 // Opaque, height based on duration:
-                let mut short_rect = frame_rect;
+                let mut short_rect = visual_rect;
                 short_rect.min.y = lerp(
-                    frame_rect.bottom_up_range(),
+                    visual_rect.bottom_up_range(),
                     duration as f32 / slowest_frame,
                 );
                 painter.rect_filled(short_rect, 0.0, color);
             }
         }
 
-        if let Some(new_selection) = SelectedFrames::try_from_vec(new_selection) {
+        if let Some(new_selection) =
+            SelectedFrames::try_from_vec(frame_view.scope_collection(), new_selection)
+        {
             self.pause_and_select(frame_view, new_selection);
         }
 
@@ -835,7 +825,7 @@ fn format_time(nanos: NanoSecond) -> Option<String> {
     }
 }
 
-fn max_frames_ui(ui: &mut egui::Ui, frame_view: &mut FrameView, uniq: &Vec<Arc<FrameData>>) {
+fn max_frames_ui(ui: &mut egui::Ui, frame_view: &mut FrameView, uniq: &[Arc<FrameData>]) {
     let stats = frame_view.stats();
     let bytes = stats.bytes_of_ram_used();
 

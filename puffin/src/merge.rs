@@ -1,10 +1,13 @@
-use crate::{NanoSecond, Reader, Result, Scope, Stream, ThreadInfo, UnpackedFrameData};
-use std::collections::BTreeMap;
+use crate::{
+    NanoSecond, Reader, Result, Scope, ScopeCollection, ScopeId, Stream, ThreadInfo,
+    UnpackedFrameData,
+};
+use std::{collections::BTreeMap, hash::Hash};
 
 /// Temporary structure while building a [`MergeScope`].
 #[derive(Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Hash)]
 struct MergeId<'s> {
-    id: &'s str,
+    id: ScopeId,
     data: &'s str,
 }
 
@@ -18,7 +21,6 @@ struct MergeNode<'s> {
     /// indexed by their id+data
     children: BTreeMap<MergeId<'s>, MergeNode<'s>>,
 }
-
 #[derive(Clone, Copy, Debug, PartialEq)]
 struct MergePiece<'s> {
     /// The start of the scope relative to its *parent* [`Scope`].
@@ -41,16 +43,15 @@ pub struct MergeScope<'s> {
     /// Number of pieces that got merged together to us.
     pub num_pieces: usize,
     /// The common identifier that we merged using.
-    pub id: std::borrow::Cow<'s, str>,
-    /// only set if all children had the same
-    pub location: std::borrow::Cow<'s, str>,
+    pub id: ScopeId,
     /// only set if all children had the same
     pub data: std::borrow::Cow<'s, str>,
-
+    /// The merged children of this merged scope.
     pub children: Vec<MergeScope<'s>>,
 }
 
 impl<'s> MergeScope<'s> {
+    /// Clones the merge scope.
     pub fn into_owned(self) -> MergeScope<'static> {
         MergeScope::<'static> {
             relative_start_ns: self.relative_start_ns,
@@ -58,8 +59,7 @@ impl<'s> MergeScope<'s> {
             duration_per_frame_ns: self.duration_per_frame_ns,
             max_duration_ns: self.max_duration_ns,
             num_pieces: self.num_pieces,
-            id: std::borrow::Cow::Owned(self.id.into_owned()),
-            location: std::borrow::Cow::Owned(self.location.into_owned()),
+            id: self.id,
             data: std::borrow::Cow::Owned(self.data.into_owned()),
             children: self.children.into_iter().map(Self::into_owned).collect(),
         }
@@ -72,9 +72,10 @@ impl<'s> MergeNode<'s> {
 
         for child in Reader::with_offset(stream, piece.scope.child_begin_position)? {
             let child = child?;
+
             self.children
                 .entry(MergeId {
-                    id: child.record.id,
+                    id: child.id,
                     data: child.record.data,
                 })
                 .or_default()
@@ -90,14 +91,13 @@ impl<'s> MergeNode<'s> {
         Ok(())
     }
 
-    fn build(self, num_frames: i64) -> MergeScope<'s> {
+    fn build(self, scope_collection: &ScopeCollection, num_frames: i64) -> MergeScope<'s> {
         assert!(!self.pieces.is_empty());
         let mut relative_start_ns = self.pieces[0].relative_start_ns;
         let mut total_duration_ns = 0;
         let mut slowest_ns = 0;
         let num_pieces = self.pieces.len();
-        let id = self.pieces[0].scope.record.id;
-        let mut location = self.pieces[0].scope.record.location;
+        let id = self.pieces[0].scope.id;
         let mut data = self.pieces[0].scope.record.data;
 
         for piece in &self.pieces {
@@ -106,12 +106,9 @@ impl<'s> MergeNode<'s> {
             total_duration_ns += piece.scope.record.duration_ns;
             slowest_ns = slowest_ns.max(piece.scope.record.duration_ns);
 
-            assert_eq!(id, piece.scope.record.id);
+            assert_eq!(id, piece.scope.id);
             if data != piece.scope.record.data {
                 data = ""; // different in different pieces
-            }
-            if location != piece.scope.record.location {
-                location = ""; // different in different pieces
             }
         }
 
@@ -121,18 +118,21 @@ impl<'s> MergeNode<'s> {
             duration_per_frame_ns: total_duration_ns / num_frames,
             max_duration_ns: slowest_ns,
             num_pieces,
-            id: id.into(),
-            location: location.into(),
+            id,
             data: data.into(),
-            children: build(self.children, num_frames),
+            children: build(scope_collection, self.children, num_frames),
         }
     }
 }
 
-fn build<'s>(nodes: BTreeMap<MergeId<'s>, MergeNode<'s>>, num_frames: i64) -> Vec<MergeScope<'s>> {
+fn build<'s>(
+    scope_collection: &ScopeCollection,
+    nodes: BTreeMap<MergeId<'s>, MergeNode<'s>>,
+    num_frames: i64,
+) -> Vec<MergeScope<'s>> {
     let mut scopes: Vec<_> = nodes
         .into_values()
-        .map(|node| node.build(num_frames))
+        .map(|node| node.build(scope_collection, num_frames))
         .collect();
 
     // Earliest first:
@@ -150,6 +150,7 @@ fn build<'s>(nodes: BTreeMap<MergeId<'s>, MergeNode<'s>>, num_frames: i64) -> Ve
 
 /// For the given thread, merge all scopes with the same id+data path.
 pub fn merge_scopes_for_thread<'s>(
+    scope_collection: &ScopeCollection,
     frames: &'s [std::sync::Arc<UnpackedFrameData>],
     thread_info: &ThreadInfo,
 ) -> Result<Vec<MergeScope<'s>>> {
@@ -163,7 +164,7 @@ pub fn merge_scopes_for_thread<'s>(
             for scope in top_scopes {
                 top_nodes
                     .entry(MergeId {
-                        id: scope.record.id,
+                        id: scope.id,
                         data: scope.record.data,
                     })
                     .or_default()
@@ -178,109 +179,128 @@ pub fn merge_scopes_for_thread<'s>(
         }
     }
 
-    Ok(build(top_nodes, frames.len() as _))
+    Ok(build(scope_collection, top_nodes, frames.len() as _))
 }
 
-// ----------------------------------------------------------------------------
+#[cfg(test)]
+mod tests {
+    use std::{collections::BTreeMap, sync::Arc};
 
-#[test]
-fn test_merge() {
-    use crate::*;
+    #[test]
+    fn test_merge() {
+        use crate::*;
 
-    let stream = {
-        let mut stream = Stream::default();
+        let mut scope_collection = ScopeCollection::default();
+        // top scopes
+        scope_collection.insert(Arc::new(
+            ScopeDetails::from_scope_id(ScopeId::new(1)).with_function_name("a"),
+        ));
+        scope_collection.insert(Arc::new(
+            ScopeDetails::from_scope_id(ScopeId::new(2)).with_function_name("b"),
+        ));
 
-        for i in 0..2 {
-            let ns = 1000 * i;
-            let a = stream.begin_scope(ns + 100, "a", "", "");
-            stream.end_scope(a, ns + 200);
+        // middle scopes
+        scope_collection.insert(Arc::new(
+            ScopeDetails::from_scope_id(ScopeId::new(3)).with_function_name("ba"),
+        ));
+        scope_collection.insert(Arc::new(
+            ScopeDetails::from_scope_id(ScopeId::new(4)).with_function_name("bb"),
+        ));
+        scope_collection.insert(Arc::new(
+            ScopeDetails::from_scope_id(ScopeId::new(5)).with_function_name("bba"),
+        ));
 
-            let b = stream.begin_scope(ns + 200, "b", "", "");
+        let stream = {
+            let mut stream = Stream::default();
 
-            let ba = stream.begin_scope(ns + 400, "ba", "", "");
-            stream.end_scope(ba, ns + 600);
+            for i in 0..2 {
+                let ns = 1000 * i;
 
-            let bb = stream.begin_scope(ns + 600, "bb", "", "");
-            let bba = stream.begin_scope(ns + 600, "bba", "", "");
-            stream.end_scope(bba, ns + 700);
-            stream.end_scope(bb, ns + 800);
-            stream.end_scope(b, ns + 900);
-        }
+                let (a, _) = stream.begin_scope(|| ns + 100, ScopeId::new(1), "");
+                stream.end_scope(a, ns + 200);
 
-        stream
-    };
+                let (b, _) = stream.begin_scope(|| ns + 200, ScopeId::new(2), "");
 
-    let stream_info = StreamInfo::parse(stream).unwrap();
-    let mut thread_streams = BTreeMap::new();
-    let thread_info = ThreadInfo {
-        start_time_ns: Some(0),
-        name: "main".to_owned(),
-    };
-    thread_streams.insert(thread_info.clone(), stream_info);
-    let frame = UnpackedFrameData::new(0, thread_streams).unwrap();
-    let frames = [Arc::new(frame)];
-    let merged = merge_scopes_for_thread(&frames, &thread_info).unwrap();
+                let (ba, _) = stream.begin_scope(|| ns + 400, ScopeId::new(3), "");
+                stream.end_scope(ba, ns + 600);
 
-    let expected = vec![
-        MergeScope {
-            relative_start_ns: 100,
-            total_duration_ns: 2 * 100,
-            duration_per_frame_ns: 2 * 100,
-            max_duration_ns: 100,
-            num_pieces: 2,
-            id: "a".into(),
-            location: "".into(),
-            data: "".into(),
-            children: vec![],
-        },
-        MergeScope {
-            relative_start_ns: 300, // moved forward to make place for "a" (as are all children)
-            total_duration_ns: 2 * 700,
-            duration_per_frame_ns: 2 * 700,
-            max_duration_ns: 700,
-            num_pieces: 2,
-            id: "b".into(),
-            location: "".into(),
-            data: "".into(),
-            children: vec![
-                MergeScope {
-                    relative_start_ns: 200,
-                    total_duration_ns: 2 * 200,
-                    duration_per_frame_ns: 2 * 200,
-                    max_duration_ns: 200,
-                    num_pieces: 2,
-                    id: "ba".into(),
-                    location: "".into(),
-                    data: "".into(),
-                    children: vec![],
-                },
-                MergeScope {
-                    relative_start_ns: 600,
-                    total_duration_ns: 2 * 200,
-                    duration_per_frame_ns: 2 * 200,
-                    max_duration_ns: 200,
-                    num_pieces: 2,
-                    id: "bb".into(),
-                    location: "".into(),
-                    data: "".into(),
-                    children: vec![MergeScope {
-                        relative_start_ns: 0,
-                        total_duration_ns: 2 * 100,
-                        duration_per_frame_ns: 2 * 100,
-                        max_duration_ns: 100,
+                let (bb, _) = stream.begin_scope(|| ns + 600, ScopeId::new(4), "");
+                let (bba, _) = stream.begin_scope(|| ns + 600, ScopeId::new(5), "");
+                stream.end_scope(bba, ns + 700);
+                stream.end_scope(bb, ns + 800);
+                stream.end_scope(b, ns + 900);
+            }
+
+            stream
+        };
+
+        let stream_info = StreamInfo::parse(stream).unwrap();
+        let mut thread_streams = BTreeMap::new();
+        let thread_info = ThreadInfo {
+            start_time_ns: Some(0),
+            name: "main".to_owned(),
+        };
+        thread_streams.insert(thread_info.clone(), stream_info);
+        let frame = UnpackedFrameData::new(0, thread_streams).unwrap();
+        let frames = [Arc::new(frame)];
+        let merged = merge_scopes_for_thread(&scope_collection, &frames, &thread_info).unwrap();
+
+        let expected = vec![
+            MergeScope {
+                relative_start_ns: 100,
+                total_duration_ns: 2 * 100,
+                duration_per_frame_ns: 2 * 100,
+                max_duration_ns: 100,
+                num_pieces: 2,
+                id: ScopeId::new(1),
+                data: "".into(),
+                children: vec![],
+            },
+            MergeScope {
+                relative_start_ns: 300, // moved forward to make place for "a" (as are all children)
+                total_duration_ns: 2 * 700,
+                duration_per_frame_ns: 2 * 700,
+                max_duration_ns: 700,
+                num_pieces: 2,
+                id: ScopeId::new(2),
+                data: "".into(),
+                children: vec![
+                    MergeScope {
+                        relative_start_ns: 200,
+                        total_duration_ns: 2 * 200,
+                        duration_per_frame_ns: 2 * 200,
+                        max_duration_ns: 200,
                         num_pieces: 2,
-                        id: "bba".into(),
-                        location: "".into(),
+                        id: ScopeId::new(3),
                         data: "".into(),
                         children: vec![],
-                    }],
-                },
-            ],
-        },
-    ];
+                    },
+                    MergeScope {
+                        relative_start_ns: 600,
+                        total_duration_ns: 2 * 200,
+                        duration_per_frame_ns: 2 * 200,
+                        max_duration_ns: 200,
+                        num_pieces: 2,
+                        id: ScopeId::new(4),
+                        data: "".into(),
+                        children: vec![MergeScope {
+                            relative_start_ns: 0,
+                            total_duration_ns: 2 * 100,
+                            duration_per_frame_ns: 2 * 100,
+                            max_duration_ns: 100,
+                            num_pieces: 2,
+                            id: ScopeId::new(5),
+                            data: "".into(),
+                            children: vec![],
+                        }],
+                    },
+                ],
+            },
+        ];
 
-    assert_eq!(
-        merged, expected,
-        "\nGot:\n{merged:#?}\n\n!=\nExpected:\n{expected:#?}",
-    );
+        assert_eq!(
+            merged, expected,
+            "\nGot:\n{merged:#?}\n\n!=\nExpected:\n{expected:#?}",
+        );
+    }
 }

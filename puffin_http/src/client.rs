@@ -1,6 +1,6 @@
 use std::sync::{
     atomic::{AtomicBool, Ordering::SeqCst},
-    Arc, Mutex,
+    Arc,
 };
 
 use puffin::{FrameData, FrameView};
@@ -13,7 +13,7 @@ pub struct Client {
     addr: String,
     connected: Arc<AtomicBool>,
     alive: Arc<AtomicBool>,
-    frame_view: Arc<Mutex<FrameView>>,
+    frame_view: Arc<parking_lot::Mutex<FrameView>>,
 }
 
 impl Drop for Client {
@@ -27,7 +27,7 @@ impl Client {
     /// that is then fed to [`puffin::GlobalProfiler`].
     ///
     /// You can then view the data with
-    /// [`puffin_egui`](https://crates.io/crates/puffin_egui) or [`puffin-imgui`](https://crates.io/crates/puffin-imgui).
+    /// [`puffin_egui`](https://crates.io/crates/puffin_egui).
     ///
     /// ``` no_run
     /// puffin_http::Client::new("127.0.0.1:8585".to_owned());
@@ -35,7 +35,7 @@ impl Client {
     pub fn new(addr: String) -> Self {
         let alive = Arc::new(AtomicBool::new(true));
         let connected = Arc::new(AtomicBool::new(false));
-        let frame_view = Arc::new(Mutex::new(FrameView::default()));
+        let frame_view = Arc::new(parking_lot::Mutex::new(FrameView::default()));
 
         let client = Self {
             addr: addr.clone(),
@@ -44,39 +44,40 @@ impl Client {
             frame_view: frame_view.clone(),
         };
 
-        std::thread::spawn(move || {
-            log::info!("Connecting to {}…", addr);
-            while alive.load(SeqCst) {
-                match std::net::TcpStream::connect(&addr) {
-                    Ok(mut stream) => {
-                        log::info!("Connected to {}", addr);
-                        connected.store(true, SeqCst);
-                        while alive.load(SeqCst) {
-                            match consume_message(&mut stream) {
-                                Ok(frame_data) => {
-                                    frame_view
-                                        .lock()
-                                        .unwrap()
-                                        .add_frame(std::sync::Arc::new(frame_data));
-                                }
-                                Err(err) => {
-                                    log::warn!(
-                                        "Connection to puffin server closed: {}",
-                                        error_display_chain(err.as_ref())
-                                    );
-                                    connected.store(false, SeqCst);
-                                    break;
+        let _ = std::thread::Builder::new()
+            .name("http_client_thread".to_string())
+            .spawn(move || {
+                log::info!("Connecting to {}…", addr);
+                while alive.load(SeqCst) {
+                    match std::net::TcpStream::connect(&addr) {
+                        Ok(mut stream) => {
+                            log::info!("Connected to {}", addr);
+                            connected.store(true, SeqCst);
+                            while alive.load(SeqCst) {
+                                match consume_message(&mut stream) {
+                                    Ok(frame_data) => {
+                                        frame_view
+                                            .lock()
+                                            .add_frame(std::sync::Arc::new(frame_data));
+                                    }
+                                    Err(err) => {
+                                        log::warn!(
+                                            "Connection to puffin server closed: {}",
+                                            error_display_chain(err.as_ref())
+                                        );
+                                        connected.store(false, SeqCst);
+                                        break;
+                                    }
                                 }
                             }
                         }
-                    }
-                    Err(err) => {
-                        log::debug!("Failed to connect to {}: {}", addr, err);
-                        std::thread::sleep(std::time::Duration::from_secs(1));
+                        Err(err) => {
+                            log::debug!("Failed to connect to {}: {}", addr, err);
+                            std::thread::sleep(std::time::Duration::from_secs(1));
+                        }
                     }
                 }
-            }
-        });
+            });
 
         client
     }
@@ -92,8 +93,8 @@ impl Client {
     }
 
     /// Get the current data.
-    pub fn frame_view(&self) -> std::sync::MutexGuard<'_, FrameView> {
-        self.frame_view.lock().unwrap()
+    pub fn frame_view(&self) -> parking_lot::MutexGuard<'_, FrameView> {
+        self.frame_view.lock()
     }
 }
 
@@ -122,6 +123,7 @@ pub fn consume_message(stream: &mut impl std::io::Read) -> anyhow::Result<puffin
     }
 
     use anyhow::Context as _;
+
     FrameData::read_next(stream)
         .context("Failed to parse FrameData")?
         .ok_or_else(|| anyhow::format_err!("End of stream"))

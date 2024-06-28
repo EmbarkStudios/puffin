@@ -1,5 +1,5 @@
+use crate::ScopeDetails;
 use crate::{Error, FrameIndex, NanoSecond, Result, StreamInfo, ThreadInfo};
-
 #[cfg(feature = "packing")]
 use parking_lot::RwLock;
 
@@ -31,11 +31,14 @@ pub struct FrameMeta {
 ///
 /// More often encoded as a [`FrameData`].
 pub struct UnpackedFrameData {
+    /// Frame metadata.
     pub meta: FrameMeta,
+    /// The streams of profiling data for each thread.
     pub thread_streams: ThreadStreams,
 }
 
 impl UnpackedFrameData {
+    /// Create a new [`UnpackedFrameData`].
     pub fn new(
         frame_index: FrameIndex,
         thread_streams: BTreeMap<ThreadInfo, StreamInfo>,
@@ -72,14 +75,17 @@ impl UnpackedFrameData {
         }
     }
 
+    /// The index of this frame.
     pub fn frame_index(&self) -> u64 {
         self.meta.frame_index
     }
 
+    /// The range in nanoseconds of the entire profile frame.
     pub fn range_ns(&self) -> (NanoSecond, NanoSecond) {
         self.meta.range_ns
     }
 
+    /// The duration in nanoseconds of the entire profile frame.
     pub fn duration_ns(&self) -> NanoSecond {
         let (min, max) = self.meta.range_ns;
         max - min
@@ -95,6 +101,11 @@ impl UnpackedFrameData {
 #[cfg(not(feature = "packing"))]
 pub struct FrameData {
     unpacked_frame: Arc<UnpackedFrameData>,
+    /// Scopes that were registered during this frame.
+    pub scope_delta: Vec<Arc<ScopeDetails>>,
+    /// Does [`Self::scope_delta`] contain all the scopes up to this point?
+    /// If `false`, it just contains the new scopes since last frame data.
+    pub full_delta: bool,
 }
 
 #[cfg(not(feature = "packing"))]
@@ -102,50 +113,76 @@ pub enum Never {}
 
 #[cfg(not(feature = "packing"))]
 impl FrameData {
+    /// Create a new [`FrameData`].
     pub fn new(
         frame_index: FrameIndex,
         thread_streams: BTreeMap<ThreadInfo, StreamInfo>,
+        scope_delta: Vec<Arc<ScopeDetails>>,
+        full_delta: bool,
     ) -> Result<Self> {
-        Ok(Self::from_unpacked(Arc::new(UnpackedFrameData::new(
-            frame_index,
-            thread_streams,
-        )?)))
+        Ok(Self::from_unpacked(
+            Arc::new(UnpackedFrameData::new(frame_index, thread_streams)?),
+            scope_delta,
+            full_delta,
+        ))
     }
 
-    fn from_unpacked(unpacked_frame: Arc<UnpackedFrameData>) -> Self {
-        Self { unpacked_frame }
+    fn from_unpacked(
+        unpacked_frame: Arc<UnpackedFrameData>,
+        scope_delta: Vec<Arc<ScopeDetails>>,
+        full_delta: bool,
+    ) -> Self {
+        Self {
+            unpacked_frame,
+            scope_delta,
+            full_delta,
+        }
     }
 
+    /// Returns meta data from this frame.
     #[inline]
     pub fn meta(&self) -> &FrameMeta {
         &self.unpacked_frame.meta
     }
 
+    /// Always returns `None`.
     pub fn packed_size(&self) -> Option<usize> {
         None
     }
+
+    /// Number of bytes used when unpacked.
     pub fn unpacked_size(&self) -> Option<usize> {
         Some(self.unpacked_frame.meta.num_bytes)
     }
+
+    /// Bytes currently used by the unpacked data.
     pub fn bytes_of_ram_used(&self) -> usize {
         self.unpacked_frame.meta.num_bytes
     }
 
+    /// Returns the packing information for the frame.
     pub fn packing_info(&self) -> PackingInfo {
         PackingInfo {
             unpacked_size: Some(self.unpacked_frame.meta.num_bytes),
             packed_size: None,
         }
     }
+    /// Always returns `false`.
     pub fn has_packed(&self) -> bool {
         false
     }
+
+    /// Always returns `true`.
     pub fn has_unpacked(&self) -> bool {
         true
     }
+
+    /// Return the unpacked data.
     pub fn unpacked(&self) -> std::result::Result<Arc<UnpackedFrameData>, Never> {
         Ok(self.unpacked_frame.clone())
     }
+
+    /// Does nothing because this [`FrameData`] is unpacked by default.
     pub fn pack(&self) {}
 }
 
@@ -157,19 +194,24 @@ compile_error!(
 // ----------------------------------------------------------------------------
 
 /// See <https://github.com/EmbarkStudios/puffin/pull/130> for pros-and-cons of different compression algorithms.
+#[cfg(feature = "packing")]
 #[repr(u8)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum CompressionKind {
     Uncompressed = 0,
 
     /// Very fast, and lightweight dependency
+    #[allow(dead_code)] // with some feature sets
     Lz4 = 1,
 
     /// Big dependency, slow compression, but compresses better than lz4
+    #[allow(dead_code)] // with some feature sets
     Zstd = 2,
 }
 
+#[cfg(feature = "packing")]
 impl CompressionKind {
+    #[cfg(feature = "serialization")]
     fn from_u8(value: u8) -> anyhow::Result<Self> {
         match value {
             0 => Ok(Self::Uncompressed),
@@ -285,7 +327,17 @@ impl PackedStreams {
 #[cfg(feature = "packing")]
 pub struct FrameData {
     meta: FrameMeta,
-    inner: RwLock<Inner>,
+
+    /// Encapsulates the frame data in its current state,  which can be
+    /// uncompressed, compressed, or a combination of both
+    data: RwLock<FrameDataState>,
+
+    /// Scopes that were registered during this frame.
+    pub scope_delta: Vec<Arc<ScopeDetails>>,
+
+    /// Does [`Self::scope_delta`] contain all the scopes up to this point?
+    /// If `false`, it just contains the new scopes since last frame data.
+    pub full_delta: bool,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -297,7 +349,7 @@ pub struct PackingInfo {
 }
 
 #[cfg(feature = "packing")]
-enum Inner {
+enum FrameDataState {
     /// Unpacked data.
     Unpacked(Arc<UnpackedFrameData>),
 
@@ -309,30 +361,34 @@ enum Inner {
 }
 
 #[cfg(feature = "packing")]
-impl Inner {
+impl FrameDataState {
     fn unpacked_size(&self) -> Option<usize> {
         match self {
-            Inner::Packed(_) => None,
-            Inner::Unpacked(unpacked) | Inner::Both(unpacked, _) => Some(unpacked.meta.num_bytes),
+            FrameDataState::Packed(_) => None,
+            FrameDataState::Unpacked(unpacked) | FrameDataState::Both(unpacked, _) => {
+                Some(unpacked.meta.num_bytes)
+            }
         }
     }
 
     fn unpacked(&self) -> Option<Arc<UnpackedFrameData>> {
         match self {
-            Inner::Packed(_) => None,
-            Inner::Unpacked(unpacked) | Inner::Both(unpacked, _) => Some(unpacked.clone()),
+            FrameDataState::Packed(_) => None,
+            FrameDataState::Unpacked(unpacked) | FrameDataState::Both(unpacked, _) => {
+                Some(unpacked.clone())
+            }
         }
     }
 
     fn unpack(&mut self, unpacked: Arc<UnpackedFrameData>) {
         let temp = std::mem::replace(
             self,
-            Inner::Packed(PackedStreams::new(CompressionKind::Uncompressed, vec![])),
+            FrameDataState::Packed(PackedStreams::new(CompressionKind::Uncompressed, vec![])),
         );
 
-        if let Inner::Packed(packed) = temp {
+        if let FrameDataState::Packed(packed) = temp {
             // Transform only if we don't have unpacked already
-            *self = Inner::Both(unpacked, packed);
+            *self = FrameDataState::Both(unpacked, packed);
         } else {
             // Restore the original value if it was not Inner::Packed
             *self = temp;
@@ -341,27 +397,31 @@ impl Inner {
 
     fn packed_size(&self) -> Option<usize> {
         match self {
-            Inner::Unpacked(_) => None,
-            Inner::Packed(packed) | Inner::Both(_, packed) => Some(packed.num_bytes()),
+            FrameDataState::Unpacked(_) => None,
+            FrameDataState::Packed(packed) | FrameDataState::Both(_, packed) => {
+                Some(packed.num_bytes())
+            }
         }
     }
 
     fn packed(&self) -> Option<&PackedStreams> {
         match self {
-            Inner::Unpacked(_) => None,
-            Inner::Packed(packed) | Inner::Both(_, packed) => Some(packed),
+            FrameDataState::Unpacked(_) => None,
+            FrameDataState::Packed(packed) | FrameDataState::Both(_, packed) => Some(packed),
         }
     }
 
     fn pack_and_remove(&mut self) {
-        if let Inner::Unpacked(ref unpacked) | Inner::Both(ref unpacked, _) = *self {
+        if let FrameDataState::Unpacked(ref unpacked) | FrameDataState::Both(ref unpacked, _) =
+            *self
+        {
             let packed = PackedStreams::pack(&unpacked.thread_streams);
             *self = Self::Packed(packed);
         }
     }
 
     fn pack_and_keep(&mut self) {
-        if let Inner::Unpacked(ref unpacked) = *self {
+        if let FrameDataState::Unpacked(ref unpacked) = *self {
             let packed = PackedStreams::pack(&unpacked.thread_streams);
             *self = Self::Packed(packed);
         }
@@ -372,11 +432,11 @@ impl Inner {
     }
 
     fn has_packed(&self) -> bool {
-        matches!(self, Inner::Packed(_) | Inner::Both(..))
+        matches!(self, FrameDataState::Packed(_) | FrameDataState::Both(..))
     }
 
     fn has_unpacked(&self) -> bool {
-        matches!(self, Inner::Unpacked(_) | Inner::Both(..))
+        matches!(self, FrameDataState::Unpacked(_) | FrameDataState::Both(..))
     }
 
     fn packing_info(&self) -> PackingInfo {
@@ -389,23 +449,34 @@ impl Inner {
 
 #[cfg(feature = "packing")]
 impl FrameData {
+    /// Create a new [`FrameData`].
     pub fn new(
         frame_index: FrameIndex,
         thread_streams: BTreeMap<ThreadInfo, StreamInfo>,
+        scope_delta: Vec<Arc<ScopeDetails>>,
+        full_delta: bool,
     ) -> Result<Self> {
-        Ok(Self::from_unpacked(Arc::new(UnpackedFrameData::new(
-            frame_index,
-            thread_streams,
-        )?)))
+        Ok(Self::from_unpacked(
+            Arc::new(UnpackedFrameData::new(frame_index, thread_streams)?),
+            scope_delta,
+            full_delta,
+        ))
     }
 
-    fn from_unpacked(unpacked_frame: Arc<UnpackedFrameData>) -> Self {
+    fn from_unpacked(
+        unpacked_frame: Arc<UnpackedFrameData>,
+        scope_delta: Vec<Arc<ScopeDetails>>,
+        full_delta: bool,
+    ) -> Self {
         Self {
             meta: unpacked_frame.meta,
-            inner: RwLock::new(Inner::Unpacked(unpacked_frame)),
+            data: RwLock::new(FrameDataState::Unpacked(unpacked_frame)),
+            scope_delta,
+            full_delta,
         }
     }
 
+    /// Returns meta data from this frame.
     #[inline]
     pub fn meta(&self) -> &FrameMeta {
         &self.meta
@@ -413,27 +484,27 @@ impl FrameData {
 
     /// Number of bytes used by the packed data, if packed.
     pub fn packed_size(&self) -> Option<usize> {
-        self.inner.read().packed_size()
+        self.data.read().packed_size()
     }
 
     /// Number of bytes used when unpacked, if known.
     pub fn unpacked_size(&self) -> Option<usize> {
-        self.inner.read().unpacked_size()
+        self.data.read().unpacked_size()
     }
 
     /// bytes currently used by the unpacked and packed data.
     pub fn bytes_of_ram_used(&self) -> usize {
-        self.inner.read().bytes_of_ram_used()
+        self.data.read().bytes_of_ram_used()
     }
 
     /// Do we have a packed version stored internally?
     pub fn has_packed(&self) -> bool {
-        self.inner.read().has_packed()
+        self.data.read().has_packed()
     }
 
     /// Do we have a unpacked version stored internally?
     pub fn has_unpacked(&self) -> bool {
-        self.inner.read().has_unpacked()
+        self.data.read().has_unpacked()
     }
 
     /// Provides an overview of the frame's packing status.
@@ -443,7 +514,7 @@ impl FrameData {
     /// minimize the number of lock accesses by consolidating information retrieval into a single
     /// operation.
     pub fn packing_info(&self) -> PackingInfo {
-        self.inner.read().packing_info()
+        self.data.read().packing_info()
     }
 
     /// Return the unpacked data.
@@ -453,10 +524,10 @@ impl FrameData {
     /// Returns `Err` if failing to decode the packed data.
     pub fn unpacked(&self) -> anyhow::Result<Arc<UnpackedFrameData>> {
         let unpacked = {
-            let inner_guard = self.inner.read();
-            let Inner::Packed(ref packed) = *inner_guard else {
+            let inner_guard = self.data.read();
+            let FrameDataState::Packed(ref packed) = *inner_guard else {
                 // Safe to unwrap, variant has to contain unpacked if NOT `Packed`
-                return Ok(self.inner.read().unpacked().unwrap());
+                return Ok(self.data.read().unpacked().unwrap());
             };
 
             crate::profile_scope!("unpack_puffin_frame");
@@ -467,41 +538,56 @@ impl FrameData {
             })
         };
 
-        self.inner.write().unpack(unpacked.clone());
+        self.data.write().unpack(unpacked.clone());
         Ok(unpacked)
     }
 
     /// Make the [`FrameData`] use up less memory.
     /// Idempotent.
     pub fn pack(&self) {
-        self.inner.write().pack_and_remove();
+        self.data.write().pack_and_remove();
     }
 
     /// Create a packed storage without freeing the unpacked storage.
     fn create_packed(&self) {
-        self.inner.write().pack_and_keep();
+        self.data.write().pack_and_keep();
     }
 
     /// Writes one [`FrameData`] into a stream, prefixed by its length ([`u32`] le).
     #[cfg(not(target_arch = "wasm32"))] // compression not supported on wasm
     #[cfg(feature = "serialization")]
-    pub fn write_into(&self, write: &mut impl std::io::Write) -> anyhow::Result<()> {
+    pub fn write_into(
+        &self,
+        scope_collection: &crate::ScopeCollection,
+        send_all_scopes: bool,
+        write: &mut impl std::io::Write,
+    ) -> anyhow::Result<()> {
         use bincode::Options as _;
-        use byteorder::WriteBytesExt as _;
+        use byteorder::{WriteBytesExt as _, LE};
+
         let meta_serialized = bincode::options().serialize(&self.meta)?;
 
-        write.write_all(b"PFD3")?;
+        write.write_all(b"PFD4")?;
         write.write_all(&(meta_serialized.len() as u32).to_le_bytes())?;
         write.write_all(&meta_serialized)?;
 
         self.create_packed();
-        let packed_streams_lock = self.inner.read();
+        let packed_streams_lock = self.data.read();
         let packed_streams = packed_streams_lock.packed().unwrap(); // We just called create_packed
 
         write.write_all(&(packed_streams.num_bytes() as u32).to_le_bytes())?;
         write.write_u8(packed_streams.compression_kind as u8)?;
         write.write_all(&packed_streams.bytes)?;
 
+        let to_serialize_scopes: Vec<_> = if send_all_scopes {
+            scope_collection.scopes_by_id().values().cloned().collect()
+        } else {
+            self.scope_delta.clone()
+        };
+
+        let serialized_scopes = bincode::options().serialize(&to_serialize_scopes)?;
+        write.write_u32::<LE>(serialized_scopes.len() as u32)?;
+        write.write_all(&serialized_scopes)?;
         Ok(())
     }
 
@@ -513,7 +599,7 @@ impl FrameData {
     pub fn read_next(read: &mut impl std::io::Read) -> anyhow::Result<Option<Self>> {
         use anyhow::Context as _;
         use bincode::Options as _;
-        use byteorder::ReadBytesExt;
+        use byteorder::{ReadBytesExt, LE};
 
         let mut header = [0_u8; 4];
         if let Err(err) = read.read_exact(&mut header) {
@@ -554,7 +640,11 @@ impl FrameData {
             }
 
             fn into_frame_data(self) -> FrameData {
-                FrameData::from_unpacked(Arc::new(self.into_unpacked_frame_data()))
+                FrameData::from_unpacked(
+                    Arc::new(self.into_unpacked_frame_data()),
+                    Default::default(),
+                    false,
+                )
             }
         }
 
@@ -612,7 +702,9 @@ impl FrameData {
 
                 Ok(Some(Self {
                     meta,
-                    inner: RwLock::new(Inner::Packed(packed_streams)),
+                    data: RwLock::new(FrameDataState::Packed(packed_streams)),
+                    scope_delta: Default::default(),
+                    full_delta: false,
                 }))
             } else if &header == b"PFD3" {
                 // Added 2023-05-13: CompressionKind field
@@ -641,7 +733,48 @@ impl FrameData {
 
                 Ok(Some(Self {
                     meta,
-                    inner: RwLock::new(Inner::Packed(packed_streams)),
+                    data: RwLock::new(FrameDataState::Packed(packed_streams)),
+                    scope_delta: Default::default(),
+                    full_delta: false,
+                }))
+            } else if &header == b"PFD4" {
+                // Added 2024-01-08: Split up stream scope details from the record stream.
+                let meta_length = read.read_u32::<LE>()? as usize;
+                let meta = {
+                    let mut meta = vec![0_u8; meta_length];
+                    read.read_exact(&mut meta)?;
+                    bincode::options()
+                        .deserialize(&meta)
+                        .context("bincode deserialize")?
+                };
+
+                let streams_compressed_length = read.read_u32::<LE>()? as usize;
+                let compression_kind = CompressionKind::from_u8(read.read_u8()?)?;
+                let streams_compressed = {
+                    let mut streams_compressed = vec![0_u8; streams_compressed_length];
+                    read.read_exact(&mut streams_compressed)?;
+                    PackedStreams::new(compression_kind, streams_compressed)
+                };
+
+                let serialized_scope_len = read.read_u32::<LE>()?;
+                let deserialized_scopes: Vec<crate::ScopeDetails> = {
+                    let mut serialized_scopes = vec![0; serialized_scope_len as usize];
+                    read.read_exact(&mut serialized_scopes)?;
+                    bincode::options()
+                        .deserialize_from(serialized_scopes.as_slice())
+                        .context("Can not deserialize scope details")?
+                };
+
+                let new_scopes: Vec<_> = deserialized_scopes
+                    .into_iter()
+                    .map(|x| Arc::new(x.clone()))
+                    .collect();
+
+                Ok(Some(Self {
+                    meta,
+                    data: RwLock::new(FrameDataState::Packed(streams_compressed)),
+                    scope_delta: new_scopes,
+                    full_delta: false,
                 }))
             } else {
                 anyhow::bail!("Failed to decode: this data is newer than this reader. Please update your puffin version!");
@@ -663,14 +796,17 @@ impl FrameData {
 // ----------------------------------------------------------------------------
 
 impl FrameData {
+    /// The index of this frame.
     pub fn frame_index(&self) -> u64 {
         self.meta().frame_index
     }
 
+    /// The range in nanoseconds of the entire profile frame.
     pub fn range_ns(&self) -> (NanoSecond, NanoSecond) {
         self.meta().range_ns
     }
 
+    /// The duration in nanoseconds of the entire profile frame.
     pub fn duration_ns(&self) -> NanoSecond {
         let (min, max) = self.meta().range_ns;
         max - min
