@@ -255,9 +255,14 @@ impl Default for GlobalFrameView {
     fn default() -> Self {
         let view = Arc::new(parking_lot::Mutex::new(FrameView::default()));
         let view_clone = view.clone();
-        let sink_id = crate::GlobalProfiler::lock().add_sink(Box::new(move |frame| {
+        let mut profiler = crate::GlobalProfiler::lock();
+        let sink_id = profiler.add_sink(Box::new(move |frame| {
             view_clone.lock().add_frame(frame);
         }));
+        // GlobalFrameView might be created after scope scopes were already created
+        // and our registered sink won't see them without prior propagation.
+        profiler.emit_scope_snapshot();
+
         Self { sink_id, view }
     }
 }
