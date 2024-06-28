@@ -51,6 +51,7 @@ impl Client {
                 while alive.load(SeqCst) {
                     match std::net::TcpStream::connect(&addr) {
                         Ok(mut stream) => {
+                            *frame_view.lock() = FrameView::default();
                             log::info!("Connected to {}", addr);
                             connected.store(true, SeqCst);
                             while alive.load(SeqCst) {

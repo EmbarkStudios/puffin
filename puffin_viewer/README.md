@@ -11,4 +11,11 @@ cargo install puffin_viewer
 puffin_viewer --url 127.0.0.1:8585
 ```
 
+### On Linux
+
+On Linux gtk3 sources are required for file dialogs. You may install them on Ubuntu using the following command:
+```sh
+sudo apt install libgtk-3-dev
+```
+
 The puffin icon is based on [a photo by Richard Bartz](https://en.wikipedia.org/wiki/File:Papageitaucher_Fratercula_arctica.jpg).
