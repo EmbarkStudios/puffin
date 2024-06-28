@@ -8,6 +8,7 @@ All notable changes to the egui crate will be documented in this file.
 ## [Unreleased] - ReleaseDate
 
 - [PR#218](https://github.com/EmbarkStudios/puffin/pull/218) Fix flamegraph click intersection
+- [PR#151](https://github.com/EmbarkStudios/puffin/pull/151) Optimize frame statistics collection.
 
 ## [0.27.1] - 2024-06-16
 

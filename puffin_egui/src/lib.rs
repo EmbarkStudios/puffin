@@ -23,6 +23,7 @@ use puffin::*;
 use std::{
     collections::{BTreeMap, BTreeSet},
     fmt::Write as _,
+    iter,
     sync::Arc,
 };
 use time::OffsetDateTime;
@@ -211,11 +212,15 @@ pub struct SelectedFrames {
 }
 
 impl SelectedFrames {
-    fn try_from_vec(
+    fn try_from_iter(
         scope_collection: &ScopeCollection,
-        frames: Vec<Arc<UnpackedFrameData>>,
+        frames: impl Iterator<Item = Arc<UnpackedFrameData>>,
     ) -> Option<Self> {
-        let frames = vec1::Vec1::try_from_vec(frames).ok()?;
+        let mut it = frames;
+        let first = it.next()?;
+        let mut frames = vec1::Vec1::new(first);
+        frames.extend(it);
+
         Some(Self::from_vec1(scope_collection, frames))
     }
 
@@ -450,7 +455,7 @@ impl ProfilerUi {
         let frames = if let Some(frame) = hovered_frame {
             match frame.unpacked() {
                 Ok(frame) => {
-                    SelectedFrames::try_from_vec(frame_view.scope_collection(), vec![frame])
+                    SelectedFrames::try_from_iter(frame_view.scope_collection(), iter::once(frame))
                 }
                 Err(err) => {
                     ui.colored_label(ERROR_COLOR, format!("Failed to load hovered frame: {err}"));
@@ -461,13 +466,12 @@ impl ProfilerUi {
             Some(paused.selected.clone())
         } else {
             puffin::profile_scope!("select_latest_frames");
-            let latest = frame_view.latest_frames(self.max_num_latest);
-            let unpacked: Vec<Arc<UnpackedFrameData>> = latest
-                .into_iter()
+            let latest = frame_view
+                .latest_frames(self.max_num_latest)
                 .map(|frame| frame.unpacked())
-                .filter_map(|unpacked| unpacked.ok())
-                .collect();
-            SelectedFrames::try_from_vec(frame_view.scope_collection(), unpacked)
+                .filter_map(|unpacked| unpacked.ok());
+
+            SelectedFrames::try_from_iter(frame_view.scope_collection(), latest)
         };
 
         let frames = if let Some(frames) = frames {
@@ -760,7 +764,7 @@ impl ProfilerUi {
         }
 
         if let Some(new_selection) =
-            SelectedFrames::try_from_vec(frame_view.scope_collection(), new_selection)
+            SelectedFrames::try_from_iter(frame_view.scope_collection(), new_selection.into_iter())
         {
             self.pause_and_select(frame_view, new_selection);
         }
