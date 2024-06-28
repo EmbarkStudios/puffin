@@ -1,5 +1,9 @@
 use itertools::Itertools;
-use std::{cmp::Ordering, sync::Arc};
+use std::{
+    cmp::Ordering,
+    collections::{BTreeSet, VecDeque},
+    sync::Arc,
+};
 
 use crate::{FrameData, FrameSinkId, ScopeCollection};
 
@@ -7,11 +11,11 @@ use crate::{FrameData, FrameSinkId, ScopeCollection};
 #[derive(Clone)]
 pub struct FrameView {
     /// newest first
-    recent: std::collections::VecDeque<OrderedByIndex>,
+    recent: VecDeque<OrderedByIndex>,
     max_recent: usize,
 
-    slowest_by_index: std::collections::BTreeSet<OrderedByIndex>,
-    slowest_by_duration: std::collections::BTreeSet<OrderedByDuration>,
+    slowest_by_index: BTreeSet<OrderedByIndex>,
+    slowest_by_duration: BTreeSet<OrderedByDuration>,
     max_slow: usize,
 
     /// Minimizes memory usage at the expense of CPU time.
@@ -31,10 +35,10 @@ impl Default for FrameView {
         let max_slow = 256;
 
         Self {
-            recent: std::collections::VecDeque::with_capacity(max_recent),
+            recent: VecDeque::with_capacity(max_recent),
             max_recent,
-            slowest_by_index: std::collections::BTreeSet::new(),
-            slowest_by_duration: std::collections::BTreeSet::new(),
+            slowest_by_index: BTreeSet::new(),
+            slowest_by_duration: BTreeSet::new(),
             max_slow,
             pack_frames: true,
             stats: Default::default(),
