@@ -583,7 +583,7 @@ impl ProfilerUi {
             ui.end_row();
 
             ui.vertical(|ui| {
-                ui.style_mut().wrap = Some(false);
+                ui.style_mut().wrap_mode = Some(TextWrapMode::Extend);
                 ui.add_space(16.0); // make it a bit more centered
                 ui.label("Slowest:");
                 if let Some(frame_view) = frame_view.as_mut() {
@@ -712,6 +712,7 @@ impl ProfilerUi {
                     *hovered_frame = Some(frame.clone());
                     egui::show_tooltip_at_pointer(
                         ui.ctx(),
+                        ui.layer_id(),
                         Id::new("puffin_frame_tooltip"),
                         |ui| {
                             ui.label(format!("{:.1} ms", frame.duration_ns() as f64 * 1e-6));

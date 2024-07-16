@@ -176,6 +176,8 @@ struct Info<'a> {
     stop_ns: NanoSecond,
     /// How many frames we are viewing
     num_frames: usize,
+    /// LayerId to use as parent for tooltips
+    layer_id: LayerId,
 
     font_id: FontId,
 
@@ -296,6 +298,7 @@ pub fn ui(
                 start_ns: min_ns,
                 stop_ns: max_ns,
                 num_frames: frames.frames.len(),
+                layer_id: ui.layer_id(),
                 font_id: TextStyle::Body.resolve(ui.style()),
                 scope_collection,
             };
@@ -761,15 +764,20 @@ fn paint_scope(
             let Some(scope_details) = info.scope_collection.fetch_by_id(&scope.id) else {
                 return Ok(PaintResult::Culled);
             };
-            egui::show_tooltip_at_pointer(&info.ctx, Id::new("puffin_profiler_tooltip"), |ui| {
-                paint_scope_details(ui, scope.id, scope.record.data, scope_details);
-                add_space(ui);
-                ui.monospace(format!(
-                    "duration: {:7.3} ms",
-                    to_ms(scope.record.duration_ns)
-                ));
-                ui.monospace(format!("children: {num_children:3}"));
-            });
+            egui::show_tooltip_at_pointer(
+                &info.ctx,
+                info.layer_id,
+                Id::new("puffin_profiler_tooltip"),
+                |ui| {
+                    paint_scope_details(ui, scope.id, scope.record.data, scope_details);
+                    add_space(ui);
+                    ui.monospace(format!(
+                        "duration: {:7.3} ms",
+                        to_ms(scope.record.duration_ns)
+                    ));
+                    ui.monospace(format!("children: {num_children:3}"));
+                },
+            );
         }
     }
 
@@ -821,9 +829,14 @@ fn paint_merge_scope(
         }
 
         if result == PaintResult::Hovered {
-            egui::show_tooltip_at_pointer(&info.ctx, Id::new("puffin_profiler_tooltip"), |ui| {
-                merge_scope_tooltip(ui, info.scope_collection, merge, info.num_frames);
-            });
+            egui::show_tooltip_at_pointer(
+                &info.ctx,
+                info.layer_id,
+                Id::new("puffin_profiler_tooltip"),
+                |ui| {
+                    merge_scope_tooltip(ui, info.scope_collection, merge, info.num_frames);
+                },
+            );
         }
     }
 

@@ -18,7 +18,12 @@ pub async fn start(canvas_id: &str) -> Result<(), eframe::wasm_bindgen::JsValue>
         .start(
             canvas_id,
             web_options,
-            Box::new(|cc| Box::new(crate::PuffinViewer::new(crate::Source::None, cc.storage))),
+            Box::new(|cc| {
+                Ok(Box::new(crate::PuffinViewer::new(
+                    crate::Source::None,
+                    cc.storage,
+                )))
+            }),
         )
         .await?;
 
