@@ -2,14 +2,15 @@
 name = "puffin"
 version = "0.19.0"
 authors = ["Embark <opensource@embark-studios.com>"]
-license = "MIT OR Apache-2.0"
-description = "Simple instrumentation profiler for games"
-edition = "2018"
-homepage = "https://github.com/EmbarkStudios/puffin"
-repository = "https://github.com/EmbarkStudios/puffin"
-readme = "README.md"
 categories = ["development-tools::profiling"]
+description = "Simple instrumentation profiler for games"
+edition.workspace = true
+homepage = "https://github.com/EmbarkStudios/puffin"
 keywords = ["profiler", "instrumentation", "gamedev"]
+license = "MIT OR Apache-2.0"
+readme = "README.md"
+repository = "https://github.com/EmbarkStudios/puffin"
+rust-version.workspace = true
 include = ["**/*.rs", "Cargo.toml", "README.md", "../puffin.jpg"]
 
 [package.metadata.docs.rs]

@@ -2,6 +2,11 @@
 resolver = "2"
 members = ["puffin", "puffin_egui", "puffin_http", "puffin_viewer"]
 
+[workspace.package]
+edition = "2021"
+license = "MIT OR Apache-2.0"
+rust-version = "1.76"
+
 [workspace.lints.rust]
 future_incompatible = "warn"
 nonstandard_style = "warn"

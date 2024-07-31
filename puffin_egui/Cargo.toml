@@ -2,14 +2,15 @@
 name = "puffin_egui"
 version = "0.28.0"
 authors = ["Emil Ernerfeldt <emil.ernerfeldt@gmail.com>"]
+categories = ["development-tools::profiling", "game-development", "gui"]
 description = "Show puffin profiler flamegraph in-game using egui"
-edition = "2018"
+edition.workspace = true
 homepage = "https://github.com/EmbarkStudios/puffin"
-repository = "https://github.com/EmbarkStudios/puffin"
+keywords = ["profiler", "gamedev", "gui"]
 license = "MIT OR Apache-2.0"
 readme = "README.md"
-categories = ["development-tools::profiling", "game-development", "gui"]
-keywords = ["profiler", "gamedev", "gui"]
+repository = "https://github.com/EmbarkStudios/puffin"
+rust-version.workspace = true
 include = [
   "../LICENSE-APACHE",
   "../LICENSE-MIT",
