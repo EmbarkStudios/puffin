@@ -265,7 +265,8 @@ pub fn ui(
                 ui.label("Grid spacing:");
                 let grid_spacing_drag = DragValue::new(&mut options.grid_spacing_micros)
                     .speed(0.1)
-                    .clamp_range(1.0..=100.0);
+                    .clamp_range(1.0..=100.0)
+                    .suffix(" µs");
                 grid_spacing_drag.ui(ui);
             });
         });
