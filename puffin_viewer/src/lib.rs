@@ -155,7 +155,7 @@ impl PuffinViewer {
         egui::TopBottomPanel::top("menu_bar").show(ctx, |ui| {
             egui::menu::bar(ui, |ui| {
                 egui::widgets::global_dark_light_mode_switch(ui);
-                ui.separator();
+                ui.add_space(4.0);
 
                 ui.menu_button("File", |ui| {
                     if ui.button("Open…").clicked() {
@@ -242,7 +242,7 @@ impl eframe::App for PuffinViewer {
         egui::TopBottomPanel::bottom("info_bar").show(ctx, |ui| {
             if let Some(error) = &self.error {
                 ui.colored_label(egui::Color32::RED, error);
-                ui.separator();
+                ui.add_space(4.0);
             }
 
             if self.profile_self {

@@ -450,6 +450,7 @@ impl ProfilerUi {
             .default_open(false)
             .show(ui, |ui| {
                 hovered_frame = self.show_frames(ui, frame_view);
+                ui.add_space(4.0);
             });
 
         let frames = if let Some(frame) = hovered_frame {
@@ -518,7 +519,7 @@ impl ProfilerUi {
                     }
                 });
             }
-            ui.separator();
+            add_space(ui);
             frames_info_ui(ui, &frames);
         });
 
@@ -526,14 +527,14 @@ impl ProfilerUi {
             ui.ctx().request_repaint(); // keep refreshing to see latest data
         }
 
-        ui.separator();
+        add_space(ui);
 
         ui.horizontal(|ui| {
             ui.selectable_value(&mut self.view, View::Flamegraph, "Flamegraph");
             ui.selectable_value(&mut self.view, View::Stats, "Stats");
         });
 
-        ui.separator();
+        add_space(ui);
 
         match self.view {
             View::Flamegraph => flamegraph::ui(

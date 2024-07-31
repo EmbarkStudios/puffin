@@ -1,7 +1,7 @@
 use egui::TextBuffer;
 use puffin::*;
 
-use crate::filter::Filter;
+use crate::{add_space, filter::Filter};
 
 #[derive(Clone, Debug, Default)]
 pub struct Options {
@@ -41,11 +41,11 @@ pub fn ui(
         threads.len()
     ));
 
-    ui.separator();
+    add_space(ui);
 
     options.filter.ui(ui);
 
-    ui.separator();
+    add_space(ui);
 
     let mut scopes: Vec<_> = stats
         .scopes
