@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <!-- next-header -->
 ## [Unreleased] - ReleaseDate
+## [0.19.1] - 2024-07-31
 
 - [PR#151](https://github.com/EmbarkStudios/puffin/pull/151) Optimize frame statistics collection.
 - [PR#224](https://github.com/EmbarkStudios/puffin/pull/224) Add conditional profile macros: `profile_function_if`, `profile_scope_if`, etc.
@@ -140,7 +141,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * `GlobalProfiler` now store recent history and the slowest frames.
 
 <!-- next-url -->
-[Unreleased]: https://github.com/EmbarkStudios/puffin/compare/0.19.0...HEAD
+[Unreleased]: https://github.com/EmbarkStudios/puffin/compare/puffin-0.19.1...HEAD
+[0.19.1]: https://github.com/EmbarkStudios/puffin/compare/0.19.0...puffin-0.19.1
 [0.19.0]: https://github.com/EmbarkStudios/puffin/compare/0.18.1...0.19.0
 [0.18.1]: https://github.com/EmbarkStudios/puffin/compare/0.18.0...0.18.1
 [0.18.0]: https://github.com/EmbarkStudios/puffin/compare/0.17.1...0.18.0
