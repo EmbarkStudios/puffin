@@ -41,4 +41,5 @@ web-time = "0.2"
 eframe = { version = "0.28.0", default-features = false, features = [
   "default_fonts",
   "glow",
+  "persistence",
 ] }
