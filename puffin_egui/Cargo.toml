@@ -41,7 +41,3 @@ eframe = { version = "0.28.0", default-features = false, features = [
   "default_fonts",
   "glow",
 ] }
-
-# Enable example when this dependency is updated to latest egui
-# egui-macroquad = "0.12.0"
-# macroquad = "0.3"

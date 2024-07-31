@@ -25,6 +25,6 @@ puffin_egui::profiler_window(egui_ctx);
 
 <img src="../puffin_egui.gif">
 
-See the [`examples/`](examples/) folder for how to use it with [`eframe`](https://docs.rs/eframe) or [`macroquad`](https://github.com/not-fl3/macroquad).
+See the [`examples/`](examples/) folder for how to use it with [`eframe`](https://docs.rs/eframe).
 
-To try it out, run `cargo run --release --example macroquad`
+To try it out, run `cargo run --release --example eframe`
