@@ -284,6 +284,8 @@ pub fn ui(
     });
 
     Frame::dark_canvas(ui.style()).show(ui, |ui| {
+        ui.visuals_mut().clip_rect_margin = 0.0;
+
         let available_height = ui.max_rect().bottom() - ui.min_rect().bottom();
         ScrollArea::vertical().show(ui, |ui| {
             let mut canvas = ui.available_rect_before_wrap();
