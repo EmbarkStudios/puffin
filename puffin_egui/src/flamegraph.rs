@@ -124,6 +124,9 @@ pub struct Options {
     /// Visual settings for threads.
     pub flamegraph_threads: IndexMap<String, ThreadVisualizationSettings>,
 
+    /// Interval of vertical timeline indicators.
+    grid_spacing_micros: f64,
+
     #[cfg_attr(feature = "serde", serde(skip))]
     filter: Filter,
 
@@ -148,9 +151,11 @@ impl Default for Options {
             rounding: 4.0,
 
             frame_list_height: 48.0,
-            frame_width: 10.0,
+            frame_width: 10.,
 
             merge_scopes: false, // off, because it really only works well for single-threaded profiling
+
+            grid_spacing_micros: 1.,
 
             sorting: Default::default(),
             filter: Default::default(),
@@ -256,6 +261,16 @@ pub fn ui(
             });
 
             options.filter.ui(ui);
+
+            // Grid spacing interval selector.
+            ui.horizontal(|ui| {
+                ui.label("Grid spacing:");
+                let grid_spacing_drag = DragValue::new(&mut options.grid_spacing_micros)
+                    .speed(0.1)
+                    .clamp_range(1.0..=100.0)
+                    .suffix(" µs");
+                grid_spacing_drag.ui(ui);
+            });
         });
 
         ui.collapsing("Visible Threads", |ui| {
@@ -505,7 +520,7 @@ fn paint_timeline(
     // We show all measurements relative to start_ns
 
     let max_lines = canvas.width() / 4.0;
-    let mut grid_spacing_ns = 1_000;
+    let mut grid_spacing_ns = (options.grid_spacing_micros * 1_000.) as i64;
     while options.canvas_width_ns / (grid_spacing_ns as f32) > max_lines {
         grid_spacing_ns *= 10;
     }
