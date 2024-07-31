@@ -232,7 +232,7 @@ impl eframe::App for PuffinViewer {
                 ui.heading("Puffin Viewer, on the web");
                 ui.horizontal_wrapped(|ui| {
                     ui.label("It is recommended that you instead use the native version: ");
-                    ui.code("cargo install puffin_viewer");
+                    ui.code("cargo install puffin_viewer --locked");
                 });
                 ui.hyperlink("https://github.com/EmbarkStudios/puffin");
             });

@@ -7,7 +7,7 @@
 Use [`puffin_http`](https://github.com/EmbarkStudios/puffin/tree/main/puffin_http) to publish puffin events over TCP. Then connect to it with `puffin_viewer`:
 
 ``` sh
-cargo install puffin_viewer
+cargo install puffin_viewer --locked
 puffin_viewer --url 127.0.0.1:8585
 ```
 
