@@ -19,8 +19,8 @@ pub fn ui(
 
     for frame in frames {
         threads.extend(frame.thread_streams.keys());
-        for (thread_info, stream) in &frame.thread_streams {
-            collect_stream(&mut stats, &thread_info.name, &stream.stream).ok();
+        for stream in frame.thread_streams.values() {
+            collect_stream(&mut stats, &stream.stream).ok();
         }
     }
 
@@ -58,39 +58,39 @@ pub fn ui(
 
     egui::ScrollArea::horizontal().show(ui, |ui| {
         ui.style_mut().wrap_mode = Some(egui::TextWrapMode::Extend);
+        ui.spacing_mut().item_spacing.x = 16.0;
 
         egui_extras::TableBuilder::new(ui)
+            .striped(true)
             .columns(
                 egui_extras::Column::auto_with_initial_suggestion(200.0).resizable(true),
-                9,
+                3,
             )
+            .columns(egui_extras::Column::auto().resizable(false), 6)
             .header(20.0, |mut header| {
                 header.col(|ui| {
-                    ui.heading("Thread");
+                    ui.strong("Location");
                 });
                 header.col(|ui| {
-                    ui.heading("Location");
+                    ui.strong("Function Name");
                 });
                 header.col(|ui| {
-                    ui.heading("Function Name");
+                    ui.strong("Scope Name");
                 });
                 header.col(|ui| {
-                    ui.heading("Scope Name");
+                    ui.strong("Count");
                 });
                 header.col(|ui| {
-                    ui.heading("Count");
+                    ui.strong("Size");
                 });
                 header.col(|ui| {
-                    ui.heading("Size");
+                    ui.strong("Total self time");
                 });
                 header.col(|ui| {
-                    ui.heading("Total self time");
+                    ui.strong("Mean self time");
                 });
                 header.col(|ui| {
-                    ui.heading("Mean self time");
-                });
-                header.col(|ui| {
-                    ui.heading("Max self time");
+                    ui.strong("Max self time");
                 });
             })
             .body(|mut body| {
@@ -104,9 +104,6 @@ pub fn ui(
                     }
 
                     body.row(14.0, |mut row| {
-                        row.col(|ui| {
-                            ui.label(&key.thread_name);
-                        });
                         row.col(|ui| {
                             ui.style_mut().wrap_mode = Some(egui::TextWrapMode::Truncate);
                             ui.label(scope_details.location());
@@ -154,7 +151,6 @@ struct Stats {
 #[derive(Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
 struct Key {
     id: ScopeId,
-    thread_name: String,
 }
 
 #[derive(Copy, Clone, Default)]
@@ -169,36 +165,28 @@ struct ScopeStats {
     max_ns: NanoSecond,
 }
 
-fn collect_stream(
-    stats: &mut Stats,
-    thread_name: &str,
-    stream: &puffin::Stream,
-) -> puffin::Result<()> {
+fn collect_stream(stats: &mut Stats, stream: &puffin::Stream) -> puffin::Result<()> {
     for scope in puffin::Reader::from_start(stream) {
-        collect_scope(stats, thread_name, stream, &scope?)?;
+        collect_scope(stats, stream, &scope?)?;
     }
     Ok(())
 }
 
 fn collect_scope<'s>(
     stats: &mut Stats,
-    thread_name: &str,
     stream: &'s puffin::Stream,
     scope: &puffin::Scope<'s>,
 ) -> puffin::Result<()> {
     let mut ns_used_by_children = 0;
     for child_scope in Reader::with_offset(stream, scope.child_begin_position)? {
         let child_scope = &child_scope?;
-        collect_scope(stats, thread_name, stream, child_scope)?;
+        collect_scope(stats, stream, child_scope)?;
         ns_used_by_children += child_scope.record.duration_ns;
     }
 
     let self_time = scope.record.duration_ns.saturating_sub(ns_used_by_children);
 
-    let key = Key {
-        id: scope.id,
-        thread_name: thread_name.to_owned(),
-    };
+    let key = Key { id: scope.id };
     let scope_stats = stats.scopes.entry(key).or_default();
     scope_stats.count += 1;
     scope_stats.bytes += scope_byte_size(scope);
