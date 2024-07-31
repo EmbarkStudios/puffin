@@ -146,13 +146,13 @@ impl Server {
     ///
     ///                 /// Installs the server's sink into the custom profiler
     ///                 #[doc(hidden)]
-    ///                 fn [< $name:lower _profiler_server_install >](sink: puffin::FrameSink) -> FrameSinkId {
+    ///                 fn [< $name:lower _profiler_server_install >](sink: puffin::FrameSink) -> puffin::FrameSinkId {
     ///                     [< $name:lower _profiler_lock >]().add_sink(sink)
     ///                 }
     ///
     ///                 /// Drops the server's sink and removes from profiler
     ///                 #[doc(hidden)]
-    ///                 fn [< $name:lower _profiler_server_drop >](id: FrameSinkId){
+    ///                 fn [< $name:lower _profiler_server_drop >](id: puffin::FrameSinkId){
     ///                     [< $name:lower _profiler_lock >]().remove_sink(id);
     ///                 }
     ///
