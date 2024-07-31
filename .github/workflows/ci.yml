@@ -12,6 +12,11 @@ concurrency:
   cancel-in-progress: true
 
 name: CI
+
+env:
+  RUSTFLAGS: -D warnings
+  RUSTDOCFLAGS: -D warnings
+
 jobs:
   lint:
     name: Lint

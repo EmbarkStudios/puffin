@@ -12,7 +12,7 @@ use crate::StreamInfoRef;
 
 /// Report a stream of profile data from a thread to the [`GlobalProfiler`] singleton.
 /// This is used for internal purposes only
-pub(crate) fn internal_profile_reporter(
+pub fn internal_profile_reporter(
     info: ThreadInfo,
     scope_details: &[ScopeDetails],
     stream_scope_times: &StreamInfoRef<'_>,
@@ -47,10 +47,10 @@ impl Default for ThreadProfiler {
 impl ThreadProfiler {
     /// Explicit initialize with custom callbacks.
     ///
-    /// If not called, each thread will use the default nanosecond source ([`now_ns()`])
-    /// and report scopes to the global profiler ([`internal_profile_reporter()`]).
+    /// If not called, each thread will use the default nanosecond source ([`crate::now_ns`])
+    /// and report scopes to the global profiler ([`internal_profile_reporter`]).
     ///
-    /// For instance, when compiling for WASM the default timing function ([`now_ns()`]) won't work,
+    /// For instance, when compiling for WASM the default timing function ([`crate::now_ns`]) won't work,
     /// so you'll want to call `puffin::ThreadProfiler::initialize(my_timing_function, internal_profile_reporter);`.
     pub fn initialize(now_ns: NsSource, reporter: ThreadReporter) {
         ThreadProfiler::call(|tp| {
