@@ -126,7 +126,7 @@ impl GlobalProfiler {
         new_scope_ids
     }
 
-    /// Reports some profiling data. Called from [`ThreadProfiler`].
+    /// Reports some profiling data. Called from [`crate::ThreadProfiler`].
     pub fn report(
         &mut self,
         info: ThreadInfo,

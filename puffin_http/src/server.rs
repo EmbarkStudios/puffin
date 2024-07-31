@@ -1,5 +1,5 @@
 use anyhow::Context as _;
-use puffin::{FrameView, GlobalProfiler};
+use puffin::{FrameSinkId, FrameView, GlobalProfiler};
 use std::{
     io::Write,
     net::{SocketAddr, TcpListener, TcpStream},
@@ -18,10 +18,10 @@ const MAX_FRAMES_IN_QUEUE: usize = 30;
 /// Drop to stop transmitting and listening for new connections.
 #[must_use = "When Server is dropped, the server is closed, so keep it around!"]
 pub struct Server {
-    sink_id: puffin::FrameSinkId,
+    sink_id: FrameSinkId,
     join_handle: Option<std::thread::JoinHandle<()>>,
     num_clients: Arc<AtomicUsize>,
-    sink_remove: fn(puffin::FrameSinkId) -> (),
+    sink_remove: fn(FrameSinkId) -> (),
 }
 
 impl Server {
@@ -29,10 +29,10 @@ impl Server {
     ///
     /// Connects to the [GlobalProfiler]
     pub fn new(bind_addr: &str) -> anyhow::Result<Self> {
-        fn global_add(sink: puffin::FrameSink) -> puffin::FrameSinkId {
+        fn global_add(sink: puffin::FrameSink) -> FrameSinkId {
             GlobalProfiler::lock().add_sink(sink)
         }
-        fn global_remove(id: puffin::FrameSinkId) {
+        fn global_remove(id: FrameSinkId) {
             GlobalProfiler::lock().remove_sink(id);
         }
 
@@ -45,7 +45,7 @@ impl Server {
     /// * `bind_addr` - The address to bind to, when listening for connections
     /// (e.g. "localhost:8585" or "127.0.0.1:8585")
     /// * `sink_install` - A function that installs the [Server]'s sink into
-    /// a [GlobalProfiler], and then returns the [FrameSinkId] so that the sink can be removed later
+    /// a [`GlobalProfiler`], and then returns the [`FrameSinkId`] so that the sink can be removed later
     /// * `sink_remove` - A function that reverts `sink_install`.
     /// This should be a call to remove the sink from the profiler ([GlobalProfiler::remove_sink])
     ///
@@ -146,13 +146,13 @@ impl Server {
     ///
     ///                 /// Installs the server's sink into the custom profiler
     ///                 #[doc(hidden)]
-    ///                 fn [< $name:lower _profiler_server_install >](sink: puffin::FrameSink) -> puffin::FrameSinkId {
+    ///                 fn [< $name:lower _profiler_server_install >](sink: puffin::FrameSink) -> FrameSinkId {
     ///                     [< $name:lower _profiler_lock >]().add_sink(sink)
     ///                 }
     ///
     ///                 /// Drops the server's sink and removes from profiler
     ///                 #[doc(hidden)]
-    ///                 fn [< $name:lower _profiler_server_drop >](id: puffin::FrameSinkId){
+    ///                 fn [< $name:lower _profiler_server_drop >](id: FrameSinkId){
     ///                     [< $name:lower _profiler_lock >]().remove_sink(id);
     ///                 }
     ///
@@ -223,8 +223,8 @@ impl Server {
     /// ```
     pub fn new_custom(
         bind_addr: &str,
-        sink_install: fn(puffin::FrameSink) -> puffin::FrameSinkId,
-        sink_remove: fn(puffin::FrameSinkId) -> (),
+        sink_install: fn(puffin::FrameSink) -> FrameSinkId,
+        sink_remove: fn(FrameSinkId) -> (),
     ) -> anyhow::Result<Self> {
         let tcp_listener = TcpListener::bind(bind_addr).context("binding server TCP socket")?;
         tcp_listener
