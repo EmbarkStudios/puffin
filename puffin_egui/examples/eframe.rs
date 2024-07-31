@@ -2,7 +2,9 @@ use eframe::egui;
 
 fn main() -> eframe::Result<()> {
     let mut frame_counter = 0;
-    let mut keep_repainting = false;
+    let mut keep_repainting = true;
+
+    puffin::set_scopes_on(true);
 
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default().with_inner_size([320.0, 240.0]),
@@ -43,7 +45,7 @@ fn main() -> eframe::Result<()> {
             })
             .unwrap();
 
-        sleep_ms(14);
+        sleep_ms(9);
         if frame_counter % 49 == 0 {
             puffin::profile_scope!("Spike");
             std::thread::sleep(std::time::Duration::from_millis(20))

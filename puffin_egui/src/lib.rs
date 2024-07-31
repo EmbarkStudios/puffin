@@ -444,10 +444,17 @@ impl ProfilerUi {
             return;
         };
 
+        ui.scope(|ui| {
+            ui.spacing_mut().item_spacing.y = 6.0;
+            self.ui_impl(ui, frame_view);
+        });
+    }
+
+    fn ui_impl(&mut self, ui: &mut egui::Ui, frame_view: &mut MaybeMutRef<'_, FrameView>) {
         let mut hovered_frame = None;
 
-        egui::CollapsingHeader::new("Frames")
-            .default_open(true)
+        egui::CollapsingHeader::new("Frame history")
+            .default_open(false)
             .show(ui, |ui| {
                 hovered_frame = self.show_frames(ui, frame_view);
             });
@@ -518,22 +525,33 @@ impl ProfilerUi {
                     }
                 });
             }
-            ui.separator();
+
             frames_info_ui(ui, &frames);
         });
+
+        if frames.frames.len() == 1 {
+            let frame = frames.frames.first();
+
+            let num_scopes = frame.meta.num_scopes;
+            let overhead_ms = num_scopes as f64 * 50.0e-6; // Around 50 ns per scope on an Apple M1.
+            if overhead_ms > 0.5 {
+                let text = format!(
+                    "There are {num_scopes} scopes in this frame, which adds up to ~{overhead_ms:.1} ms of overhead.\n\
+                    Use the Table view to find which scopes are triggered often, and either remove them or replace them with profile_function_if!()");
+
+                ui.label(egui::RichText::new(text).color(ui.visuals().warn_fg_color));
+            }
+        }
 
         if self.paused.is_none() {
             ui.ctx().request_repaint(); // keep refreshing to see latest data
         }
 
-        ui.separator();
-
         ui.horizontal(|ui| {
+            ui.label("View:");
             ui.selectable_value(&mut self.view, View::Flamegraph, "Flamegraph");
-            ui.selectable_value(&mut self.view, View::Stats, "Stats");
+            ui.selectable_value(&mut self.view, View::Stats, "Table");
         });
-
-        ui.separator();
 
         match self.view {
             View::Flamegraph => flamegraph::ui(
@@ -565,7 +583,28 @@ impl ProfilerUi {
 
         egui::Grid::new("frame_grid").num_columns(2).show(ui, |ui| {
             ui.label("");
-            ui.label("Click to select a frame, or drag to select multiple frames.");
+            ui.horizontal(|ui| {
+                ui.label("Click to select a frame, or drag to select multiple frames.");
+
+                ui.menu_button("🔧 Settings", |ui| {
+                    let uniq = &frames.uniq;
+                    let stats = &frames.stats;
+
+                    ui.label(format!(
+                        "{} frames ({} unpacked) using approximately {:.1} MB.",
+                        stats.frames(),
+                        stats.unpacked_frames(),
+                        stats.bytes_of_ram_used() as f64 * 1e-6
+                    ));
+
+                    if let Some(frame_view) = frame_view.as_mut() {
+                        max_frames_ui(ui, frame_view, uniq);
+                        if self.paused.is_none() {
+                            max_num_latest_ui(ui, &mut self.max_num_latest);
+                        }
+                    }
+                });
+            });
             ui.end_row();
 
             ui.label("Recent:");
@@ -624,25 +663,6 @@ impl ProfilerUi {
                 );
             });
         });
-
-        {
-            let uniq = &frames.uniq;
-            let stats = &frames.stats;
-
-            ui.label(format!(
-                "{} frames ({} unpacked) using approximately {:.1} MB.",
-                stats.frames(),
-                stats.unpacked_frames(),
-                stats.bytes_of_ram_used() as f64 * 1e-6
-            ));
-
-            if let Some(frame_view) = frame_view.as_mut() {
-                max_frames_ui(ui, frame_view, uniq);
-                if self.paused.is_none() {
-                    max_num_latest_ui(ui, &mut self.max_num_latest);
-                }
-            }
-        }
 
         hovered_frame
     }
@@ -782,7 +802,6 @@ fn frames_info_ui(ui: &mut egui::Ui, selection: &SelectedFrames) {
     for frame in &selection.frames {
         let (min_ns, max_ns) = frame.range_ns();
         sum_ns += max_ns - min_ns;
-
         sum_scopes += frame.meta.num_scopes;
     }
 
@@ -802,11 +821,9 @@ fn frames_info_ui(ui: &mut egui::Ui, selection: &SelectedFrames) {
     };
 
     let mut info = format!(
-        "Showing {}, {:.1} ms, {} threads, {} scopes.",
-        frame_indices,
+        "Showing {frame_indices}, {:.1} ms, {} threads, {sum_scopes} scopes.",
         sum_ns as f64 * 1e-6,
         selection.threads.len(),
-        sum_scopes,
     );
     if let Some(time) = format_time(selection.raw_range_ns.0) {
         let _ = write!(&mut info, " Recorded {time}.");

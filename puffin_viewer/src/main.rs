@@ -60,6 +60,7 @@ fn main() -> Result<(), eframe::Error> {
         viewport: eframe::egui::ViewportBuilder::default()
             .with_app_id("puffin_viewer")
             .with_drag_and_drop(true)
+            .with_inner_size([1400.0, 1000.0])
             .with_icon(icon),
         ..Default::default()
     };

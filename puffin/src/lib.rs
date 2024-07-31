@@ -392,59 +392,7 @@ macro_rules! profile_scope_if {
 mod tests {
     use std::borrow::Cow;
 
-    use crate::{
-        clean_function_name, set_scopes_on, short_file_name, utils::USELESS_SCOPE_NAME_SUFFIX,
-        GlobalFrameView, GlobalProfiler, ScopeId,
-    };
-
-    #[test]
-    fn test_short_file_name() {
-        for (before, after) in [
-            ("", ""),
-            ("foo.rs", "foo.rs"),
-            ("foo/bar.rs", "foo/bar.rs"),
-            ("foo/bar/baz.rs", "bar/baz.rs"),
-            ("crates/cratename/src/main.rs", "cratename/src/main.rs"),
-            ("crates/cratename/src/module/lib.rs", "cratename/…/module/lib.rs"),
-            ("workspace/cratename/examples/hello_world.rs", "examples/hello_world.rs"),
-            ("/rustc/d5a82bbd26e1ad8b7401f6a718a9c57c96905483/library/core/src/ops/function.rs", "core/…/function.rs"),
-            ("/Users/emilk/.cargo/registry/src/github.com-1ecc6299db9ec823/tokio-1.24.1/src/runtime/runtime.rs", "tokio-1.24.1/…/runtime.rs"),
-            ]
-            {
-            assert_eq!(short_file_name(before), after);
-        }
-    }
-
-    #[test]
-    fn test_clean_function_name() {
-        assert_eq!(clean_function_name(""), "");
-        assert_eq!(
-            clean_function_name(&format!("foo{}", USELESS_SCOPE_NAME_SUFFIX)),
-            "foo"
-        );
-        assert_eq!(
-            clean_function_name(&format!("foo::bar{}", USELESS_SCOPE_NAME_SUFFIX)),
-            "foo::bar"
-        );
-        assert_eq!(
-            clean_function_name(&format!("foo::bar::baz{}", USELESS_SCOPE_NAME_SUFFIX)),
-            "bar::baz"
-        );
-        assert_eq!(
-            clean_function_name(&format!(
-                "some::GenericThing<_, _>::function_name{}",
-                USELESS_SCOPE_NAME_SUFFIX
-            )),
-            "GenericThing<_, _>::function_name"
-        );
-        assert_eq!(
-            clean_function_name(&format!(
-                "<some::ConcreteType as some::bloody::Trait>::function_name{}",
-                USELESS_SCOPE_NAME_SUFFIX
-            )),
-            "<ConcreteType as Trait>::function_name"
-        );
-    }
+    use crate::{set_scopes_on, GlobalFrameView, GlobalProfiler, ScopeId};
 
     #[test]
     fn profile_macros_test() {

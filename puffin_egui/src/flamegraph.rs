@@ -128,7 +128,7 @@ pub struct Options {
     grid_spacing_micros: f64,
 
     #[cfg_attr(feature = "serde", serde(skip))]
-    filter: Filter,
+    scope_name_filter: Filter,
 
     /// Set when user clicks a scope.
     /// First part is `now()`, second is range.
@@ -158,7 +158,7 @@ impl Default for Options {
             grid_spacing_micros: 1.,
 
             sorting: Default::default(),
-            filter: Default::default(),
+            scope_name_filter: Default::default(),
 
             zoom_to_relative_ns_range: None,
             flamegraph_threads: IndexMap::new(),
@@ -229,40 +229,23 @@ pub fn ui(
     }
 
     ui.horizontal(|ui| {
-        ui.vertical(|ui| {
-            ui.horizontal(|ui| {
-                ui.colored_label(ui.visuals().widgets.inactive.text_color(), "❓")
-                    .on_hover_text(
-                        "Drag to pan.\n\
-            Zoom: Ctrl/cmd + scroll, or drag with secondary mouse button.\n\
-            Click on a scope to zoom to it.\n\
-            Double-click to reset view.\n\
-            Press spacebar to pause/resume.",
-                    );
+        options.scope_name_filter.ui(ui);
 
-                ui.separator();
+        ui.menu_button("🔧 Settings", |ui| {
+            ui.set_max_height(500.0);
 
-                ui.horizontal(|ui| {
-                    let changed = ui
-                        .checkbox(&mut options.merge_scopes, "Merge children with same ID")
-                        .changed();
-                    // If we have multiple frames selected this will toggle
-                    // if we view all the frames, or an average of them,
-                    // and that difference is pretty massive, so help the user:
-                    if changed && num_frames > 1 {
-                        reset_view = true;
-                    }
-                });
+            {
+                let changed = ui
+                    .checkbox(&mut options.merge_scopes, "Merge children with same ID")
+                    .changed();
+                // If we have multiple frames selected this will toggle
+                // if we view all the frames, or an average of them,
+                // and that difference is pretty massive, so help the user:
+                if changed && num_frames > 1 {
+                    reset_view = true;
+                }
+            }
 
-                ui.separator();
-
-                // The number of threads can change between frames, so always show this even if there currently is only one thread:
-                options.sorting.ui(ui);
-            });
-
-            options.filter.ui(ui);
-
-            // Grid spacing interval selector.
             ui.horizontal(|ui| {
                 ui.label("Grid spacing:");
                 let grid_spacing_drag = DragValue::new(&mut options.grid_spacing_micros)
@@ -271,13 +254,13 @@ pub fn ui(
                     .suffix(" µs");
                 grid_spacing_drag.ui(ui);
             });
-        });
 
-        ui.collapsing("Visible Threads", |ui| {
-            egui::ScrollArea::vertical()
-                .max_height(150.0)
-                .id_source("f")
-                .show(ui, |ui| {
+            // The number of threads can change between frames, so always show this even if there currently is only one thread:
+            options.sorting.ui(ui);
+
+            ui.group(|ui| {
+                ui.strong("Visible Threads");
+                egui::ScrollArea::vertical().id_source("f").show(ui, |ui| {
                     for f in frames.threads.keys() {
                         let entry = options
                             .flamegraph_threads
@@ -286,12 +269,23 @@ pub fn ui(
                         ui.checkbox(&mut entry.flamegraph_show, f.name.clone());
                     }
                 });
+            });
+        });
+
+        ui.menu_button("❓", |ui| {
+            ui.label(
+                "Drag to pan.\n\
+                        Zoom: Ctrl/cmd + scroll, or drag with secondary mouse button.\n\
+                        Click on a scope to zoom to it.\n\
+                        Double-click to reset view.\n\
+                        Press spacebar to pause/resume.",
+            );
         });
     });
 
-    ui.separator();
-
     Frame::dark_canvas(ui.style()).show(ui, |ui| {
+        ui.visuals_mut().clip_rect_margin = 0.0;
+
         let available_height = ui.max_rect().bottom() - ui.min_rect().bottom();
         ScrollArea::vertical().show(ui, |ui| {
             let mut canvas = ui.available_rect_before_wrap();
@@ -515,7 +509,11 @@ fn paint_timeline(
         return shapes;
     }
 
-    let alpha_multiplier = if options.filter.is_empty() { 0.3 } else { 0.1 };
+    let alpha_multiplier = if options.scope_name_filter.is_empty() {
+        0.3
+    } else {
+        0.1
+    };
 
     // We show all measurements relative to start_ns
 
@@ -652,7 +650,9 @@ fn paint_record(
     if info.response.double_clicked() {
         if let Some(mouse_pos) = info.response.interact_pointer_pos() {
             if rect.contains(mouse_pos) {
-                options.filter.set_filter(scope_details.name().to_string());
+                options
+                    .scope_name_filter
+                    .set_filter(scope_details.name().to_string());
             }
         }
     } else if is_hovered && info.response.clicked() {
@@ -673,8 +673,8 @@ fn paint_record(
 
     let mut min_width = options.min_width;
 
-    if !options.filter.is_empty() {
-        if options.filter.include(scope_details.name()) {
+    if !options.scope_name_filter.is_empty() {
+        if options.scope_name_filter.include(scope_details.name()) {
             // keep full opacity
             min_width *= 2.0; // make it more visible even when thin
         } else {
@@ -785,7 +785,7 @@ fn paint_scope(
                 Id::new("puffin_profiler_tooltip"),
                 |ui| {
                     paint_scope_details(ui, scope.id, scope.record.data, scope_details);
-                    add_space(ui);
+
                     ui.monospace(format!(
                         "duration: {:7.3} ms",
                         to_ms(scope.record.duration_ns)
@@ -908,8 +908,6 @@ fn merge_scope_tooltip(
 
     paint_scope_details(ui, merge.id, &merge.data, scope_details);
 
-    add_space(ui);
-
     if num_frames <= 1 {
         if merge.num_pieces <= 1 {
             ui.monospace(format!(
@@ -996,9 +994,4 @@ fn paint_thread_info(info: &Info<'_>, thread: &ThreadInfo, pos: Pos2, collapsed:
     if is_hovered && info.response.clicked() {
         *collapsed = !(*collapsed);
     }
-}
-
-fn add_space(ui: &mut Ui) {
-    // a separator will make the parent tooltip unnecessarily wide (immediate mode problems)
-    ui.add_space(8.0);
 }

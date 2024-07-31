@@ -19,8 +19,8 @@ pub fn ui(
 
     for frame in frames {
         threads.extend(frame.thread_streams.keys());
-        for (thread_info, stream) in &frame.thread_streams {
-            collect_stream(&mut stats, &thread_info.name, &stream.stream).ok();
+        for stream in frame.thread_streams.values() {
+            collect_stream(&mut stats, &stream.stream).ok();
         }
     }
 
@@ -31,21 +31,18 @@ pub fn ui(
         total_ns += scope.total_self_ns;
     }
 
-    ui.label("This view can be used to find scopes that use up a lot of bandwidth, and should maybe be removed.");
+    ui.label("This view can be used to find functions that are called a lot.\n\
+              The overhead of a profile scope is around ~50ns, so remove profile scopes from fast functions that are called often.");
 
     ui.label(format!(
-        "Current frame: {} unique scopes, using a total of {:.1} kB, covering {:.1} ms over {} thread(s)",
+        "Currently viewing {} unique scopes, using a total of {:.1} kB, covering {:.1} ms over {} thread(s)",
         stats.scopes.len(),
         total_bytes as f32 * 1e-3,
         total_ns as f32 * 1e-6,
         threads.len()
     ));
 
-    ui.separator();
-
     options.filter.ui(ui);
-
-    ui.separator();
 
     let mut scopes: Vec<_> = stats
         .scopes
@@ -53,51 +50,111 @@ pub fn ui(
         .map(|(key, value)| (key, *value))
         .collect();
     scopes.sort_by_key(|(key, _)| *key);
-    scopes.sort_by_key(|(_key, scope_stats)| scope_stats.bytes);
+    scopes.sort_by_key(|(_key, scope_stats)| scope_stats.count);
     scopes.reverse();
 
-    egui::ScrollArea::vertical().show(ui, |ui| {
-        egui::Grid::new("table")
-            .spacing([32.0, ui.spacing().item_spacing.y])
-            .show(ui, |ui| {
-                ui.heading("Thread");
-                ui.heading("Location");
-                ui.heading("Function Name");
-                ui.heading("Scope Name");
-                ui.heading("Count");
-                ui.heading("Size");
-                ui.heading("Total self time");
-                ui.heading("Mean self time");
-                ui.heading("Max self time");
-                ui.end_row();
+    egui::ScrollArea::horizontal().show(ui, |ui| {
+        ui.style_mut().wrap_mode = Some(egui::TextWrapMode::Extend);
+        ui.spacing_mut().item_spacing.x = 16.0;
 
+        egui_extras::TableBuilder::new(ui)
+            .striped(true)
+            .columns(
+                egui_extras::Column::auto_with_initial_suggestion(200.0).resizable(true),
+                3,
+            )
+            .columns(egui_extras::Column::auto().resizable(false), 6)
+            .header(20.0, |mut header| {
+                header.col(|ui| {
+                    ui.strong("Location");
+                });
+                header.col(|ui| {
+                    ui.strong("Function Name");
+                });
+                header.col(|ui| {
+                    ui.strong("Scope Name");
+                });
+                header.col(|ui| {
+                    ui.strong("Count");
+                });
+                header.col(|ui| {
+                    ui.strong("Size");
+                });
+                header.col(|ui| {
+                    ui.strong("Total self time");
+                });
+                header.col(|ui| {
+                    ui.strong("Mean self time");
+                });
+                header.col(|ui| {
+                    ui.strong("Max self time");
+                });
+            })
+            .body(|mut body| {
                 for (key, stats) in &scopes {
                     let Some(scope_details) = scope_infos.fetch_by_id(&key.id) else {
                         continue;
                     };
 
-                    if !options.filter.include(scope_details.name()) {
-                        return;
+                    if !options.filter.is_empty() {
+                        let mut matches = options.filter.include(&scope_details.function_name);
+
+                        if let Some(scope_name) = &scope_details.scope_name {
+                            matches |= options.filter.include(scope_name);
+                        }
+
+                        if !matches {
+                            continue;
+                        }
                     }
 
-                    ui.label(&key.thread_name);
-                    ui.label(scope_details.location());
-                    ui.label(scope_details.function_name.as_str());
+                    body.row(14.0, |mut row| {
+                        row.col(|ui| {
+                            ui.style_mut().wrap_mode = Some(egui::TextWrapMode::Truncate);
+                            ui.label(scope_details.location());
+                        });
+                        row.col(|ui| {
+                            ui.style_mut().wrap_mode = Some(egui::TextWrapMode::Truncate);
+                            ui.label(scope_details.function_name.as_str());
+                        });
 
-                    if let Some(name) = &scope_details.scope_name {
-                        ui.label(name.as_ref());
-                    } else {
-                        ui.label("-");
-                    }
-                    ui.monospace(format!("{:>5}", stats.count));
-                    ui.monospace(format!("{:>6.1} kB", stats.bytes as f32 * 1e-3));
-                    ui.monospace(format!("{:>8.1} µs", stats.total_self_ns as f32 * 1e-3));
-                    ui.monospace(format!(
-                        "{:>8.1} µs",
-                        stats.total_self_ns as f32 * 1e-3 / (stats.count as f32)
-                    ));
-                    ui.monospace(format!("{:>8.1} µs", stats.max_ns as f32 * 1e-3));
-                    ui.end_row();
+                        row.col(|ui| {
+                            if let Some(name) = &scope_details.scope_name {
+                                ui.style_mut().wrap_mode = Some(egui::TextWrapMode::Truncate);
+                                ui.label(name.as_ref());
+                            }
+                        });
+                        row.col(|ui| {
+                            let color = if stats.count < 1_000 {
+                                ui.visuals().text_color()
+                            } else if stats.count < 10_000 {
+                                ui.visuals().warn_fg_color
+                            } else {
+                                ui.visuals().error_fg_color
+                            };
+
+                            ui.label(
+                                egui::RichText::new(format!("{:>5}", stats.count))
+                                    .monospace()
+                                    .color(color),
+                            );
+                        });
+                        row.col(|ui| {
+                            ui.monospace(format!("{:>6.1} kB", stats.bytes as f32 * 1e-3));
+                        });
+                        row.col(|ui| {
+                            ui.monospace(format!("{:>8.1} µs", stats.total_self_ns as f32 * 1e-3));
+                        });
+                        row.col(|ui| {
+                            ui.monospace(format!(
+                                "{:>8.1} µs",
+                                stats.total_self_ns as f32 * 1e-3 / (stats.count as f32)
+                            ));
+                        });
+                        row.col(|ui| {
+                            ui.monospace(format!("{:>8.1} µs", stats.max_ns as f32 * 1e-3));
+                        });
+                    });
                 }
             });
     });
@@ -111,7 +168,6 @@ struct Stats {
 #[derive(Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
 struct Key {
     id: ScopeId,
-    thread_name: String,
 }
 
 #[derive(Copy, Clone, Default)]
@@ -126,36 +182,28 @@ struct ScopeStats {
     max_ns: NanoSecond,
 }
 
-fn collect_stream(
-    stats: &mut Stats,
-    thread_name: &str,
-    stream: &puffin::Stream,
-) -> puffin::Result<()> {
+fn collect_stream(stats: &mut Stats, stream: &puffin::Stream) -> puffin::Result<()> {
     for scope in puffin::Reader::from_start(stream) {
-        collect_scope(stats, thread_name, stream, &scope?)?;
+        collect_scope(stats, stream, &scope?)?;
     }
     Ok(())
 }
 
 fn collect_scope<'s>(
     stats: &mut Stats,
-    thread_name: &str,
     stream: &'s puffin::Stream,
     scope: &puffin::Scope<'s>,
 ) -> puffin::Result<()> {
     let mut ns_used_by_children = 0;
     for child_scope in Reader::with_offset(stream, scope.child_begin_position)? {
         let child_scope = &child_scope?;
-        collect_scope(stats, thread_name, stream, child_scope)?;
+        collect_scope(stats, stream, child_scope)?;
         ns_used_by_children += child_scope.record.duration_ns;
     }
 
     let self_time = scope.record.duration_ns.saturating_sub(ns_used_by_children);
 
-    let key = Key {
-        id: scope.id,
-        thread_name: thread_name.to_owned(),
-    };
+    let key = Key { id: scope.id };
     let scope_stats = stats.scopes.entry(key).or_default();
     scope_stats.count += 1;
     scope_stats.bytes += scope_byte_size(scope);
