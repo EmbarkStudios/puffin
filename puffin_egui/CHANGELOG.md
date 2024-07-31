@@ -6,6 +6,7 @@ All notable changes to the egui crate will be documented in this file.
 
 <!-- next-header -->
 ## [Unreleased] - ReleaseDate
+## [0.29.0] - 2024-07-31
 
 - [PR#214](https://github.com/EmbarkStudios/puffin/pull/214) Fix frame selection input handling
 - [PR#218](https://github.com/EmbarkStudios/puffin/pull/218) Fix flamegraph click intersection
@@ -183,7 +184,8 @@ All notable changes to the egui crate will be documented in this file.
 - The view supports viewing merged sibling scopes.
 
 <!-- next-url -->
-[Unreleased]: https://github.com/EmbarkStudios/puffin/compare/puffin_egui-0.27.1...HEAD
+[Unreleased]: https://github.com/EmbarkStudios/puffin/compare/puffin_egui-0.29.0...HEAD
+[0.29.0]: https://github.com/EmbarkStudios/puffin/compare/puffin_egui-0.27.1...puffin_egui-0.29.0
 [0.27.1]: https://github.com/EmbarkStudios/puffin/compare/puffin_egui-0.27.0...puffin_egui-0.27.1
 [0.27.0]: https://github.com/EmbarkStudios/puffin/compare/puffin_egui-0.26.0...puffin_egui-0.27.0
 [0.26.0]: https://github.com/EmbarkStudios/puffin/compare/puffin_egui-0.25.0...puffin_egui-0.26.0

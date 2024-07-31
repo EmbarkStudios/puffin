@@ -17,7 +17,7 @@ include = ["**/*.rs", "Cargo.toml", "README.md", "icon.png"]
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-puffin_egui = { version = "0.28.0", path = "../puffin_egui", features = [
+puffin_egui = { version = "0.29.0", path = "../puffin_egui", features = [
     "serde",
 ] }
 puffin = { version = "0.19.1", path = "../puffin", features = [
