@@ -56,21 +56,44 @@ pub fn ui(
     scopes.sort_by_key(|(_key, scope_stats)| scope_stats.bytes);
     scopes.reverse();
 
-    egui::ScrollArea::vertical().show(ui, |ui| {
-        egui::Grid::new("table")
-            .spacing([32.0, ui.spacing().item_spacing.y])
-            .show(ui, |ui| {
-                ui.heading("Thread");
-                ui.heading("Location");
-                ui.heading("Function Name");
-                ui.heading("Scope Name");
-                ui.heading("Count");
-                ui.heading("Size");
-                ui.heading("Total self time");
-                ui.heading("Mean self time");
-                ui.heading("Max self time");
-                ui.end_row();
+    egui::ScrollArea::horizontal().show(ui, |ui| {
+        ui.style_mut().wrap_mode = Some(egui::TextWrapMode::Extend);
 
+        egui_extras::TableBuilder::new(ui)
+            .columns(
+                egui_extras::Column::auto_with_initial_suggestion(200.0).resizable(true),
+                9,
+            )
+            .header(20.0, |mut header| {
+                header.col(|ui| {
+                    ui.heading("Thread");
+                });
+                header.col(|ui| {
+                    ui.heading("Location");
+                });
+                header.col(|ui| {
+                    ui.heading("Function Name");
+                });
+                header.col(|ui| {
+                    ui.heading("Scope Name");
+                });
+                header.col(|ui| {
+                    ui.heading("Count");
+                });
+                header.col(|ui| {
+                    ui.heading("Size");
+                });
+                header.col(|ui| {
+                    ui.heading("Total self time");
+                });
+                header.col(|ui| {
+                    ui.heading("Mean self time");
+                });
+                header.col(|ui| {
+                    ui.heading("Max self time");
+                });
+            })
+            .body(|mut body| {
                 for (key, stats) in &scopes {
                     let Some(scope_details) = scope_infos.fetch_by_id(&key.id) else {
                         continue;
@@ -80,24 +103,44 @@ pub fn ui(
                         return;
                     }
 
-                    ui.label(&key.thread_name);
-                    ui.label(scope_details.location());
-                    ui.label(scope_details.function_name.as_str());
+                    body.row(14.0, |mut row| {
+                        row.col(|ui| {
+                            ui.label(&key.thread_name);
+                        });
+                        row.col(|ui| {
+                            ui.style_mut().wrap_mode = Some(egui::TextWrapMode::Truncate);
+                            ui.label(scope_details.location());
+                        });
+                        row.col(|ui| {
+                            ui.style_mut().wrap_mode = Some(egui::TextWrapMode::Truncate);
+                            ui.label(scope_details.function_name.as_str());
+                        });
 
-                    if let Some(name) = &scope_details.scope_name {
-                        ui.label(name.as_ref());
-                    } else {
-                        ui.label("-");
-                    }
-                    ui.monospace(format!("{:>5}", stats.count));
-                    ui.monospace(format!("{:>6.1} kB", stats.bytes as f32 * 1e-3));
-                    ui.monospace(format!("{:>8.1} µs", stats.total_self_ns as f32 * 1e-3));
-                    ui.monospace(format!(
-                        "{:>8.1} µs",
-                        stats.total_self_ns as f32 * 1e-3 / (stats.count as f32)
-                    ));
-                    ui.monospace(format!("{:>8.1} µs", stats.max_ns as f32 * 1e-3));
-                    ui.end_row();
+                        row.col(|ui| {
+                            if let Some(name) = &scope_details.scope_name {
+                                ui.style_mut().wrap_mode = Some(egui::TextWrapMode::Truncate);
+                                ui.label(name.as_ref());
+                            }
+                        });
+                        row.col(|ui| {
+                            ui.monospace(format!("{:>5}", stats.count));
+                        });
+                        row.col(|ui| {
+                            ui.monospace(format!("{:>6.1} kB", stats.bytes as f32 * 1e-3));
+                        });
+                        row.col(|ui| {
+                            ui.monospace(format!("{:>8.1} µs", stats.total_self_ns as f32 * 1e-3));
+                        });
+                        row.col(|ui| {
+                            ui.monospace(format!(
+                                "{:>8.1} µs",
+                                stats.total_self_ns as f32 * 1e-3 / (stats.count as f32)
+                            ));
+                        });
+                        row.col(|ui| {
+                            ui.monospace(format!("{:>8.1} µs", stats.max_ns as f32 * 1e-3));
+                        });
+                    });
                 }
             });
     });
