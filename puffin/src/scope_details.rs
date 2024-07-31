@@ -95,14 +95,18 @@ pub struct ScopeDetails {
     /// Always initialized once registered.
     /// It is `None` when an external library has yet to register this scope.
     pub(crate) scope_id: Option<ScopeId>,
+
     /// A name for a profile scope, a function profile scope does not have a custom provided name.
     pub scope_name: Option<Cow<'static, str>>,
+
     /// The function name of the function in which this scope is contained.
     /// The name might be slightly modified to represent a short descriptive representation.
     pub function_name: Cow<'static, str>,
+
     /// The file path in which this scope is contained.
     /// The path might be slightly modified to represent a short descriptive representation.
     pub file_path: Cow<'static, str>,
+
     /// The exact line number at which this scope is located.
     pub line_nr: u32,
 }
