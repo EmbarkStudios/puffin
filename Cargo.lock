@@ -1730,6 +1730,7 @@ dependencies = [
  "byteorder",
  "cfg-if",
  "criterion",
+ "itertools",
  "js-sys",
  "lz4_flex",
  "once_cell",
