@@ -565,7 +565,28 @@ impl ProfilerUi {
 
         egui::Grid::new("frame_grid").num_columns(2).show(ui, |ui| {
             ui.label("");
-            ui.label("Click to select a frame, or drag to select multiple frames.");
+            ui.horizontal(|ui| {
+                ui.label("Click to select a frame, or drag to select multiple frames.");
+
+                ui.menu_button("🔧 Settings", |ui| {
+                    let uniq = &frames.uniq;
+                    let stats = &frames.stats;
+
+                    ui.label(format!(
+                        "{} frames ({} unpacked) using approximately {:.1} MB.",
+                        stats.frames(),
+                        stats.unpacked_frames(),
+                        stats.bytes_of_ram_used() as f64 * 1e-6
+                    ));
+
+                    if let Some(frame_view) = frame_view.as_mut() {
+                        max_frames_ui(ui, frame_view, uniq);
+                        if self.paused.is_none() {
+                            max_num_latest_ui(ui, &mut self.max_num_latest);
+                        }
+                    }
+                });
+            });
             ui.end_row();
 
             ui.label("Recent:");
@@ -624,25 +645,6 @@ impl ProfilerUi {
                 );
             });
         });
-
-        {
-            let uniq = &frames.uniq;
-            let stats = &frames.stats;
-
-            ui.label(format!(
-                "{} frames ({} unpacked) using approximately {:.1} MB.",
-                stats.frames(),
-                stats.unpacked_frames(),
-                stats.bytes_of_ram_used() as f64 * 1e-6
-            ));
-
-            if let Some(frame_view) = frame_view.as_mut() {
-                max_frames_ui(ui, frame_view, uniq);
-                if self.paused.is_none() {
-                    max_num_latest_ui(ui, &mut self.max_num_latest);
-                }
-            }
-        }
 
         hovered_frame
     }
@@ -864,4 +866,8 @@ fn max_num_latest_ui(ui: &mut egui::Ui, max_num_latest: &mut usize) {
         ui.label("Max latest frames to show:");
         ui.add(egui::Slider::new(max_num_latest, 1..=100).logarithmic(true));
     });
+}
+
+fn add_space(ui: &mut Ui) {
+    ui.add_space(8.0); // Looks better than a separator
 }
