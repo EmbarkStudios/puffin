@@ -31,7 +31,8 @@ pub fn ui(
         total_ns += scope.total_self_ns;
     }
 
-    ui.label("This view can be used to find scopes that use up a lot of bandwidth, and should maybe be removed.");
+    ui.label("This view can be used to find functions that are called a lot.");
+    ui.label("The overhead of a profile scope is around ~50ns, so remove profile scopes from fast functions that are called often.");
 
     ui.label(format!(
         "Current frame: {} unique scopes, using a total of {:.1} kB, covering {:.1} ms over {} thread(s)",
@@ -53,7 +54,7 @@ pub fn ui(
         .map(|(key, value)| (key, *value))
         .collect();
     scopes.sort_by_key(|(key, _)| *key);
-    scopes.sort_by_key(|(_key, scope_stats)| scope_stats.bytes);
+    scopes.sort_by_key(|(_key, scope_stats)| scope_stats.count);
     scopes.reverse();
 
     egui::ScrollArea::horizontal().show(ui, |ui| {
@@ -128,7 +129,19 @@ pub fn ui(
                             }
                         });
                         row.col(|ui| {
-                            ui.monospace(format!("{:>5}", stats.count));
+                            let color = if stats.count < 1_000 {
+                                ui.visuals().text_color()
+                            } else if stats.count < 10_000 {
+                                ui.visuals().warn_fg_color
+                            } else {
+                                ui.visuals().error_fg_color
+                            };
+
+                            ui.label(
+                                egui::RichText::new(format!("{:>5}", stats.count))
+                                    .monospace()
+                                    .color(color),
+                            );
                         });
                         row.col(|ui| {
                             ui.monospace(format!("{:>6.1} kB", stats.bytes as f32 * 1e-3));

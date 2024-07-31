@@ -523,6 +523,20 @@ impl ProfilerUi {
             frames_info_ui(ui, &frames);
         });
 
+        if frames.frames.len() == 1 {
+            let frame = frames.frames.first();
+
+            let num_scopes = frame.meta.num_scopes;
+            let overhead_ms = num_scopes as f64 * 50.0e-6; // Around 50 ns per scope on an Apple M1.
+            if overhead_ms > 0.5 {
+                let text = format!(
+                    "There are {num_scopes} scopes in this frame, which adds up to ~{overhead_ms:.1} ms of overhead.\n\
+                    Use the Table view to find which scopes are triggered often, and either remove them or replace them with profile_function_if!()");
+
+                ui.label(egui::RichText::new(text).color(ui.visuals().warn_fg_color));
+            }
+        }
+
         if self.paused.is_none() {
             ui.ctx().request_repaint(); // keep refreshing to see latest data
         }
@@ -786,7 +800,6 @@ fn frames_info_ui(ui: &mut egui::Ui, selection: &SelectedFrames) {
     for frame in &selection.frames {
         let (min_ns, max_ns) = frame.range_ns();
         sum_ns += max_ns - min_ns;
-
         sum_scopes += frame.meta.num_scopes;
     }
 
@@ -806,11 +819,9 @@ fn frames_info_ui(ui: &mut egui::Ui, selection: &SelectedFrames) {
     };
 
     let mut info = format!(
-        "Showing {}, {:.1} ms, {} threads, {} scopes.",
-        frame_indices,
+        "Showing {frame_indices}, {:.1} ms, {} threads, {sum_scopes} scopes.",
         sum_ns as f64 * 1e-6,
         selection.threads.len(),
-        sum_scopes,
     );
     if let Some(time) = format_time(selection.raw_range_ns.0) {
         let _ = write!(&mut info, " Recorded {time}.");
