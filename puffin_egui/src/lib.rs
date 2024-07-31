@@ -447,7 +447,7 @@ impl ProfilerUi {
         let mut hovered_frame = None;
 
         egui::CollapsingHeader::new("Frames")
-            .default_open(true)
+            .default_open(false)
             .show(ui, |ui| {
                 hovered_frame = self.show_frames(ui, frame_view);
             });
