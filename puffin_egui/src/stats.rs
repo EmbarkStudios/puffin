@@ -99,8 +99,16 @@ pub fn ui(
                         continue;
                     };
 
-                    if !options.filter.include(scope_details.name()) {
-                        return;
+                    if !options.filter.is_empty() {
+                        let mut matches = options.filter.include(&scope_details.function_name);
+
+                        if let Some(scope_name) = &scope_details.scope_name {
+                            matches |= options.filter.include(scope_name);
+                        }
+
+                        if !matches {
+                            continue;
+                        }
                     }
 
                     body.row(14.0, |mut row| {
