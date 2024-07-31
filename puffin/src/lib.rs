@@ -55,6 +55,8 @@ pub fn set_scopes_on(on: bool) {
 
 /// Are the profiler scope macros turned on?
 /// This is [`false`] by default.
+///
+/// Turn on with [`set_scopes_on`].
 pub fn are_scopes_on() -> bool {
     MACROS_ON.load(Ordering::Relaxed)
 }
@@ -176,7 +178,6 @@ macro_rules! current_function_name {
     }};
 }
 
-#[allow(clippy::doc_markdown)] // clippy wants to put "MacBook" in ticks 🙄
 /// Automatically name the profiling scope based on function name.
 ///
 /// Names should be descriptive, ASCII and without spaces.
@@ -205,13 +206,55 @@ macro_rules! current_function_name {
 /// ```
 ///
 /// Overhead: around 54 ns on Macbook Pro with Apple M1 Max.
+///
+/// If the puffin profiler is turned off ([`crate::are_scopes_on`] is `false`),
+/// the cost is only checking an `AtomicBool`, which is less than 1ns.
+///
+/// You can conditionally profile a function with [`profile_function_if`].
 #[macro_export]
 macro_rules! profile_function {
     () => {
-        $crate::profile_function!("");
+        $crate::profile_function_if!(true, "");
     };
     ($data:expr) => {
-        let _profiler_scope = if $crate::are_scopes_on() {
+        $crate::profile_function_if!(true, $data);
+    };
+}
+
+/// Conditionally profile the current function.
+///
+/// This can be useful to avoid profiler overhead for functions that are sometimes fast and called often.
+///
+/// For instance:
+///
+/// ```rs
+/// /// Very fast if given a small number,
+/// /// and very slow if given a large number.
+/// ///
+/// /// This is sometimes called many, many times with small numbers,
+/// /// and sometimes only a few times, but with a large number.
+/// fn do_work(num_jobs: usize) {
+///     puffin::profile_function_if!(num_jobs > 1000);
+///     // …
+/// }
+///
+/// fn caller() {
+///     do_work(10_000_000); // will get profiled
+///
+///     for i in 0..10_000_000 {
+///         do_work(1); // no proile scopes, meaning no profiler overhead.
+///     }
+/// }
+/// ```
+///
+/// If [`crate::are_scopes_on`] is `false`, the condition is not evaluated.
+#[macro_export]
+macro_rules! profile_function_if {
+    ($condition:expr) => {
+        $crate::profile_function_if!($condition, "");
+    };
+    ($condition:expr, $data:expr) => {
+        let _profiler_scope = if $crate::are_scopes_on() && ($condition) {
             static SCOPE_ID: std::sync::OnceLock<$crate::ScopeId> = std::sync::OnceLock::new();
             let scope_id = SCOPE_ID.get_or_init(|| {
                 $crate::ThreadProfiler::call(|tp| {
@@ -267,10 +310,25 @@ macro_rules! profile_function {
 #[macro_export]
 macro_rules! profile_scope_custom {
     ($name:expr) => {
-        $crate::profile_scope_custom!($name, "")
+        $crate::profile_scope_custom_if!(true, $name, "")
     };
     ($name:expr, $data:expr) => {{
-        if $crate::are_scopes_on() {
+        $crate::profile_scope_custom_if!(true, $name, $data)
+    }};
+}
+
+/// Like [`profile_scope_custom`], but only conditionally profiles the scope.
+///
+/// This can be used to avoid profiling overhead for scopes that are sometimes fast and called often.
+///
+/// See [`profile_function_if`] for a motivating example.
+#[macro_export]
+macro_rules! profile_scope_custom_if {
+    ($condition:expr, $name:expr) => {
+        $crate::profile_scope_custom_if!($condition, $name, "")
+    };
+    ($condition:expr, $name:expr, $data:expr) => {{
+        if $crate::are_scopes_on() && ($condition) {
             static SCOPE_ID: std::sync::OnceLock<$crate::ScopeId> = std::sync::OnceLock::new();
             let scope_id = SCOPE_ID.get_or_init(|| {
                 $crate::ThreadProfiler::call(|tp| {
@@ -290,7 +348,6 @@ macro_rules! profile_scope_custom {
     }};
 }
 
-#[allow(clippy::doc_markdown)] // clippy wants to put "MacBook" in ticks 🙄
 /// Profile the current scope with the given name (unique in the parent scope).
 ///
 /// Names should be descriptive, ASCII and without spaces.
@@ -301,13 +358,33 @@ macro_rules! profile_scope_custom {
 /// Example: `profile_scope!("load_mesh", mesh_name);`
 ///
 /// Overhead: around 54 ns on Macbook Pro with Apple M1 Max.
+///
+/// If the puffin profiler is turned off ([`crate::are_scopes_on`] is `false`),
+/// the cost is only checking an `AtomicBool`, which is less than 1ns.
+///
+/// You can conditionally profile a scope with [`profile_scope_if`].
 #[macro_export]
 macro_rules! profile_scope {
     ($name:expr) => {
-        $crate::profile_scope!($name, "");
+        $crate::profile_scope_if!(true, $name, "");
     };
     ($name:expr, $data:expr) => {
-        let _profiler_scope = $crate::profile_scope_custom!($name, $data);
+        $crate::profile_scope_if!(true, $name, $data);
+    };
+}
+
+/// Like [`profile_scope`], but only conditionally profiles the scope.
+///
+/// This can be used to avoid profiling overhead for scopes that are sometimes fast and called often.
+///
+/// See [`profile_function_if`] for a motivating example.
+#[macro_export]
+macro_rules! profile_scope_if {
+    ($condition:expr, $name:expr) => {
+        $crate::profile_scope_if!($condition, $name, "");
+    };
+    ($condition:expr, $name:expr, $data:expr) => {
+        let _profiler_scope = $crate::profile_scope_custom_if!($condition, $name, $data);
     };
 }
 
