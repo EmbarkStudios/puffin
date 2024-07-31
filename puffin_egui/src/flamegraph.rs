@@ -277,14 +277,15 @@ pub fn ui(
 
         add_space(ui);
 
-        ui.colored_label(ui.visuals().widgets.inactive.text_color(), "❓")
-            .on_hover_text(
+        ui.menu_button("❓", |ui| {
+            ui.label(
                 "Drag to pan.\n\
                         Zoom: Ctrl/cmd + scroll, or drag with secondary mouse button.\n\
                         Click on a scope to zoom to it.\n\
                         Double-click to reset view.\n\
                         Press spacebar to pause/resume.",
             );
+        });
     });
 
     Frame::dark_canvas(ui.style()).show(ui, |ui| {
