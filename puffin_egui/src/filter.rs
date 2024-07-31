@@ -6,9 +6,11 @@ pub struct Filter {
 impl Filter {
     pub fn ui(&mut self, ui: &mut egui::Ui) {
         ui.horizontal(|ui| {
-            ui.label("Scope filter:");
-            ui.text_edit_singleline(&mut self.filter);
+            ui.spacing_mut().item_spacing.x = 4.0;
+
+            ui.add(egui::TextEdit::singleline(&mut self.filter).hint_text("Scope filter"));
             self.filter = self.filter.to_lowercase();
+
             if ui.button("ｘ").clicked() {
                 self.filter.clear();
             }

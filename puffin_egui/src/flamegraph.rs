@@ -1,7 +1,7 @@
 use std::vec;
 
 use super::{SelectedFrames, ERROR_COLOR, HOVER_COLOR};
-use crate::{add_space, filter::Filter};
+use crate::filter::Filter;
 use egui::*;
 use indexmap::IndexMap;
 use puffin::*;
@@ -231,9 +231,9 @@ pub fn ui(
     ui.horizontal(|ui| {
         options.scope_name_filter.ui(ui);
 
-        add_space(ui);
-
         ui.menu_button("🔧 Settings", |ui| {
+            ui.set_max_height(500.0);
+
             {
                 let changed = ui
                     .checkbox(&mut options.merge_scopes, "Merge children with same ID")
@@ -260,22 +260,17 @@ pub fn ui(
 
             ui.group(|ui| {
                 ui.strong("Visible Threads");
-                egui::ScrollArea::vertical()
-                    .max_height(150.0)
-                    .id_source("f")
-                    .show(ui, |ui| {
-                        for f in frames.threads.keys() {
-                            let entry = options
-                                .flamegraph_threads
-                                .entry(f.name.clone())
-                                .or_default();
-                            ui.checkbox(&mut entry.flamegraph_show, f.name.clone());
-                        }
-                    });
+                egui::ScrollArea::vertical().id_source("f").show(ui, |ui| {
+                    for f in frames.threads.keys() {
+                        let entry = options
+                            .flamegraph_threads
+                            .entry(f.name.clone())
+                            .or_default();
+                        ui.checkbox(&mut entry.flamegraph_show, f.name.clone());
+                    }
+                });
             });
         });
-
-        add_space(ui);
 
         ui.menu_button("❓", |ui| {
             ui.label(
@@ -788,7 +783,7 @@ fn paint_scope(
                 Id::new("puffin_profiler_tooltip"),
                 |ui| {
                     paint_scope_details(ui, scope.id, scope.record.data, scope_details);
-                    add_space(ui);
+
                     ui.monospace(format!(
                         "duration: {:7.3} ms",
                         to_ms(scope.record.duration_ns)
@@ -910,8 +905,6 @@ fn merge_scope_tooltip(
     };
 
     paint_scope_details(ui, merge.id, &merge.data, scope_details);
-
-    add_space(ui);
 
     if num_frames <= 1 {
         if merge.num_pieces <= 1 {

@@ -444,13 +444,19 @@ impl ProfilerUi {
             return;
         };
 
+        ui.scope(|ui| {
+            ui.spacing_mut().item_spacing.y = 6.0;
+            self.ui_impl(ui, frame_view);
+        });
+    }
+
+    fn ui_impl(&mut self, ui: &mut egui::Ui, frame_view: &mut MaybeMutRef<'_, FrameView>) {
         let mut hovered_frame = None;
 
         egui::CollapsingHeader::new("Frame history")
             .default_open(false)
             .show(ui, |ui| {
                 hovered_frame = self.show_frames(ui, frame_view);
-                ui.add_space(4.0);
             });
 
         let frames = if let Some(frame) = hovered_frame {
@@ -519,7 +525,7 @@ impl ProfilerUi {
                     }
                 });
             }
-            add_space(ui);
+
             frames_info_ui(ui, &frames);
         });
 
@@ -541,15 +547,11 @@ impl ProfilerUi {
             ui.ctx().request_repaint(); // keep refreshing to see latest data
         }
 
-        add_space(ui);
-
         ui.horizontal(|ui| {
             ui.label("View:");
             ui.selectable_value(&mut self.view, View::Flamegraph, "Flamegraph");
             ui.selectable_value(&mut self.view, View::Stats, "Table");
         });
-
-        add_space(ui);
 
         match self.view {
             View::Flamegraph => flamegraph::ui(
@@ -879,8 +881,4 @@ fn max_num_latest_ui(ui: &mut egui::Ui, max_num_latest: &mut usize) {
         ui.label("Max latest frames to show:");
         ui.add(egui::Slider::new(max_num_latest, 1..=100).logarithmic(true));
     });
-}
-
-fn add_space(ui: &mut Ui) {
-    ui.add_space(8.0); // Looks better than a separator
 }

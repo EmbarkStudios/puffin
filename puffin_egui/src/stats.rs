@@ -1,7 +1,7 @@
 use egui::TextBuffer;
 use puffin::*;
 
-use crate::{add_space, filter::Filter};
+use crate::filter::Filter;
 
 #[derive(Clone, Debug, Default)]
 pub struct Options {
@@ -31,22 +31,18 @@ pub fn ui(
         total_ns += scope.total_self_ns;
     }
 
-    ui.label("This view can be used to find functions that are called a lot.");
-    ui.label("The overhead of a profile scope is around ~50ns, so remove profile scopes from fast functions that are called often.");
+    ui.label("This view can be used to find functions that are called a lot.\n\
+              The overhead of a profile scope is around ~50ns, so remove profile scopes from fast functions that are called often.");
 
     ui.label(format!(
-        "Current frame: {} unique scopes, using a total of {:.1} kB, covering {:.1} ms over {} thread(s)",
+        "Currently viewing {} unique scopes, using a total of {:.1} kB, covering {:.1} ms over {} thread(s)",
         stats.scopes.len(),
         total_bytes as f32 * 1e-3,
         total_ns as f32 * 1e-6,
         threads.len()
     ));
 
-    add_space(ui);
-
     options.filter.ui(ui);
-
-    add_space(ui);
 
     let mut scopes: Vec<_> = stats
         .scopes
