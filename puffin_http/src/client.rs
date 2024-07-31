@@ -116,7 +116,7 @@ pub fn consume_message(stream: &mut impl std::io::Read) -> anyhow::Result<puffin
         std::cmp::Ordering::Equal => {}
         std::cmp::Ordering::Greater => {
             anyhow::bail!(
-                "puffin server is using a newer protocol version ({}) than the client ({}). Update puffin_viewer with 'cargo install puffin_viewer'.",
+                "puffin server is using a newer protocol version ({}) than the client ({}). Update puffin_viewer with 'cargo install puffin_viewer --locked'.",
                 server_version,
                 crate::PROTOCOL_VERSION
             );
