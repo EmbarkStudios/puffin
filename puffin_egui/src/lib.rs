@@ -530,8 +530,9 @@ impl ProfilerUi {
         add_space(ui);
 
         ui.horizontal(|ui| {
+            ui.label("View:");
             ui.selectable_value(&mut self.view, View::Flamegraph, "Flamegraph");
-            ui.selectable_value(&mut self.view, View::Stats, "Stats");
+            ui.selectable_value(&mut self.view, View::Stats, "Table");
         });
 
         add_space(ui);
