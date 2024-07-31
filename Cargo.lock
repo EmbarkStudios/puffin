@@ -1849,7 +1849,7 @@ dependencies = [
 
 [[package]]
 name = "puffin_http"
-version = "0.16.0"
+version = "0.16.1"
 dependencies = [
  "anyhow",
  "crossbeam-channel",
