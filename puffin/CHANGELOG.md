@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased] - ReleaseDate
 
 - [PR#151](https://github.com/EmbarkStudios/puffin/pull/151) Optimize frame statistics collection.
+- [PR#224](https://github.com/EmbarkStudios/puffin/pull/224) Add conditional profile macros: `profile_function_if`, `profile_scope_if`, etc.
 
 ## [0.19.0] - 2024-01-17
 

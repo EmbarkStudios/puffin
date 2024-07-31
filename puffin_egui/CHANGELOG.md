@@ -10,6 +10,7 @@ All notable changes to the egui crate will be documented in this file.
 - [PR#214](https://github.com/EmbarkStudios/puffin/pull/214) Fix frame selection input handling
 - [PR#218](https://github.com/EmbarkStudios/puffin/pull/218) Fix flamegraph click intersection
 - [PR#151](https://github.com/EmbarkStudios/puffin/pull/151) Optimize frame statistics collection.
+- [PR#228](https://github.com/EmbarkStudios/puffin/pull/228/) Clean up and improve the UI
 
 ## [0.27.1] - 2024-06-16
 

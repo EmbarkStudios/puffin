@@ -6,9 +6,12 @@ All notable changes to `puffin_viewer` will be documented in this file.
 
 <!-- next-header -->
 ## [Unreleased] - ReleaseDate
+
+- [PR#228](https://github.com/EmbarkStudios/puffin/pull/228/) Clean up and improve the UI
+
 ## [0.21.1] - 2024-06-16
 
-- [PR#211](https://github.com/EmbarkStudios/puffin/pull/211/) Fix broken flamegraph interaction with egui 0.27.1 ()
+- [PR#211](https://github.com/EmbarkStudios/puffin/pull/211/) Fix broken flamegraph interaction with egui 0.27.1
 
 ## [0.21.0] - 2024-04-06
 - [PR#201](https://github.com/EmbarkStudios/puffin/pull/201) Update to egui `0.27`
