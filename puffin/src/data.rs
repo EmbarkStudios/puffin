@@ -35,10 +35,12 @@ const SCOPE_END: u8 = b')';
 /// Used when parsing a Stream.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ScopeRecord<'s> {
-    /// The start oif this scope in nanoseconds.
+    /// The start of this scope in nanoseconds.
     pub start_ns: NanoSecond,
+
     /// The duration of this scope in nanoseconds.
     pub duration_ns: NanoSecond,
+
     /// e.g. function argument, like a mesh name. Optional.
     /// Example: "image.png".
     pub data: &'s str,

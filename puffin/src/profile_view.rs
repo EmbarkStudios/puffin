@@ -204,7 +204,7 @@ impl FrameView {
         self.pack_frames
     }
 
-    /// Sets wether frames should be packed (compressed).
+    /// Sets whether frames should be packed (compressed).
     /// Packing frames will increase CPU time and decrease memory usage.
     pub fn set_pack_frames(&mut self, pack_frames: bool) {
         self.pack_frames = pack_frames;
