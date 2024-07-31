@@ -85,7 +85,7 @@ impl eframe::App for ExampleApp {
 }
 
 fn sleep_ms(ms: usize) {
-    puffin::profile_function!();
+    puffin::profile_function_if!(ms > 1);
     match ms {
         0 => {}
         1 => std::thread::sleep(std::time::Duration::from_millis(1)),
