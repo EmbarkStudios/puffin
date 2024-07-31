@@ -12,7 +12,7 @@ use crate::StreamInfoRef;
 
 /// Report a stream of profile data from a thread to the [`GlobalProfiler`] singleton.
 /// This is used for internal purposes only
-pub(crate) fn internal_profile_reporter(
+pub fn internal_profile_reporter(
     info: ThreadInfo,
     scope_details: &[ScopeDetails],
     stream_scope_times: &StreamInfoRef<'_>,

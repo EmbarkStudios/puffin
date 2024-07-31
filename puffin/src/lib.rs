@@ -41,7 +41,7 @@ pub use global_profiler::{FrameSink, GlobalProfiler};
 pub use merge::{merge_scopes_for_thread, MergeScope};
 pub use profile_view::{select_slowest, FrameStats, FrameView, GlobalFrameView};
 pub use scope_details::{ScopeCollection, ScopeDetails, ScopeType};
-pub use thread_profiler::{ThreadInfo, ThreadProfiler};
+pub use thread_profiler::{internal_profile_reporter, ThreadInfo, ThreadProfiler};
 pub use utils::{clean_function_name, short_file_name, shorten_rust_function_name, type_name_of};
 
 static MACROS_ON: AtomicBool = AtomicBool::new(false);
