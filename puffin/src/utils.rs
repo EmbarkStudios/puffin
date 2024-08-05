@@ -117,14 +117,14 @@ pub fn short_file_name(path: &str) -> String {
                     components[crate_index], components[folder_index], components[file_index]
                 )
             } else {
-                // Ellide for brevity:
+                // Elide for brevity:
                 format!(
                     "{}/…/{}/{}",
                     components[crate_index], components[folder_index], components[file_index]
                 )
             }
         } else {
-            // Ellide for brevity:
+            // Elide for brevity:
             format!("{}/…/{}", components[crate_index], components[file_index])
         }
     } else {
