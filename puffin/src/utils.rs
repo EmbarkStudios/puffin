@@ -2,8 +2,6 @@
 // This code is typically located at the place of call and two closures deep.
 // Strip away this useless suffix.
 pub(crate) const USELESS_SCOPE_NAME_SUFFIX: &str = "::f";
-// By having this seperated out from the suffix we can remove all clouser names
-// regardless of depth.
 pub(crate) const USELESS_CLOSURE_SUFFIX: &str = "::{{closure}}";
 
 #[doc(hidden)]
