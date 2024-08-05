@@ -123,6 +123,10 @@ criteria = "safe-to-deploy"
 version = "0.3.0"
 criteria = "safe-to-deploy"
 
+[[exemptions.block2]]
+version = "0.5.1"
+criteria = "safe-to-deploy"
+
 [[exemptions.bytemuck]]
 version = "1.14.0"
 criteria = "safe-to-deploy"
@@ -163,14 +167,6 @@ criteria = "safe-to-run"
 version = "4.5.0"
 criteria = "safe-to-deploy"
 
-[[exemptions.cocoa]]
-version = "0.25.0"
-criteria = "safe-to-deploy"
-
-[[exemptions.cocoa-foundation]]
-version = "0.1.2"
-criteria = "safe-to-deploy"
-
 [[exemptions.colored]]
 version = "2.1.0"
 criteria = "safe-to-run"
@@ -203,8 +199,12 @@ criteria = "safe-to-deploy"
 version = "1.1.0"
 criteria = "safe-to-deploy"
 
-[[exemptions.directories-next]]
-version = "2.0.0"
+[[exemptions.directories]]
+version = "5.0.1"
+criteria = "safe-to-deploy"
+
+[[exemptions.dirs-sys]]
+version = "0.4.1"
 criteria = "safe-to-deploy"
 
 [[exemptions.dispatch]]
@@ -215,8 +215,40 @@ criteria = "safe-to-deploy"
 version = "0.5.2"
 criteria = "safe-to-deploy"
 
+[[exemptions.ecolor]]
+version = "0.28.1"
+criteria = "safe-to-deploy"
+
+[[exemptions.eframe]]
+version = "0.28.1"
+criteria = "safe-to-deploy"
+
+[[exemptions.egui]]
+version = "0.28.1"
+criteria = "safe-to-deploy"
+
+[[exemptions.egui-winit]]
+version = "0.28.1"
+criteria = "safe-to-deploy"
+
+[[exemptions.egui_extras]]
+version = "0.28.1"
+criteria = "safe-to-deploy"
+
+[[exemptions.egui_glow]]
+version = "0.28.1"
+criteria = "safe-to-deploy"
+
+[[exemptions.emath]]
+version = "0.28.1"
+criteria = "safe-to-deploy"
+
 [[exemptions.env_logger]]
 version = "0.10.1"
+criteria = "safe-to-deploy"
+
+[[exemptions.epaint]]
+version = "0.28.1"
 criteria = "safe-to-deploy"
 
 [[exemptions.error-code]]
@@ -300,7 +332,7 @@ version = "0.0.4"
 criteria = "safe-to-deploy"
 
 [[exemptions.image]]
-version = "0.24.7"
+version = "0.25.1"
 criteria = "safe-to-deploy"
 
 [[exemptions.is-terminal]]
@@ -351,14 +383,6 @@ criteria = "safe-to-deploy"
 version = "0.5.0+25.2.9519653"
 criteria = "safe-to-deploy"
 
-[[exemptions.num_enum]]
-version = "0.7.2"
-criteria = "safe-to-deploy"
-
-[[exemptions.num_enum_derive]]
-version = "0.7.2"
-criteria = "safe-to-deploy"
-
 [[exemptions.objc]]
 version = "0.2.7"
 criteria = "safe-to-deploy"
@@ -368,19 +392,55 @@ version = "0.1.1"
 criteria = "safe-to-deploy"
 
 [[exemptions.objc-sys]]
-version = "0.3.2"
+version = "0.3.5"
 criteria = "safe-to-deploy"
 
 [[exemptions.objc2]]
 version = "0.4.1"
 criteria = "safe-to-deploy"
 
+[[exemptions.objc2]]
+version = "0.5.2"
+criteria = "safe-to-deploy"
+
+[[exemptions.objc2-app-kit]]
+version = "0.2.2"
+criteria = "safe-to-deploy"
+
+[[exemptions.objc2-core-data]]
+version = "0.2.2"
+criteria = "safe-to-deploy"
+
+[[exemptions.objc2-core-image]]
+version = "0.2.2"
+criteria = "safe-to-deploy"
+
 [[exemptions.objc2-encode]]
 version = "3.0.0"
 criteria = "safe-to-deploy"
 
+[[exemptions.objc2-encode]]
+version = "4.0.3"
+criteria = "safe-to-deploy"
+
+[[exemptions.objc2-foundation]]
+version = "0.2.2"
+criteria = "safe-to-deploy"
+
+[[exemptions.objc2-metal]]
+version = "0.2.2"
+criteria = "safe-to-deploy"
+
+[[exemptions.objc2-quartz-core]]
+version = "0.2.2"
+criteria = "safe-to-deploy"
+
 [[exemptions.objc_id]]
 version = "0.1.1"
+criteria = "safe-to-deploy"
+
+[[exemptions.option-ext]]
+version = "0.2.0"
 criteria = "safe-to-deploy"
 
 [[exemptions.owned_ttf_parser]]
@@ -568,7 +628,7 @@ version = "0.2.4"
 criteria = "safe-to-deploy"
 
 [[exemptions.webbrowser]]
-version = "0.8.12"
+version = "1.0.1"
 criteria = "safe-to-deploy"
 
 [[exemptions.winapi-i686-pc-windows-gnu]]
