@@ -11,7 +11,7 @@ pub fn clean_function_name(name: &str) -> String {
         // Probably the user registered a user scope name.
         return name.to_owned();
     };
-    // Remove any additional trailing suffixes 
+    // Remove any additional trailing suffixes
     shorten_rust_function_name(name.trim_end_matches(USELESS_CLOSURE_SUFFIX))
 }
 
