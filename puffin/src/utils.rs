@@ -1,7 +1,8 @@
 // The macro defines 'f()' at the place where macro is called.
-// This code is located at the place of call and two closures deep.
+// This code is typically located at the place of call and two closures deep.
 // Strip away this useless suffix.
-pub(crate) const USELESS_SCOPE_NAME_SUFFIX: &str = "::{{closure}}::{{closure}}::f";
+pub(crate) const USELESS_SCOPE_NAME_SUFFIX: &str = "::f";
+pub(crate) const USELESS_CLOSURE_SUFFIX: &str = "::{{closure}}";
 
 #[doc(hidden)]
 #[inline(never)]
@@ -10,7 +11,8 @@ pub fn clean_function_name(name: &str) -> String {
         // Probably the user registered a user scope name.
         return name.to_owned();
     };
-    shorten_rust_function_name(name)
+    // Remove any additional trailing suffixes
+    shorten_rust_function_name(name.trim_end_matches(USELESS_CLOSURE_SUFFIX))
 }
 
 /// Shorten a rust function name by removing the leading parts of module paths.
