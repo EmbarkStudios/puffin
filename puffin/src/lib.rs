@@ -178,9 +178,12 @@ macro_rules! current_function_name {
     }};
 }
 
-/// Automatically name the profiling scope based on function name.
+/// Automatically name the profiling scope based on the function name.
 ///
 /// Names should be descriptive, ASCII and without spaces.
+/// 
+/// [`profile_function`] should only be used for the outermost scope of a function
+/// and not for lambdas. For other use-cases please use [`profile_scope`]
 ///
 /// Example:
 /// ```
