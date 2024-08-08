@@ -533,10 +533,17 @@ impl ProfilerUi {
             let frame = frames.frames.first();
 
             let num_scopes = frame.meta.num_scopes;
-            let overhead_ms = num_scopes as f64 * 50.0e-6; // Around 50 ns per scope on an Apple M1.
-            if overhead_ms > 0.5 {
+            let realistic_ns_overhead = 200.0; // Micro-benchmarks puts it at 50ns, but real-life tests show it's much higher.
+            let overhead_ms = num_scopes as f64 * 1.0e-6 * realistic_ns_overhead;
+            if overhead_ms > 1.0 {
+                let overhead = if overhead_ms < 2.0 {
+                    format!("{:.1} ms", overhead_ms)
+                } else {
+                    format!("{:.0} ms", overhead_ms)
+                };
+
                 let text = format!(
-                    "There are {num_scopes} scopes in this frame, which adds up to ~{overhead_ms:.1} ms of overhead.\n\
+                    "There are {num_scopes} scopes in this frame, which adds around ~{overhead} of overhead.\n\
                     Use the Table view to find which scopes are triggered often, and either remove them or replace them with profile_function_if!()");
 
                 ui.label(egui::RichText::new(text).color(ui.visuals().warn_fg_color));
