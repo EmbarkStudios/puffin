@@ -154,7 +154,7 @@ impl PuffinViewer {
 
         egui::TopBottomPanel::top("menu_bar").show(ctx, |ui| {
             egui::menu::bar(ui, |ui| {
-                egui::widgets::global_dark_light_mode_switch(ui);
+                egui::widgets::global_theme_preference_switch(ui);
 
                 ui.menu_button("File", |ui| {
                     if ui.button("Open…").clicked() {

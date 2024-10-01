@@ -260,7 +260,7 @@ pub fn ui(
 
             ui.group(|ui| {
                 ui.strong("Visible Threads");
-                egui::ScrollArea::vertical().id_source("f").show(ui, |ui| {
+                egui::ScrollArea::vertical().id_salt("f").show(ui, |ui| {
                     for f in frames.threads.keys() {
                         let entry = options
                             .flamegraph_threads

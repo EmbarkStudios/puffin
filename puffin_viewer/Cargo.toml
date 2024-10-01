@@ -29,7 +29,7 @@ puffin = { version = "0.19.1", path = "../puffin", features = [
 puffin_http = { version = "0.16.1", path = "../puffin_http" }
 
 argh = "0.1"
-eframe = { version = "0.28.0", default-features = false, features = [
+eframe = { version = "0.29.0", default-features = false, features = [
     "default_fonts",
     "glow",
     "persistence",
