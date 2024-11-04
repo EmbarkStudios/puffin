@@ -84,7 +84,13 @@ pub fn profiler_window(ctx: &egui::Context) -> bool {
     open
 }
 
-static PROFILE_UI: once_cell::sync::Lazy<parking_lot::Mutex<GlobalProfilerUi>> =
+/// Profiler ui used internally.
+///
+/// Use this if you need to read or change options arbitrarily.
+///
+/// Be mindful that this might result in unexpected changes for the user,
+/// as a user expect changes to occur when interacting with the ui.
+pub static PROFILE_UI: once_cell::sync::Lazy<parking_lot::Mutex<GlobalProfilerUi>> =
     once_cell::sync::Lazy::new(Default::default);
 
 /// Show the profiler.
