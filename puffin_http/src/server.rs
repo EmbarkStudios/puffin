@@ -1,16 +1,15 @@
 use anyhow::Context as _;
 use async_executor::{LocalExecutor, Task};
-use async_std::{
-    io::WriteExt,
-    net::{SocketAddr, TcpListener, TcpStream},
-    sync::Arc,
-};
-use futures_lite::future;
+use async_net::{SocketAddr, TcpListener, TcpStream};
+use futures_lite::{future, AsyncWriteExt};
 use puffin::{FrameSinkId, FrameView, GlobalProfiler};
 use std::{
     cell::RefCell,
     rc::Rc,
-    sync::atomic::{AtomicUsize, Ordering},
+    sync::{
+        atomic::{AtomicUsize, Ordering},
+        Arc,
+    },
 };
 
 /// Maximum size of the backlog of packets to send to a client if they aren't reading fast enough.
@@ -420,10 +419,7 @@ impl PuffinServerSend {
 
         let mut packet = vec![];
 
-        packet
-            .write_all(&crate::PROTOCOL_VERSION.to_le_bytes())
-            .await
-            .unwrap();
+        std::io::Write::write_all(&mut packet, &crate::PROTOCOL_VERSION.to_le_bytes()).unwrap();
 
         frame
             .write_into(self.frame_view.scope_collection(), false, &mut packet)
