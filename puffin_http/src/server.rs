@@ -295,7 +295,6 @@ impl Server {
                 let mut ps_send = PuffinServerSend {
                     clients,
                     num_clients,
-                    send_all_scopes: false,
                     scope_collection: Default::default(),
                 };
 
@@ -338,6 +337,7 @@ struct Client {
     client_addr: SocketAddr,
     packet_tx: Option<flume::Sender<Packet>>,
     join_handle: Option<Task<()>>,
+    send_all_scopes: bool,
 }
 
 impl Drop for Client {
@@ -386,6 +386,7 @@ impl<'a> PuffinServerConnection<'a> {
                         client_addr,
                         packet_tx: Some(packet_tx),
                         join_handle: Some(join_handle),
+                        send_all_scopes: true,
                     });
                     self.num_clients
                         .store(self.clients.borrow().len(), Ordering::SeqCst);
@@ -406,7 +407,6 @@ impl<'a> PuffinServerConnection<'a> {
 struct PuffinServerSend {
     clients: Rc<RefCell<Vec<Client>>>,
     num_clients: Arc<AtomicUsize>,
-    send_all_scopes: bool,
     scope_collection: ScopeCollection,
 }
 
@@ -422,22 +422,36 @@ impl PuffinServerSend {
             self.scope_collection.insert(new_scope.clone());
         });
 
-        let mut packet = vec![];
-
+        let mut packet = Vec::with_capacity(2048);
         std::io::Write::write_all(&mut packet, &crate::PROTOCOL_VERSION.to_le_bytes()).unwrap();
 
         frame
-            .write_into(&self.scope_collection, self.send_all_scopes, &mut packet)
+            .write_into(None, &mut packet)
             .context("Encode puffin frame")?;
-        self.send_all_scopes = false;
-
         let packet: Packet = packet.into();
+
+        //TODO: compute packet_all_scopes only if a client need it
+        let mut packet_all_scopes = Vec::with_capacity(2048);
+        std::io::Write::write_all(
+            &mut packet_all_scopes,
+            &crate::PROTOCOL_VERSION.to_le_bytes(),
+        )
+        .unwrap();
+        frame
+            .write_into(Some(&self.scope_collection), &mut packet_all_scopes)
+            .context("Encode puffin frame")?;
+        let packet_all_scopes: Packet = packet_all_scopes.into();
 
         // Send frame to clients, remove disconnected clients and update num_clients var
         let clients = self.clients.borrow();
         let mut idx_to_remove = Vec::new();
         for (idx, client) in clients.iter().enumerate() {
-            if !Self::send_to_client(client, packet.clone()).await {
+            let packet = if client.send_all_scopes {
+                packet_all_scopes.clone()
+            } else {
+                packet.clone()
+            };
+            if !Self::send_to_client(client, packet).await {
                 idx_to_remove.push(idx);
             }
         }
@@ -446,6 +460,9 @@ impl PuffinServerSend {
         idx_to_remove.iter().rev().for_each(|idx| {
             clients.remove(*idx);
         });
+        clients
+            .iter_mut()
+            .for_each(|client| client.send_all_scopes = false);
         self.num_clients.store(clients.len(), Ordering::SeqCst);
 
         Ok(())
