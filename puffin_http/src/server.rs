@@ -1,5 +1,5 @@
 use anyhow::Context as _;
-use puffin::{FrameSinkId, FrameView, GlobalProfiler};
+use puffin::{FrameSinkId, GlobalProfiler, ScopeCollection};
 use std::{
     io::Write,
     net::{SocketAddr, TcpListener, TcpStream},
@@ -249,11 +249,10 @@ impl Server {
                     clients: Default::default(),
                     num_clients: num_clients_cloned,
                     send_all_scopes: false,
-                    frame_view: Default::default(),
+                    scope_collection: Default::default(),
                 };
 
                 while let Ok(frame) = rx.recv() {
-                    server_impl.frame_view.add_frame(frame.clone());
                     if let Err(err) = server_impl.accept_new_clients() {
                         log::warn!("puffin server failure: {}", err);
                     }
@@ -325,7 +324,7 @@ struct PuffinServerImpl {
     clients: Vec<Client>,
     num_clients: Arc<AtomicUsize>,
     send_all_scopes: bool,
-    frame_view: FrameView,
+    scope_collection: ScopeCollection,
 }
 
 impl PuffinServerImpl {
@@ -372,6 +371,11 @@ impl PuffinServerImpl {
         }
         puffin::profile_function!();
 
+        // Keep scope_collection up-to-date
+        frame.scope_delta.iter().for_each(|new_scope| {
+            self.scope_collection.insert(new_scope.clone());
+        });
+
         let mut packet = vec![];
 
         packet
@@ -379,11 +383,7 @@ impl PuffinServerImpl {
             .unwrap();
 
         frame
-            .write_into(
-                self.frame_view.scope_collection(),
-                self.send_all_scopes,
-                &mut packet,
-            )
+            .write_into(&self.scope_collection, self.send_all_scopes, &mut packet)
             .context("Encode puffin frame")?;
         self.send_all_scopes = false;
 
