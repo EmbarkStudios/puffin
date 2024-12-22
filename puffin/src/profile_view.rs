@@ -26,6 +26,7 @@ pub struct FrameView {
     /// Maintain stats as we add/remove frames
     stats: FrameStats,
 
+    /// Collect all scope infos(id/name) from the start of the profiling.
     scope_collection: ScopeCollection,
 }
 
