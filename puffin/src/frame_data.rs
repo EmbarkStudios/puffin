@@ -569,15 +569,13 @@ impl FrameData {
     pub fn write_into(
         &self,
         scope_collection: Option<&crate::ScopeCollection>,
-        write: &mut impl std::io::Write,
+        mut write: &mut impl std::io::Write,
     ) -> anyhow::Result<()> {
         use bincode::Options as _;
         use byteorder::WriteBytesExt as _;
 
         write.write_all(b"PFD5")?;
-
-        let meta_serialized = bincode::options().serialize(&self.meta)?;
-        write.write_all(&meta_serialized)?;
+        bincode::options().serialize_into(&mut write, &self.meta)?;
 
         self.create_packed();
         let packed_streams_lock = self.data.read();
@@ -587,18 +585,12 @@ impl FrameData {
         write.write_u8(packed_streams.compression_kind as u8)?;
         write.write_all(&packed_streams.bytes)?;
 
-        let serialized_scopes = if let Some(scope_collection) = scope_collection {
-            let to_serialize_scopes = scope_collection
-                .scopes_by_id()
-                .values()
-                .cloned()
-                .collect::<Vec<_>>();
-            bincode::options().serialize(&to_serialize_scopes)
+        if let Some(scope_collection) = scope_collection {
+            bincode::options().serialize_into(&mut write, &scope_collection.serializable())?;
         } else {
-            bincode::options().serialize(&self.scope_delta)
-        }?;
+            bincode::options().serialize_into(write, &self.scope_delta)?;
+        }
 
-        write.write_all(&serialized_scopes)?;
         Ok(())
     }
 
@@ -607,7 +599,7 @@ impl FrameData {
     /// [`None`] is returned if the end of the stream is reached (EOF),
     /// or an end-of-stream sentinel of `0u32` is read.
     #[cfg(feature = "serialization")]
-    pub fn read_next(read: &mut impl std::io::Read) -> anyhow::Result<Option<Self>> {
+    pub fn read_next(mut read: &mut impl std::io::Read) -> anyhow::Result<Option<Self>> {
         use anyhow::Context as _;
         use bincode::Options as _;
         use byteorder::{LE, ReadBytesExt};
@@ -788,12 +780,10 @@ impl FrameData {
                     full_delta: false,
                 }))
             } else if &header == b"PFD5" {
-                // Added 2024-12-22: remove useless manual sequence size serialization.
+                // Added 2024-12-22: remove useless manual sequence size serialization and temporary vector.
                 let meta = {
-                    let mut meta = Vec::new();
-                    read.read_exact(&mut meta)?;
                     bincode::options()
-                        .deserialize(&meta)
+                        .deserialize_from(&mut read)
                         .context("bincode deserialize")?
                 };
 
@@ -805,23 +795,16 @@ impl FrameData {
                     PackedStreams::new(compression_kind, streams_compressed)
                 };
 
-                let deserialized_scopes: Vec<crate::ScopeDetails> = {
-                    let mut serialized_scopes = Vec::new();
-                    read.read_exact(&mut serialized_scopes)?;
+                let deserialized_scopes: Vec<Arc<crate::ScopeDetails>> = {
                     bincode::options()
-                        .deserialize_from(serialized_scopes.as_slice())
+                        .deserialize_from(read) // serialized_scopes.as_slice()
                         .context("Can not deserialize scope details")?
                 };
-
-                let new_scopes: Vec<_> = deserialized_scopes
-                    .into_iter()
-                    .map(|x| Arc::new(x.clone()))
-                    .collect();
 
                 Ok(Some(Self {
                     meta,
                     data: RwLock::new(FrameDataState::Packed(streams_compressed)),
-                    scope_delta: new_scopes,
+                    scope_delta: deserialized_scopes,
                     full_delta: false,
                 }))
             } else {
