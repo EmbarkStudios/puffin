@@ -573,9 +573,10 @@ impl FrameData {
         use bincode::Options as _;
         use byteorder::{LE, WriteBytesExt as _};
 
-        let meta_serialized = bincode::options().serialize(&self.meta)?;
 
         write.write_all(b"PFD4")?;
+
+        let meta_serialized = bincode::options().serialize(&self.meta)?;
         write.write_all(&(meta_serialized.len() as u32).to_le_bytes())?;
         write.write_all(&meta_serialized)?;
 
