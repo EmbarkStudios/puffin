@@ -561,8 +561,7 @@ impl FrameData {
     #[cfg(feature = "serialization")]
     pub fn write_into(
         &self,
-        scope_collection: &crate::ScopeCollection,
-        send_all_scopes: bool,
+        scope_collection: Option<&crate::ScopeCollection>,
         write: &mut impl std::io::Write,
     ) -> anyhow::Result<()> {
         use bincode::Options as _;
@@ -582,7 +581,7 @@ impl FrameData {
         write.write_u8(packed_streams.compression_kind as u8)?;
         write.write_all(&packed_streams.bytes)?;
 
-        let to_serialize_scopes: Vec<_> = if send_all_scopes {
+        let to_serialize_scopes: Vec<_> = if let Some(scope_collection) = scope_collection {
             scope_collection.scopes_by_id().values().cloned().collect()
         } else {
             self.scope_delta.clone()

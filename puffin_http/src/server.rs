@@ -382,8 +382,14 @@ impl PuffinServerImpl {
             .write_all(&crate::PROTOCOL_VERSION.to_le_bytes())
             .unwrap();
 
+        let scope_collection = if self.send_all_scopes {
+            Some(&self.scope_collection)
+        } else {
+            None
+        };
+
         frame
-            .write_into(&self.scope_collection, self.send_all_scopes, &mut packet)
+            .write_into(scope_collection, &mut packet)
             .context("Encode puffin frame")?;
         self.send_all_scopes = false;
 
