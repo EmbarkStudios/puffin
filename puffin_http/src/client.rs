@@ -44,7 +44,7 @@ impl Client {
             frame_view: frame_view.clone(),
         };
 
-        let _ = std::thread::Builder::new()
+        let _: Result<std::thread::JoinHandle<()>, std::io::Error> = std::thread::Builder::new()
             .name("http_client_thread".to_owned())
             .spawn(move || {
                 log::info!("Connecting to {}…", addr);
