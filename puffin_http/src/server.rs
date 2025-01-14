@@ -28,6 +28,10 @@ impl Server {
     /// Start listening for connections on this addr (e.g. "0.0.0.0:8585")
     ///
     /// Connects to the [`GlobalProfiler`]
+    ///
+    /// # Errors
+    ///
+    /// forward error from [`Self::new_custom`] call.
     pub fn new(bind_addr: &str) -> anyhow::Result<Self> {
         fn global_add(sink: puffin::FrameSink) -> FrameSinkId {
             GlobalProfiler::lock().add_sink(sink)
@@ -55,6 +59,11 @@ impl Server {
     /// such that threads can be grouped together and profiled separately. E.g. you could have one profiling server
     /// instance for the main UI loop, and another for the background worker loop, and events/frames from those thread(s)
     /// would be completely separated. You can then hook up two separate instances of `puffin_viewer` and profile them separately.
+    ///
+    /// # Errors
+    ///
+    /// Will return an `io::Error` if the [`TcpListener::bind`] fail.
+    /// Will return an `io::Error` if the spawn of the thread ,for connection and data send management, fail.
     ///
     /// ## Per-Thread Profiling
     /// ```
