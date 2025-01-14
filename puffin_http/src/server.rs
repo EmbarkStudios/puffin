@@ -389,7 +389,7 @@ impl PuffinServerImpl {
 
         packet
             .write_all(&crate::PROTOCOL_VERSION.to_le_bytes())
-            .unwrap();
+            .context("Encode puffin `PROTOCOL_VERSION` in packet to be send to client.")?;
 
         let scope_collection = if self.send_all_scopes {
             Some(&self.scope_collection)
