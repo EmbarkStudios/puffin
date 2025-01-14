@@ -27,7 +27,7 @@ pub struct Server {
 impl Server {
     /// Start listening for connections on this addr (e.g. "0.0.0.0:8585")
     ///
-    /// Connects to the [GlobalProfiler]
+    /// Connects to the [`GlobalProfiler`]
     pub fn new(bind_addr: &str) -> anyhow::Result<Self> {
         fn global_add(sink: puffin::FrameSink) -> FrameSinkId {
             GlobalProfiler::lock().add_sink(sink)
@@ -47,7 +47,7 @@ impl Server {
     /// * `sink_install` - A function that installs the [Server]'s sink into
     ///   a [`GlobalProfiler`], and then returns the [`FrameSinkId`] so that the sink can be removed later
     /// * `sink_remove` - A function that reverts `sink_install`.
-    ///   This should be a call to remove the sink from the profiler ([GlobalProfiler::remove_sink])
+    ///   This should be a call to remove the sink from the profiler ([`GlobalProfiler::remove_sink`])
     ///
     /// # Example
     ///
