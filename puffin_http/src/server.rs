@@ -278,7 +278,7 @@ impl Server {
             tx.send(frame).ok();
         }));
 
-        Ok(Server {
+        Ok(Self {
             sink_id,
             join_handle: Some(join_handle),
             num_clients,
