@@ -2036,6 +2036,7 @@ dependencies = [
  "paste",
  "puffin",
  "simple_logger",
+ "unsend",
 ]
 
 [[package]]
@@ -2610,6 +2611,15 @@ name = "unicode-segmentation"
 version = "1.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1dd624098567895118886609431a7c3b8f516e41d30e0643f03d94592a147e36"
+
+[[package]]
+name = "unsend"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a53ed0f41cab22aa8d4aee9d2357a1b21cb365537d7349066c76fcd67bc3121d"
+dependencies = [
+ "pin-project-lite",
+]
 
 [[package]]
 name = "url"
