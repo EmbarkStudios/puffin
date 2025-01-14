@@ -424,6 +424,7 @@ impl PuffinServerImpl {
     }
 }
 
+#[expect(clippy::needless_pass_by_value)]
 fn client_loop(
     packet_rx: crossbeam_channel::Receiver<Packet>,
     client_addr: SocketAddr,
