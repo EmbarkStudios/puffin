@@ -45,7 +45,7 @@ impl Client {
         };
 
         let _ = std::thread::Builder::new()
-            .name("http_client_thread".to_string())
+            .name("http_client_thread".to_owned())
             .spawn(move || {
                 log::info!("Connecting to {}…", addr);
                 while alive.load(SeqCst) {
