@@ -2,7 +2,7 @@ use std::vec;
 
 use super::{SelectedFrames, ERROR_COLOR, HOVER_COLOR};
 use crate::filter::Filter;
-use egui::*;
+use egui::{emath::GuiRounding, *};
 use indexmap::IndexMap;
 use puffin::*;
 
@@ -723,7 +723,7 @@ fn paint_record(
             start_x + 4.0,
             top_y + 0.5 * (options.rect_height - info.text_height),
         );
-        let pos = painter.round_pos_to_pixels(pos);
+        let pos = pos.round_to_pixels(painter.pixels_per_point());
         const TEXT_COLOR: Color32 = Color32::BLACK;
         painter.text(
             pos,
