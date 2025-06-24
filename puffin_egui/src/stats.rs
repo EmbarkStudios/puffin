@@ -8,11 +8,98 @@ pub struct Options {
     filter: Filter,
 }
 
+#[derive(Copy, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+pub enum SortKey {
+    Location,
+    FunctionName,
+    ScopeName,
+    Count,
+    Size,
+    TotalSelfTime,
+    MeanSelfTime,
+    MaxSelfTime,
+}
+
+#[derive(Copy, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+pub struct SortOrder {
+    pub key: SortKey,
+    pub rev: bool,
+}
+
+impl SortOrder {
+    fn sort_scopes(&self, scopes: &mut [(&Key, ScopeStats)]) {
+        match self.key {
+            SortKey::Location => {}
+            SortKey::FunctionName => {}
+            SortKey::ScopeName => {
+                /*
+                scopes.sort_by_key(|(_key, scope_stats)| {
+                    scope_infos.fetch_by_id(&key.id).unwrap().location()
+                });
+                */
+            }
+            SortKey::Count => {
+                scopes.sort_by_key(|(_key, scope_stats)| scope_stats.count);
+            }
+            SortKey::Size => {
+                scopes.sort_by_key(|(_key, scope_stats)| scope_stats.bytes);
+            }
+            SortKey::TotalSelfTime => {
+                scopes.sort_by_key(|(_key, scope_stats)| scope_stats.total_self_ns);
+            }
+            SortKey::MeanSelfTime => {
+                scopes.sort_by_key(|(_key, scope_stats)| {
+                    scope_stats.total_self_ns as usize / scope_stats.count
+                });
+            }
+            SortKey::MaxSelfTime => {
+                scopes.sort_by_key(|(_key, scope_stats)| scope_stats.max_ns);
+            }
+        }
+        if self.rev {
+            scopes.reverse();
+        }
+    }
+
+    fn get_arrow(&self) -> &str {
+        if self.rev {
+            "v"
+        } else {
+            "^"
+        }
+    }
+
+    fn toggle(&mut self) {
+        self.rev = !self.rev;
+    }
+}
+
+fn header_label(ui: &mut egui::Ui, name: &str, sort_key: SortKey, sort_order: &mut SortOrder) {
+    if sort_order.key == sort_key {
+        if ui
+            .strong(format!("{} {}", name, sort_order.get_arrow()))
+            .clicked()
+        {
+            sort_order.toggle();
+        }
+    } else {
+        if ui.strong(name).clicked() {
+            *sort_order = SortOrder {
+                key: sort_key,
+                rev: true,
+            }
+        }
+    }
+}
+
 pub fn ui(
     ui: &mut egui::Ui,
     options: &mut Options,
     scope_infos: &ScopeCollection,
     frames: &[std::sync::Arc<UnpackedFrameData>],
+    sort_order: &mut SortOrder,
 ) {
     let mut threads = std::collections::HashSet::<&ThreadInfo>::new();
     let mut stats = Stats::default();
@@ -50,8 +137,7 @@ pub fn ui(
         .map(|(key, value)| (key, *value))
         .collect();
     scopes.sort_by_key(|(key, _)| *key);
-    scopes.sort_by_key(|(_key, scope_stats)| scope_stats.count);
-    scopes.reverse();
+    sort_order.sort_scopes(&mut scopes);
 
     egui::ScrollArea::horizontal().show(ui, |ui| {
         ui.style_mut().wrap_mode = Some(egui::TextWrapMode::Extend);
@@ -75,19 +161,19 @@ pub fn ui(
                     ui.strong("Scope Name");
                 });
                 header.col(|ui| {
-                    ui.strong("Count");
+                    header_label(ui, "Count", SortKey::Count, sort_order);
                 });
                 header.col(|ui| {
-                    ui.strong("Size");
+                    header_label(ui, "Size", SortKey::Size, sort_order);
                 });
                 header.col(|ui| {
-                    ui.strong("Total self time");
+                    header_label(ui, "Total Self Time", SortKey::TotalSelfTime, sort_order);
                 });
                 header.col(|ui| {
-                    ui.strong("Mean self time");
+                    header_label(ui, "Mean Self Time", SortKey::MeanSelfTime, sort_order);
                 });
                 header.col(|ui| {
-                    ui.strong("Max self time");
+                    header_label(ui, "Max Self Time", SortKey::MaxSelfTime, sort_order);
                 });
             })
             .body(|mut body| {
