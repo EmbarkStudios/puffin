@@ -18,7 +18,7 @@ mod stats;
 
 pub use {egui, maybe_mut_ref::MaybeMutRef, puffin};
 
-use egui::*;
+use egui::{scroll_area::ScrollSource, *};
 use puffin::*;
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -628,7 +628,7 @@ impl ProfilerUi {
             Frame::dark_canvas(ui.style()).show(ui, |ui| {
                 egui::ScrollArea::horizontal()
                     .stick_to_right(true)
-                    .drag_to_scroll(false)
+                    .scroll_source(ScrollSource::SCROLL_BAR | ScrollSource::MOUSE_WHEEL)
                     .show(ui, |ui| {
                         let slowest_visible = self.show_frame_list(
                             ui,
@@ -750,14 +750,15 @@ impl ProfilerUi {
                 // preview when hovering is really annoying when viewing multiple frames
                 if is_hovered && !is_selected && !viewing_multiple_frames {
                     *hovered_frame = Some(frame.clone());
-                    egui::show_tooltip_at_pointer(
-                        ui.ctx(),
+                    Tooltip::always_open(
+                        ui.ctx().clone(),
                         ui.layer_id(),
                         Id::new("puffin_frame_tooltip"),
-                        |ui| {
-                            ui.label(format!("{:.1} ms", frame.duration_ns() as f64 * 1e-6));
-                        },
-                    );
+                        PopupAnchor::Pointer,
+                    )
+                    .show(|ui| {
+                        ui.label(format!("{:.1} ms", frame.duration_ns() as f64 * 1e-6));
+                    });
                 }
 
                 if response.dragged() {
