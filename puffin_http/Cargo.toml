@@ -15,7 +15,10 @@ include = ["**/*.rs", "Cargo.toml", "README.md"]
 
 [dependencies]
 anyhow = "1.0"
-crossbeam-channel = "0.5"
+async-executor = "1.13"
+async-net = "2.0.0"
+flume = "0.11"
+futures-lite = { version = "2.6", default-features = false }
 log = "0.4"
 parking_lot = "0.12"
 puffin = { version = "0.19.1", path = "../puffin", features = [
@@ -23,6 +26,8 @@ puffin = { version = "0.19.1", path = "../puffin", features = [
     "lz4",
     "serialization",
 ] }
+unsend = { version = "0.2.1", default-features = false }
+#smol = "2.0"
 
 [dev-dependencies]
 simple_logger = "4.2"
