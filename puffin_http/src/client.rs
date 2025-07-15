@@ -47,12 +47,12 @@ impl Client {
         let _ = std::thread::Builder::new()
             .name("http_client_thread".to_string())
             .spawn(move || {
-                log::info!("Connecting to {}…", addr);
+                log::info!("Connecting to {addr}…");
                 while alive.load(SeqCst) {
                     match std::net::TcpStream::connect(&addr) {
                         Ok(mut stream) => {
                             *frame_view.lock() = FrameView::default();
-                            log::info!("Connected to {}", addr);
+                            log::info!("Connected to {addr}");
                             connected.store(true, SeqCst);
                             while alive.load(SeqCst) {
                                 match consume_message(&mut stream) {
@@ -73,7 +73,7 @@ impl Client {
                             }
                         }
                         Err(err) => {
-                            log::debug!("Failed to connect to {}: {}", addr, err);
+                            log::debug!("Failed to connect to {addr}: {err}");
                             std::thread::sleep(std::time::Duration::from_secs(1));
                         }
                     }

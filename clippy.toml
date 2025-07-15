@@ -8,7 +8,7 @@ allow-unwrap-in-tests = true
 disallowed-methods = [
     # std functions
     { path = "std::env::var_os", reason = "use std::env::var and UTF-8 strings instead, including for paths" },
-    { path = "std::env::env_os", reason = "use std::env::var and UTF-8 strings instead, including for paths" },
+    { path = "std::env::vars_os", reason = "use std::env::var and UTF-8 strings instead, including for paths" },
     { path = "std::env::args_os", reason = "use std::env::var and UTF-8 strings instead, including for paths" },
     { path = "std::env::set_var", reason = "this is unsound in (at least) glibc, and its usage in multi-threaded programs is _heavily_ discouraged" },
     { path = "std::thread::spawn", reason = "spawn threads with std::thread::Builder instead to ensure they have a name specified" },
