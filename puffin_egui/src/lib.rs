@@ -544,9 +544,9 @@ impl ProfilerUi {
             let overhead_ms = num_scopes as f64 * 1.0e-6 * realistic_ns_overhead;
             if overhead_ms > 1.0 {
                 let overhead = if overhead_ms < 2.0 {
-                    format!("{:.1} ms", overhead_ms)
+                    format!("{overhead_ms:.1} ms")
                 } else {
-                    format!("{:.0} ms", overhead_ms)
+                    format!("{overhead_ms:.0} ms")
                 };
 
                 let text = format!(
