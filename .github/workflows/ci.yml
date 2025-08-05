@@ -41,11 +41,11 @@ jobs:
 
       - run: cargo fetch
       - name: cargo clippy
-        run: cargo clippy --all-targets -- -D warnings
+        run: cargo clippy --locked --all-targets -- -D warnings
       - name: cargo clippy wasm32-unknown-unknown WITHOUT web feature
-        run: cargo clippy -p puffin --target wasm32-unknown-unknown --no-default-features -- -D warnings
+        run: cargo clippy --locked -p puffin --target wasm32-unknown-unknown --no-default-features -- -D warnings
       - name: cargo clippy wasm32
-        run: cargo clippy -p puffin_viewer --target wasm32-unknown-unknown --all-features --lib
+        run: cargo clippy --locked -p puffin_viewer --target wasm32-unknown-unknown --all-features --lib
 
   test:
     name: Test
@@ -65,15 +65,15 @@ jobs:
           sudo apt-get -yq --no-install-suggests --no-install-recommends install libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev libasound2-dev libxkbcommon-dev # egui_glium dependencies
           sudo apt-get install libgtk-3-dev # rfd dependencies
       - name: cargo test build default features
-        run: cargo build --tests --release
+        run: cargo build --locked --tests --release
       - name: cargo test build
-        run: cargo build --tests --release --all-features
+        run: cargo build --locked --tests --release --all-features
       - name: cargo test
-        run: cargo test -p puffin -p puffin_egui -p puffin_http --release --all-features
+        run: cargo test --locked -p puffin -p puffin_egui -p puffin_http --release --all-features
       - name: cargo test --doc
-        run: cargo test --workspace --doc
+        run: cargo test --locked --workspace --doc
       - name: cargo doc
-        run: cargo doc -p puffin -p puffin_egui -p puffin_http -p --lib --no-deps --all-features
+        run: cargo doc --locked -p puffin -p puffin_egui -p puffin_http -p --lib --no-deps --all-features
 
   cargo-vet:
     name: Vet Dependencies
