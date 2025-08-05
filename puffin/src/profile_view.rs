@@ -230,7 +230,7 @@ impl FrameView {
         write.write_all(b"PUF0")?;
 
         for frame in self.all_uniq() {
-            frame.write_into(None, write)?;
+            frame.write_into(Some(&self.scope_collection), write)?;
         }
         Ok(())
     }
