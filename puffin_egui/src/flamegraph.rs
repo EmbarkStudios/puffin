@@ -644,6 +644,7 @@ fn paint_record(
     };
 
     let Some(scope_details) = info.scope_collection.fetch_by_id(&scope_id) else {
+        log_once::warn_once!("Missing scope metadata");
         return PaintResult::Culled;
     };
 
@@ -777,6 +778,7 @@ fn paint_scope(
 
         if result == PaintResult::Hovered {
             let Some(scope_details) = info.scope_collection.fetch_by_id(&scope.id) else {
+                log_once::warn_once!("Missing scope metadata");
                 return Ok(PaintResult::Culled);
             };
             egui::show_tooltip_at_pointer(
@@ -903,6 +905,7 @@ fn merge_scope_tooltip(
     #![allow(clippy::collapsible_else_if)]
 
     let Some(scope_details) = scope_collection.fetch_by_id(&merge.id) else {
+        log_once::warn_once!("Missing scope metadata");
         return;
     };
 
