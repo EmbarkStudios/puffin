@@ -53,6 +53,7 @@ jobs:
   test:
     name: Test
     strategy:
+      fail-fast: true
       matrix:
         os: [ubuntu-latest, windows-2022, macos-latest]
     runs-on: ${{ matrix.os }}
