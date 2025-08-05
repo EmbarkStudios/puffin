@@ -1,6 +1,6 @@
 use std::sync::{
-    atomic::{AtomicBool, Ordering::SeqCst},
     Arc,
+    atomic::{AtomicBool, Ordering::SeqCst},
 };
 
 use puffin::{FrameData, FrameView};

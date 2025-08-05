@@ -38,10 +38,10 @@ use std::sync::atomic::{AtomicBool, Ordering};
 pub use data::{Error, Reader, Result, Scope, ScopeRecord, Stream, StreamInfo, StreamInfoRef};
 pub use frame_data::{FrameData, FrameMeta, UnpackedFrameData};
 pub use global_profiler::{FrameSink, GlobalProfiler};
-pub use merge::{merge_scopes_for_thread, MergeScope};
-pub use profile_view::{select_slowest, FrameStats, FrameView, GlobalFrameView};
+pub use merge::{MergeScope, merge_scopes_for_thread};
+pub use profile_view::{FrameStats, FrameView, GlobalFrameView, select_slowest};
 pub use scope_details::{ScopeCollection, ScopeDetails, ScopeType};
-pub use thread_profiler::{internal_profile_reporter, ThreadInfo, ThreadProfiler};
+pub use thread_profiler::{ThreadInfo, ThreadProfiler, internal_profile_reporter};
 pub use utils::{clean_function_name, short_file_name, shorten_rust_function_name, type_name_of};
 
 static MACROS_ON: AtomicBool = AtomicBool::new(false);
@@ -119,7 +119,9 @@ pub fn now_ns() -> NanoSecond {
 #[cfg(all(target_arch = "wasm32", not(feature = "web")))]
 pub fn now_ns() -> NanoSecond {
     // This should be unused.
-    panic!("Wasm without the `web` feature requires passing a custom source of time via `ThreadProfiler::initialize`");
+    panic!(
+        "Wasm without the `web` feature requires passing a custom source of time via `ThreadProfiler::initialize`"
+    );
 }
 
 // We currently store an Option<ProfilerScope> on the stack (None when profiling is off).
@@ -315,9 +317,7 @@ macro_rules! profile_scope_custom {
     ($name:expr) => {
         $crate::profile_scope_custom_if!(true, $name, "")
     };
-    ($name:expr, $data:expr) => {{
-        $crate::profile_scope_custom_if!(true, $name, $data)
-    }};
+    ($name:expr, $data:expr) => {{ $crate::profile_scope_custom_if!(true, $name, $data) }};
 }
 
 /// Like [`profile_scope_custom`], but only conditionally profiles the scope.
@@ -395,7 +395,7 @@ macro_rules! profile_scope_if {
 mod tests {
     use std::borrow::Cow;
 
-    use crate::{set_scopes_on, GlobalFrameView, GlobalProfiler, ScopeId};
+    use crate::{GlobalFrameView, GlobalProfiler, ScopeId, set_scopes_on};
 
     #[test]
     fn profile_macros_test() {

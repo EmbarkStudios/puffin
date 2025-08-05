@@ -572,7 +572,7 @@ impl FrameData {
         write: &mut impl std::io::Write,
     ) -> anyhow::Result<()> {
         use bincode::Options as _;
-        use byteorder::{WriteBytesExt as _, LE};
+        use byteorder::{LE, WriteBytesExt as _};
 
         let meta_serialized = bincode::options().serialize(&self.meta)?;
 
@@ -608,7 +608,7 @@ impl FrameData {
     pub fn read_next(read: &mut impl std::io::Read) -> anyhow::Result<Option<Self>> {
         use anyhow::Context as _;
         use bincode::Options as _;
-        use byteorder::{ReadBytesExt, LE};
+        use byteorder::{LE, ReadBytesExt};
 
         let mut header = [0_u8; 4];
         if let Err(err) = read.read_exact(&mut header) {
@@ -786,7 +786,9 @@ impl FrameData {
                     full_delta: false,
                 }))
             } else {
-                anyhow::bail!("Failed to decode: this data is newer than this reader. Please update your puffin version!");
+                anyhow::bail!(
+                    "Failed to decode: this data is newer than this reader. Please update your puffin version!"
+                );
             }
         } else {
             // Very old packet without magic header

@@ -3,8 +3,8 @@ use std::{collections::BTreeMap, sync::Arc};
 use once_cell::sync::Lazy;
 
 use crate::{
-    fetch_add_scope_id, Error, FrameData, FrameIndex, FrameSinkId, ScopeCollection, ScopeDetails,
-    ScopeId, StreamInfo, StreamInfoRef, ThreadInfo,
+    Error, FrameData, FrameIndex, FrameSinkId, ScopeCollection, ScopeDetails, ScopeId, StreamInfo,
+    StreamInfoRef, ThreadInfo, fetch_add_scope_id,
 };
 
 /// Add these to [`GlobalProfiler`] with [`GlobalProfiler::add_sink()`].
