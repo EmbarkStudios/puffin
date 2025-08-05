@@ -112,6 +112,13 @@ pub struct FrameData {
 pub enum Never {}
 
 #[cfg(not(feature = "packing"))]
+impl std::fmt::Display for Never {
+    fn fmt(&self, _f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        Ok(())
+    }
+}
+
+#[cfg(not(feature = "packing"))]
 impl FrameData {
     /// Create a new [`FrameData`].
     pub fn new(
