@@ -20,7 +20,7 @@ env:
 jobs:
   lint:
     name: Lint
-    runs-on: ubuntu-20.04-16core
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
@@ -54,7 +54,7 @@ jobs:
     name: Test
     strategy:
       matrix:
-        os: [ubuntu-20.04-16core, windows-2022-16core, macOS-latest-xl]
+        os: [ubuntu-latest, windows-2022, macos-latest]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -83,7 +83,7 @@ jobs:
 
   cargo-vet:
     name: Vet Dependencies
-    runs-on: ubuntu-20.04-16core
+    runs-on: ubuntu-latest
     env:
       CARGO_VET_VERSION: 0.9.1
     steps:
