@@ -399,7 +399,7 @@ impl ProfilerUi {
     fn all_known_frames<'a>(
         &'a self,
         frame_view: &'a FrameView,
-    ) -> Box<dyn Iterator<Item = &'_ Arc<FrameData>> + '_> {
+    ) -> Box<dyn Iterator<Item = &'a Arc<FrameData>> + 'a> {
         match &self.paused {
             Some(paused) => Box::new(frame_view.all_uniq().chain(paused.frames.uniq.iter())),
             None => Box::new(frame_view.all_uniq()),

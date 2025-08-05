@@ -196,7 +196,7 @@ enum PaintResult {
     Normal,
 }
 
-impl<'a> Info<'a> {
+impl Info<'_> {
     fn point_from_ns(&self, options: &Options, ns: NanoSecond) -> f32 {
         self.canvas.min.x
             + options.sideways_pan_in_points
@@ -886,7 +886,7 @@ fn paint_scope_details(ui: &mut Ui, scope_id: ScopeId, data: &str, scope_details
 
             if !data.is_empty() {
                 ui.monospace("data");
-                ui.monospace(data.as_str());
+                ui.monospace(egui::TextBuffer::as_str(&data));
                 ui.end_row();
             }
 

@@ -43,11 +43,11 @@ impl Server {
     ///
     /// # Arguments
     /// * `bind_addr` - The address to bind to, when listening for connections
-    /// (e.g. "localhost:8585" or "127.0.0.1:8585")
+    ///   (e.g. "localhost:8585" or "127.0.0.1:8585")
     /// * `sink_install` - A function that installs the [Server]'s sink into
-    /// a [`GlobalProfiler`], and then returns the [`FrameSinkId`] so that the sink can be removed later
+    ///   a [`GlobalProfiler`], and then returns the [`FrameSinkId`] so that the sink can be removed later
     /// * `sink_remove` - A function that reverts `sink_install`.
-    /// This should be a call to remove the sink from the profiler ([GlobalProfiler::remove_sink])
+    ///   This should be a call to remove the sink from the profiler ([GlobalProfiler::remove_sink])
     ///
     /// # Example
     ///

@@ -50,7 +50,7 @@ pub struct MergeScope<'s> {
     pub children: Vec<MergeScope<'s>>,
 }
 
-impl<'s> MergeScope<'s> {
+impl MergeScope<'_> {
     /// Clones the merge scope.
     pub fn into_owned(self) -> MergeScope<'static> {
         MergeScope::<'static> {

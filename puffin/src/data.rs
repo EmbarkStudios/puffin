@@ -46,7 +46,7 @@ pub struct ScopeRecord<'s> {
     pub data: &'s str,
 }
 
-impl<'s> ScopeRecord<'s> {
+impl ScopeRecord<'_> {
     /// The end of this scope in nanoseconds.
     #[inline]
     pub fn stop_ns(&self) -> NanoSecond {
@@ -182,7 +182,7 @@ impl Stream {
         const MAX_STRING_LENGTH: usize = 127;
         let len = s.len().min(MAX_STRING_LENGTH);
         self.0.write_u8(len as u8).expect("can't fail");
-        self.0.extend(s[0..len].as_bytes()); // This may split a character in two. The parser should handle that.
+        self.0.extend(&s.as_bytes()[0..len]); // This may split a character in two. The parser should handle that.
     }
 }
 
