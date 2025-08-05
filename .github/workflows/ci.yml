@@ -22,7 +22,7 @@ jobs:
     name: Lint
     runs-on: ubuntu-20.04-16core
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy, rustfmt
@@ -54,7 +54,7 @@ jobs:
         os: [ubuntu-20.04-16core, windows-2022-16core, macOS-latest-xl]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
 
       - run: cargo fetch
@@ -81,7 +81,7 @@ jobs:
     env:
       CARGO_VET_VERSION: 0.9.1
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - uses: actions/cache@v3
         with:
