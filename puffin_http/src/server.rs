@@ -372,9 +372,9 @@ impl PuffinServerImpl {
         puffin::profile_function!();
 
         // Keep scope_collection up-to-date
-        frame.scope_delta.iter().for_each(|new_scope| {
+        for new_scope in &frame.scope_delta {
             self.scope_collection.insert(new_scope.clone());
-        });
+        }
 
         let mut packet = vec![];
 
