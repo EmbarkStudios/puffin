@@ -544,7 +544,8 @@ impl ProfilerUi {
 
                 let text = format!(
                     "There are {num_scopes} scopes in this frame, which adds around ~{overhead} of overhead.\n\
-                    Use the Table view to find which scopes are triggered often, and either remove them or replace them with profile_function_if!()");
+                    Use the Table view to find which scopes are triggered often, and either remove them or replace them with profile_function_if!()"
+                );
 
                 ui.label(egui::RichText::new(text).color(ui.visuals().warn_fg_color));
             }

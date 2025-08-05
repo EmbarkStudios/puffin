@@ -1,6 +1,6 @@
 use std::vec;
 
-use super::{SelectedFrames, ERROR_COLOR, HOVER_COLOR};
+use super::{ERROR_COLOR, HOVER_COLOR, SelectedFrames};
 use crate::filter::Filter;
 use egui::{emath::GuiRounding, *};
 use indexmap::IndexMap;

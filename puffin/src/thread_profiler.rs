@@ -4,11 +4,11 @@ use crate::GlobalProfiler;
 use crate::NanoSecond;
 use crate::NsSource;
 
-use crate::fetch_add_scope_id;
 use crate::ScopeDetails;
 use crate::ScopeId;
 use crate::StreamInfo;
 use crate::StreamInfoRef;
+use crate::fetch_add_scope_id;
 
 /// Report a stream of profile data from a thread to the [`GlobalProfiler`] singleton.
 /// This is used for internal purposes only

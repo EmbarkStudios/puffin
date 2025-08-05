@@ -4,8 +4,8 @@ use std::{
     io::Write,
     net::{SocketAddr, TcpListener, TcpStream},
     sync::{
-        atomic::{AtomicUsize, Ordering},
         Arc,
+        atomic::{AtomicUsize, Ordering},
     },
 };
 
