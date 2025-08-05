@@ -27,6 +27,9 @@ jobs:
         with:
           components: clippy, rustfmt
           targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: "true"
 
       - name: Install packages (Linux)
         if: runner.os == 'Linux'
@@ -56,6 +59,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: "true"
 
       - run: cargo fetch
       - name: Install packages (Linux)
