@@ -3,4 +3,4 @@
 # run:      typos
 
 [default.extend-words]
-ba = "ba"     # Used in a test
+ba = "ba" # Used in a test
