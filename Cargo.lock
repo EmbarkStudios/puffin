@@ -2272,7 +2272,6 @@ dependencies = [
  "itertools",
  "js-sys",
  "lz4_flex",
- "once_cell",
  "parking_lot",
  "ruzstd",
  "serde",
