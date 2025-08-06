@@ -43,7 +43,7 @@ end = "2026-08-31"
 
 [[trusted.cfg-expr]]
 criteria = "safe-to-deploy"
-user-id = 52553 # embark-studios
+user-id = 52553
 start = "2020-01-09"
 end = "2024-06-08"
 
