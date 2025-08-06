@@ -803,11 +803,11 @@ version = "0.8.26"
 criteria = "safe-to-deploy"
 
 [[exemptions.zstd]]
-version = "0.12.4"
+version = "0.13.3"
 criteria = "safe-to-deploy"
 
 [[exemptions.zstd-safe]]
-version = "6.0.6"
+version = "7.2.4"
 criteria = "safe-to-deploy"
 
 [[exemptions.zstd-sys]]
