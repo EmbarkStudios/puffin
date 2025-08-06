@@ -104,8 +104,8 @@ user-id = 55123
 user-login = "rust-lang-owner"
 
 [[publisher.indexmap]]
-version = "2.10.0"
-when = "2025-06-26"
+version = "2.11.0"
+when = "2025-08-22"
 user-id = 539
 user-login = "cuviper"
 user-name = "Josh Stone"
