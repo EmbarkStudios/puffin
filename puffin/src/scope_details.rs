@@ -65,11 +65,11 @@ impl ScopeCollection {
     /// Writes [`ScopeCollection`] into a stream.
     #[cfg(feature = "serialization")]
     pub fn write_into(&self, write: &mut impl std::io::Write) -> anyhow::Result<()> {
-        use bincode::Options as _;
+        use bincode::config::standard;
 
         write.write_all(Self::PSC1)?;
         let scope_collection = self.scopes_by_id().values().collect::<Vec<_>>();
-        bincode::options().serialize_into(write, &scope_collection)?;
+        bincode::serde::encode_into_std_write(&scope_collection, write, standard())?;
 
         Ok(())
     }
@@ -87,10 +87,9 @@ impl ScopeCollection {
     #[cfg(feature = "serialization")]
     fn read_scope_collection_format1(read: &mut impl std::io::Read) -> Result<Self, anyhow::Error> {
         use anyhow::Context;
-        use bincode::Options;
+        use bincode::config::standard;
 
-        let scopes: Vec<ScopeDetails> = bincode::options()
-            .deserialize_from(read)
+        let scopes: Vec<ScopeDetails> = bincode::serde::decode_from_std_read(read, standard())
             .context("read scopes collection")?;
 
         let mut scope_collection = Self::default();
