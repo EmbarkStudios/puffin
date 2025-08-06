@@ -84,8 +84,8 @@ pub fn profiler_window(ctx: &egui::Context) -> bool {
     open
 }
 
-static PROFILE_UI: once_cell::sync::Lazy<parking_lot::Mutex<GlobalProfilerUi>> =
-    once_cell::sync::Lazy::new(Default::default);
+static PROFILE_UI: std::sync::LazyLock<parking_lot::Mutex<GlobalProfilerUi>> =
+    std::sync::LazyLock::new(Default::default);
 
 /// Show the profiler.
 ///
