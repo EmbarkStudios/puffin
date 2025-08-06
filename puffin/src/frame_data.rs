@@ -840,7 +840,7 @@ fn decode_zstd(mut bytes: &[u8]) -> anyhow::Result<Vec<u8>> {
     use anyhow::Context as _;
     use std::io::Read as _;
     let mut decoded = Vec::new();
-    let mut decoder = ruzstd::StreamingDecoder::new(&mut bytes)
+    let mut decoder = ruzstd::decoding::StreamingDecoder::new(&mut bytes)
         .map_err(|err| anyhow::format_err!("zstd decompress: {}", err))?;
     decoder
         .read_to_end(&mut decoded)

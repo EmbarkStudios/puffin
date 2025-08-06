@@ -53,7 +53,7 @@ zstd = { version = "0.13", optional = true } # native only
 # web:
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 js-sys = { version = "0.3", optional = true }
-ruzstd = { version = "0.4", optional = true }   # works on wasm
+ruzstd = { version = "0.8", optional = true } # works on wasm
 web-time = { version = "0.2", optional = true }
 
 

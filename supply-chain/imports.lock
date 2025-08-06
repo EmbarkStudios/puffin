@@ -2510,13 +2510,6 @@ criteria = "safe-to-deploy"
 version = "1.2.1"
 aggregated-from = "https://chromium.googlesource.com/chromiumos/third_party/rust_crates/+/refs/heads/main/cargo-vet/audits.toml?format=TEXT"
 
-[[audits.google.audits.twox-hash]]
-who = "Dennis Kempin <denniskempin@google.com>"
-criteria = "safe-to-deploy"
-version = "1.6.3"
-notes = "Non-cyptographic hashing function"
-aggregated-from = "https://chromium.googlesource.com/chromiumos/third_party/rust_crates/+/refs/heads/main/cargo-vet/audits.toml?format=TEXT"
-
 [[audits.google.audits.unicode-ident]]
 who = "Lukasz Anforowicz <lukasza@chromium.org>"
 criteria = "safe-to-deploy"
