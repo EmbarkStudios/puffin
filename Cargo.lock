@@ -2280,7 +2280,7 @@ dependencies = [
  "parking_lot",
  "ruzstd",
  "serde",
- "web-time 0.2.4",
+ "web-time 1.1.0",
  "zstd",
 ]
 
