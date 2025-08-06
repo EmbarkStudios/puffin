@@ -595,7 +595,7 @@ version = "0.8.1"
 criteria = "safe-to-deploy"
 
 [[exemptions.simple_logger]]
-version = "4.3.3"
+version = "5.0.0"
 criteria = "safe-to-run"
 
 [[exemptions.slab]]
