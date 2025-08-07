@@ -51,10 +51,6 @@ audit-as-crates-io = false
 criteria = []
 notes = "Not used, Redox OS-only"
 
-[policy.redox_users]
-criteria = []
-notes = "Not used, Redox OS-only"
-
 [policy.wasi]
 criteria = []
 notes = "Not used, unsupported target"
