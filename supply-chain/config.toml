@@ -4,7 +4,10 @@
 [cargo-vet]
 version = "0.9"
 
-[imports.embark]
+[imports.actix]
+url = "https://raw.githubusercontent.com/actix/supply-chain/main/audits.toml"
+
+[imports.embark-studios]
 url = "https://raw.githubusercontent.com/EmbarkStudios/rust-ecosystem/main/audits.toml"
 
 [imports.fermyon]
