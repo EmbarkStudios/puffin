@@ -3,6 +3,12 @@
 
 [audits]
 
+[[audits.zerocopy-derive]]
+who = "Gwen Lg <me@gwenlg.fr>"
+criteria = "safe-to-deploy"
+delta = "0.7.34 -> 0.7.35"
+notes = "Only changes in tests/ui-stable/*.stderr files. No change in Rust files"
+
 [[trusted.byteorder]]
 criteria = "safe-to-deploy"
 user-id = 189 # Andrew Gallant (BurntSushi)

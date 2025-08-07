@@ -1223,6 +1223,12 @@ criteria = "safe-to-deploy"
 version = "1.0.0"
 notes = "I, Henri Sivonen, wrote this (safe-code-only) crate."
 
+[[audits.firefox.audits.zerocopy-derive]]
+who = "Alex Franchuk <afranchuk@mozilla.com>"
+criteria = "safe-to-deploy"
+version = "0.7.32"
+notes = "Clean, safe macros for zerocopy."
+
 [[audits.firefox.audits.zerovec]]
 who = "Makoto Kato <m_kato@ga2.so-net.ne.jp>"
 criteria = "safe-to-deploy"
@@ -2718,24 +2724,6 @@ criteria = "safe-to-deploy"
 delta = "0.7.8 -> 0.7.32"
 aggregated-from = "https://chromium.googlesource.com/chromiumos/third_party/rust_crates/+/refs/heads/main/cargo-vet/audits.toml?format=TEXT"
 
-[[audits.google.audits.zerocopy-derive]]
-who = "ChromeOS"
-criteria = "safe-to-deploy"
-version = "0.3.2"
-aggregated-from = "https://chromium.googlesource.com/chromiumos/third_party/rust_crates/+/refs/heads/main/cargo-vet/audits.toml?format=TEXT"
-
-[[audits.google.audits.zerocopy-derive]]
-who = "Daniel Verkamp <dverkamp@chromium.org>"
-criteria = "safe-to-deploy"
-delta = "0.3.2 -> 0.7.8"
-aggregated-from = "https://chromium.googlesource.com/chromiumos/third_party/rust_crates/+/refs/heads/main/cargo-vet/audits.toml?format=TEXT"
-
-[[audits.google.audits.zerocopy-derive]]
-who = "George Burgess IV <gbiv@google.com>"
-criteria = "safe-to-deploy"
-delta = "0.7.8 -> 0.7.32"
-aggregated-from = "https://chromium.googlesource.com/chromiumos/third_party/rust_crates/+/refs/heads/main/cargo-vet/audits.toml?format=TEXT"
-
 [[audits.google.audits.zerofrom]]
 who = "George Burgess IV <gbiv@google.com>"
 criteria = "safe-to-deploy"
@@ -3100,3 +3088,9 @@ criteria = "safe-to-deploy"
 delta = "0.1.0 -> 0.1.1"
 notes = "Adds `#![forbid(unsafe_code)]` and license files."
 aggregated-from = "https://raw.githubusercontent.com/zcash/zcash/master/qa/supply-chain/audits.toml"
+
+[[audits.zcash.audits.zerocopy-derive]]
+who = "Daira-Emma Hopwood <daira@jacaranda.org>"
+criteria = "safe-to-deploy"
+delta = "0.7.32 -> 0.7.34"
+aggregated-from = "https://raw.githubusercontent.com/zcash/librustzcash/main/supply-chain/audits.toml"
