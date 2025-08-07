@@ -127,8 +127,9 @@ pub struct Options {
     /// Interval of vertical timeline indicators.
     grid_spacing_micros: f64,
 
+    /// Filter to highlight specific functions or scopes matching the filter.
     #[cfg_attr(feature = "serde", serde(skip))]
-    scope_name_filter: Filter,
+    pub scope_name_filter: Filter,
 
     /// Set when user clicks a scope.
     /// First part is `now()`, second is range.
