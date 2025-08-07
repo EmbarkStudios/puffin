@@ -1,7 +1,10 @@
 
 # cargo-vet audits file
 
-[audits]
+[[audits.num_enum_derive]]
+who = "Gwen Lg <me@gwenlg.fr>"
+criteria = "safe-to-deploy"
+delta = "0.7.2 -> 0.7.3"
 
 [[trusted.byteorder]]
 criteria = "safe-to-deploy"
