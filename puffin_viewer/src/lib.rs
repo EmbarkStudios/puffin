@@ -153,7 +153,7 @@ impl PuffinViewer {
         }
 
         egui::TopBottomPanel::top("menu_bar").show(ctx, |ui| {
-            egui::menu::bar(ui, |ui| {
+            egui::MenuBar::new().ui(ui, |ui| {
                 egui::widgets::global_theme_preference_switch(ui);
 
                 ui.menu_button("File", |ui| {
