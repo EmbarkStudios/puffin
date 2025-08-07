@@ -135,11 +135,11 @@ version = "0.15.1"
 criteria = "safe-to-deploy"
 
 [[exemptions.calloop]]
-version = "0.12.3"
+version = "0.13.0"
 criteria = "safe-to-deploy"
 
 [[exemptions.calloop-wayland-source]]
-version = "0.2.0"
+version = "0.3.0"
 criteria = "safe-to-deploy"
 
 [[exemptions.cesu8]]
