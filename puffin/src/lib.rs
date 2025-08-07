@@ -104,13 +104,14 @@ pub fn now_ns() -> NanoSecond {
 
     // This can maybe be optimized
 
+    use std::sync::LazyLock;
     #[cfg(not(target_arch = "wasm32"))]
     use std::time::Instant;
     #[cfg(target_arch = "wasm32")]
     use web_time::Instant;
 
-    static START_TIME: once_cell::sync::Lazy<(NanoSecond, Instant)> =
-        once_cell::sync::Lazy::new(|| (nanos_since_epoch(), Instant::now()));
+    static START_TIME: LazyLock<(NanoSecond, Instant)> =
+        LazyLock::new(|| (nanos_since_epoch(), Instant::now()));
     START_TIME.0 + START_TIME.1.elapsed().as_nanos() as NanoSecond
 }
 

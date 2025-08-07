@@ -157,8 +157,8 @@ impl Server {
     ///                 }
     ///
     ///                 #[doc = concat!("The instance of the ", std::stringify!([< $name:lower >]), " thread profiler's server")]
-    ///                 pub static [< $name:upper _PROFILER_SERVER >] : once_cell::sync::Lazy<std::sync::Mutex<puffin_http::Server>>
-    ///                     = once_cell::sync::Lazy::new(|| {
+    ///                 pub static [< $name:upper _PROFILER_SERVER >] : std::sync::LazyLock<std::sync::Mutex<puffin_http::Server>>
+    ///                     = std::sync::LazyLock::new(|| {
     ///                         eprintln!(
     ///                             "starting puffin_http server for {} profiler at {}",
     ///                             std::stringify!([<$name:lower>]),
@@ -182,7 +182,7 @@ impl Server {
     ///
     ///                 #[doc = concat!("Accessor for the ", std::stringify!([< $name:lower >]), " thread reporter")]
     ///                 pub fn [< $name:lower _profiler_lock >]() -> std::sync::MutexGuard<'static, puffin::GlobalProfiler> {
-    ///                     static [< $name _PROFILER >] : once_cell::sync::Lazy<std::sync::Mutex<puffin::GlobalProfiler>> = once_cell::sync::Lazy::new(Default::default);
+    ///                     static [< $name _PROFILER >] : std::sync::LazyLock<std::sync::Mutex<puffin::GlobalProfiler>> = std::sync::LazyLock::new(Default::default);
     ///                     [< $name _PROFILER >].lock().expect("poisoned std::sync::mutex")
     ///                 }
     ///
