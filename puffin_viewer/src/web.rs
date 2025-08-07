@@ -1,4 +1,7 @@
-use eframe::wasm_bindgen::{self, prelude::*};
+use eframe::{
+    wasm_bindgen::{self, prelude::*},
+    web_sys::HtmlCanvasElement,
+};
 
 /// This is the entry-point for all the web-assembly.
 /// This is called once from the HTML.
@@ -6,7 +9,7 @@ use eframe::wasm_bindgen::{self, prelude::*};
 /// You can add more callbacks like this if you want to call in to your code.
 #[allow(clippy::unused_unit)]
 #[wasm_bindgen]
-pub async fn start(canvas_id: &str) -> Result<(), eframe::wasm_bindgen::JsValue> {
+pub async fn start(canvas: HtmlCanvasElement) -> Result<(), eframe::wasm_bindgen::JsValue> {
     puffin::set_scopes_on(true); // quiet warning in `puffin_egui`.
 
     // Redirect [`log`] message to `console.log` and friends:
@@ -16,7 +19,7 @@ pub async fn start(canvas_id: &str) -> Result<(), eframe::wasm_bindgen::JsValue>
     let runner = eframe::WebRunner::new();
     runner
         .start(
-            canvas_id,
+            canvas,
             web_options,
             Box::new(|cc| {
                 Ok(Box::new(crate::PuffinViewer::new(
