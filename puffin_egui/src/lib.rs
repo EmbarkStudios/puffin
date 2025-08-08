@@ -318,6 +318,9 @@ pub struct ProfilerUi {
     /// When did we last run a pass to pack all the frames?
     #[cfg_attr(feature = "serde", serde(skip))]
     last_pack_pass: Option<web_time::Instant>,
+
+    /// Order to sort scopes in table view
+    sort_order: stats::SortOrder,
 }
 
 impl Default for ProfilerUi {
@@ -330,6 +333,10 @@ impl Default for ProfilerUi {
             max_num_latest: 1,
             slowest_frame: 0.16,
             last_pack_pass: None,
+            sort_order: stats::SortOrder {
+                key: stats::SortKey::Count,
+                rev: true,
+            },
         }
     }
 }
@@ -573,6 +580,7 @@ impl ProfilerUi {
                 &mut self.stats_options,
                 frame_view.scope_collection(),
                 &frames.frames,
+                &mut self.sort_order,
             ),
         }
     }
