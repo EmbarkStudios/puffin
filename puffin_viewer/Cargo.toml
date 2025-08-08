@@ -22,14 +22,14 @@ wayland = ["eframe/wayland"]
 x11 = ["eframe/x11"]
 
 [dependencies]
-puffin_egui = { version = "0.29.0", path = "../puffin_egui", features = [
-    "serde",
-] }
 puffin = { version = "0.19.1", path = "../puffin", features = [
     "packing",
     "serialization",
     "lz4",
-    "zstd",          # Support zstd in order to load old puffin files (before 0.16.0)
+    "zstd", # Support zstd in order to load old puffin files (before 0.16.0)
+] }
+puffin_egui = { version = "0.29.0", path = "../puffin_egui", features = [
+    "serde",
 ] }
 puffin_http = { version = "0.16.1", path = "../puffin_http" }
 
@@ -39,9 +39,9 @@ eframe = { version = "0.31.0", default-features = false, features = [
     "glow",
     "persistence",
 ] }
+env_logger = "0.10"
 log = "0.4"
 rfd = "0.10.0"
-env_logger = "0.10"
 
 # native:
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
