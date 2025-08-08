@@ -1,7 +1,7 @@
 use anyhow::Context as _;
 use puffin::{FrameSinkId, GlobalProfiler, ScopeCollection};
 use std::{
-    io::Write,
+    io::Write as _,
     net::{SocketAddr, TcpListener, TcpStream},
     sync::{
         Arc,
@@ -27,7 +27,11 @@ pub struct Server {
 impl Server {
     /// Start listening for connections on this addr (e.g. "0.0.0.0:8585")
     ///
-    /// Connects to the [GlobalProfiler]
+    /// Connects to the [`GlobalProfiler`]
+    ///
+    /// # Errors
+    ///
+    /// forward error from [`Self::new_custom`] call.
     pub fn new(bind_addr: &str) -> anyhow::Result<Self> {
         fn global_add(sink: puffin::FrameSink) -> FrameSinkId {
             GlobalProfiler::lock().add_sink(sink)
@@ -47,7 +51,7 @@ impl Server {
     /// * `sink_install` - A function that installs the [Server]'s sink into
     ///   a [`GlobalProfiler`], and then returns the [`FrameSinkId`] so that the sink can be removed later
     /// * `sink_remove` - A function that reverts `sink_install`.
-    ///   This should be a call to remove the sink from the profiler ([GlobalProfiler::remove_sink])
+    ///   This should be a call to remove the sink from the profiler ([`GlobalProfiler::remove_sink`])
     ///
     /// # Example
     ///
@@ -55,6 +59,11 @@ impl Server {
     /// such that threads can be grouped together and profiled separately. E.g. you could have one profiling server
     /// instance for the main UI loop, and another for the background worker loop, and events/frames from those thread(s)
     /// would be completely separated. You can then hook up two separate instances of `puffin_viewer` and profile them separately.
+    ///
+    /// # Errors
+    ///
+    /// Will return an `io::Error` if the [`TcpListener::bind`] fail.
+    /// Will return an `io::Error` if the spawn of the thread ,for connection and data send management, fail.
     ///
     /// ## Per-Thread Profiling
     /// ```
@@ -269,7 +278,7 @@ impl Server {
             tx.send(frame).ok();
         }));
 
-        Ok(Server {
+        Ok(Self {
             sink_id,
             join_handle: Some(join_handle),
             num_clients,
@@ -380,7 +389,7 @@ impl PuffinServerImpl {
 
         packet
             .write_all(&crate::PROTOCOL_VERSION.to_le_bytes())
-            .unwrap();
+            .context("Encode puffin `PROTOCOL_VERSION` in packet to be send to client.")?;
 
         let scope_collection = if self.send_all_scopes {
             Some(&self.scope_collection)
@@ -415,6 +424,7 @@ impl PuffinServerImpl {
     }
 }
 
+#[expect(clippy::needless_pass_by_value)]
 fn client_loop(
     packet_rx: crossbeam_channel::Receiver<Packet>,
     client_addr: SocketAddr,

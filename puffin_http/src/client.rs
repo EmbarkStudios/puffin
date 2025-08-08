@@ -44,8 +44,8 @@ impl Client {
             frame_view: frame_view.clone(),
         };
 
-        let _ = std::thread::Builder::new()
-            .name("http_client_thread".to_string())
+        let _: std::thread::JoinHandle<()> = std::thread::Builder::new()
+            .name("http_client_thread".to_owned())
             .spawn(move || {
                 log::info!("Connecting to {}…", addr);
                 while alive.load(SeqCst) {
@@ -78,7 +78,8 @@ impl Client {
                         }
                     }
                 }
-            });
+            })
+            .expect("Failed to spawn client thread");
 
         client
     }
