@@ -441,3 +441,15 @@ impl FrameStats {
         self.total_ram_used = 0;
     }
 }
+
+#[cfg(all(test, feature = "serialization"))]
+mod tests {
+    use super::FrameView;
+
+    #[test]
+    fn read_pfd4_file() -> anyhow::Result<()> {
+        let mut file = std::fs::File::open("tests/data/capture_PFD4.puffin")?;
+        let _ = FrameView::read(&mut file)?;
+        Ok(())
+    }
+}
