@@ -1,7 +1,7 @@
 use anyhow::Context as _;
 use puffin::{FrameSinkId, GlobalProfiler, ScopeCollection};
 use std::{
-    io::Write,
+    io::Write as _,
     net::{SocketAddr, TcpListener, TcpStream},
     sync::{
         Arc,
