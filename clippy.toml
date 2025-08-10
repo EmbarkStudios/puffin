@@ -1,4 +1,4 @@
-msrv = "1.76.0"
+msrv = "1.86.0"
 
 avoid-breaking-exported-api = false
 allow-expect-in-tests = true
@@ -19,7 +19,7 @@ disallowed-types = [
     { path = "std::sync::Mutex", reason = "Use the faster & simpler non-poisonable primitives in `parking_lot` instead" },
     { path = "std::sync::RwLock", reason = "Use the faster & simpler non-poisonable primitives in `parking_lot` instead" },
     { path = "std::sync::Condvar", reason = "Use the faster & simpler non-poisonable primitives in `parking_lot` instead" },
-    { path = "std::sync::Once", reason = "Use the faster & simpler non-poisonable primitives in `parking_lot` instead" },
+    # { path = "std::sync::Once", reason = "Use the faster & simpler non-poisonable primitives in `parking_lot` instead" }, # Used by log_once crate
 
     { path = "ring::digest::SHA1_FOR_LEGACY_USE_ONLY", reason = "SHA-1 is cryptographically broken, and we are building new code so should not use it" },
 ]

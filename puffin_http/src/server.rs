@@ -1,11 +1,11 @@
 use anyhow::Context as _;
-use puffin::{FrameSinkId, FrameView, GlobalProfiler};
+use puffin::{FrameSinkId, GlobalProfiler, ScopeCollection};
 use std::{
-    io::Write,
+    io::Write as _,
     net::{SocketAddr, TcpListener, TcpStream},
     sync::{
-        atomic::{AtomicUsize, Ordering},
         Arc,
+        atomic::{AtomicUsize, Ordering},
     },
 };
 
@@ -27,7 +27,11 @@ pub struct Server {
 impl Server {
     /// Start listening for connections on this addr (e.g. "0.0.0.0:8585")
     ///
-    /// Connects to the [GlobalProfiler]
+    /// Connects to the [`GlobalProfiler`]
+    ///
+    /// # Errors
+    ///
+    /// forward error from [`Self::new_custom`] call.
     pub fn new(bind_addr: &str) -> anyhow::Result<Self> {
         fn global_add(sink: puffin::FrameSink) -> FrameSinkId {
             GlobalProfiler::lock().add_sink(sink)
@@ -43,11 +47,11 @@ impl Server {
     ///
     /// # Arguments
     /// * `bind_addr` - The address to bind to, when listening for connections
-    /// (e.g. "localhost:8585" or "127.0.0.1:8585")
+    ///   (e.g. "localhost:8585" or "127.0.0.1:8585")
     /// * `sink_install` - A function that installs the [Server]'s sink into
-    /// a [`GlobalProfiler`], and then returns the [`FrameSinkId`] so that the sink can be removed later
+    ///   a [`GlobalProfiler`], and then returns the [`FrameSinkId`] so that the sink can be removed later
     /// * `sink_remove` - A function that reverts `sink_install`.
-    /// This should be a call to remove the sink from the profiler ([GlobalProfiler::remove_sink])
+    ///   This should be a call to remove the sink from the profiler ([`GlobalProfiler::remove_sink`])
     ///
     /// # Example
     ///
@@ -55,6 +59,11 @@ impl Server {
     /// such that threads can be grouped together and profiled separately. E.g. you could have one profiling server
     /// instance for the main UI loop, and another for the background worker loop, and events/frames from those thread(s)
     /// would be completely separated. You can then hook up two separate instances of `puffin_viewer` and profile them separately.
+    ///
+    /// # Errors
+    ///
+    /// Will return an `io::Error` if the [`TcpListener::bind`] fail.
+    /// Will return an `io::Error` if the spawn of the thread ,for connection and data send management, fail.
     ///
     /// ## Per-Thread Profiling
     /// ```
@@ -157,8 +166,8 @@ impl Server {
     ///                 }
     ///
     ///                 #[doc = concat!("The instance of the ", std::stringify!([< $name:lower >]), " thread profiler's server")]
-    ///                 pub static [< $name:upper _PROFILER_SERVER >] : once_cell::sync::Lazy<std::sync::Mutex<puffin_http::Server>>
-    ///                     = once_cell::sync::Lazy::new(|| {
+    ///                 pub static [< $name:upper _PROFILER_SERVER >] : std::sync::LazyLock<std::sync::Mutex<puffin_http::Server>>
+    ///                     = std::sync::LazyLock::new(|| {
     ///                         eprintln!(
     ///                             "starting puffin_http server for {} profiler at {}",
     ///                             std::stringify!([<$name:lower>]),
@@ -182,7 +191,7 @@ impl Server {
     ///
     ///                 #[doc = concat!("Accessor for the ", std::stringify!([< $name:lower >]), " thread reporter")]
     ///                 pub fn [< $name:lower _profiler_lock >]() -> std::sync::MutexGuard<'static, puffin::GlobalProfiler> {
-    ///                     static [< $name _PROFILER >] : once_cell::sync::Lazy<std::sync::Mutex<puffin::GlobalProfiler>> = once_cell::sync::Lazy::new(Default::default);
+    ///                     static [< $name _PROFILER >] : std::sync::LazyLock<std::sync::Mutex<puffin::GlobalProfiler>> = std::sync::LazyLock::new(Default::default);
     ///                     [< $name _PROFILER >].lock().expect("poisoned std::sync::mutex")
     ///                 }
     ///
@@ -249,11 +258,10 @@ impl Server {
                     clients: Default::default(),
                     num_clients: num_clients_cloned,
                     send_all_scopes: false,
-                    frame_view: Default::default(),
+                    scope_collection: Default::default(),
                 };
 
                 while let Ok(frame) = rx.recv() {
-                    server_impl.frame_view.add_frame(frame.clone());
                     if let Err(err) = server_impl.accept_new_clients() {
                         log::warn!("puffin server failure: {}", err);
                     }
@@ -270,7 +278,7 @@ impl Server {
             tx.send(frame).ok();
         }));
 
-        Ok(Server {
+        Ok(Self {
             sink_id,
             join_handle: Some(join_handle),
             num_clients,
@@ -325,7 +333,7 @@ struct PuffinServerImpl {
     clients: Vec<Client>,
     num_clients: Arc<AtomicUsize>,
     send_all_scopes: bool,
-    frame_view: FrameView,
+    scope_collection: ScopeCollection,
 }
 
 impl PuffinServerImpl {
@@ -372,18 +380,25 @@ impl PuffinServerImpl {
         }
         puffin::profile_function!();
 
+        // Keep scope_collection up-to-date
+        for new_scope in &frame.scope_delta {
+            self.scope_collection.insert(new_scope.clone());
+        }
+
         let mut packet = vec![];
 
         packet
             .write_all(&crate::PROTOCOL_VERSION.to_le_bytes())
-            .unwrap();
+            .context("Encode puffin `PROTOCOL_VERSION` in packet to be send to client.")?;
+
+        let scope_collection = if self.send_all_scopes {
+            Some(&self.scope_collection)
+        } else {
+            None
+        };
 
         frame
-            .write_into(
-                self.frame_view.scope_collection(),
-                self.send_all_scopes,
-                &mut packet,
-            )
+            .write_into(scope_collection, &mut packet)
             .context("Encode puffin frame")?;
         self.send_all_scopes = false;
 
@@ -409,6 +424,7 @@ impl PuffinServerImpl {
     }
 }
 
+#[expect(clippy::needless_pass_by_value)]
 fn client_loop(
     packet_rx: crossbeam_channel::Receiver<Packet>,
     client_addr: SocketAddr,

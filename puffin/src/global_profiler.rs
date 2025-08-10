@@ -1,10 +1,11 @@
-use std::{collections::BTreeMap, sync::Arc};
-
-use once_cell::sync::Lazy;
+use std::{
+    collections::BTreeMap,
+    sync::{Arc, LazyLock},
+};
 
 use crate::{
-    fetch_add_scope_id, Error, FrameData, FrameIndex, FrameSinkId, ScopeCollection, ScopeDetails,
-    ScopeId, StreamInfo, StreamInfoRef, ThreadInfo,
+    Error, FrameData, FrameIndex, FrameSinkId, ScopeCollection, ScopeDetails, ScopeId, StreamInfo,
+    StreamInfoRef, ThreadInfo, fetch_add_scope_id,
 };
 
 /// Add these to [`GlobalProfiler`] with [`GlobalProfiler::add_sink()`].
@@ -44,8 +45,8 @@ impl Default for GlobalProfiler {
 impl GlobalProfiler {
     /// Access to the global profiler singleton.
     pub fn lock() -> parking_lot::MutexGuard<'static, Self> {
-        static GLOBAL_PROFILER: Lazy<parking_lot::Mutex<GlobalProfiler>> =
-            Lazy::new(Default::default);
+        static GLOBAL_PROFILER: LazyLock<parking_lot::Mutex<GlobalProfiler>> =
+            LazyLock::new(Default::default);
         GLOBAL_PROFILER.lock()
     }
 

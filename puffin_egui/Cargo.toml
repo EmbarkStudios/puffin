@@ -12,34 +12,39 @@ readme = "README.md"
 repository = "https://github.com/EmbarkStudios/puffin"
 rust-version.workspace = true
 include = [
-  "../LICENSE-APACHE",
-  "../LICENSE-MIT",
-  "**/*.rs",
-  "Cargo.toml",
-  "README.md",
+    "../LICENSE-APACHE",
+    "../LICENSE-MIT",
+    "**/*.rs",
+    "Cargo.toml",
+    "README.md",
 ]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-egui = { version = "0.28.0", default-features = false }
-egui_extras = { version = "0.28.0", default-features = false, features = ["serde"] }
+egui = { version = "0.31.0", default-features = false }
+egui_extras = { version = "0.31.0", default-features = false, features = [
+    "serde",
+] }
 indexmap = { version = "2.1.0", features = ["serde"] }
+log = "0.4"
+log-once = "0.4"
 natord = "1.0.9"
-once_cell = "1.7"
 parking_lot = "0.12"
 puffin = { version = "0.19.1", path = "../puffin", features = ["packing"] }
 serde = { version = "1.0", features = ["derive"], optional = true }
 time = { version = "0.3.17", default-features = false, features = [
-  "formatting",
-  "macros",
+    "formatting",
+    "macros",
 ] }
 vec1 = "1.8"
 web-time = "0.2"
 
 [dev-dependencies]
-eframe = { version = "0.28.0", default-features = false, features = [
-  "default_fonts",
-  "glow",
-  "persistence",
+eframe = { version = "0.31.0", default-features = false, features = [
+    "default_fonts",
+    "glow",
+    "persistence",
+    "wayland",
+    "x11",
 ] }

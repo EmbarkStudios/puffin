@@ -20,13 +20,16 @@ env:
 jobs:
   lint:
     name: Lint
-    runs-on: ubuntu-20.04-16core
+    runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy, rustfmt
           targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: "true"
 
       - name: Install packages (Linux)
         if: runner.os == 'Linux'
@@ -41,21 +44,25 @@ jobs:
 
       - run: cargo fetch
       - name: cargo clippy
-        run: cargo clippy --all-targets -- -D warnings
+        run: cargo clippy --locked --all-targets -- -D warnings
       - name: cargo clippy wasm32-unknown-unknown WITHOUT web feature
-        run: cargo clippy -p puffin --target wasm32-unknown-unknown --no-default-features -- -D warnings
+        run: cargo clippy --locked -p puffin --target wasm32-unknown-unknown --no-default-features -- -D warnings
       - name: cargo clippy wasm32
-        run: cargo clippy -p puffin_viewer --target wasm32-unknown-unknown --all-features --lib
+        run: cargo clippy --locked -p puffin_viewer --target wasm32-unknown-unknown --all-features --lib
 
   test:
     name: Test
     strategy:
+      fail-fast: true
       matrix:
-        os: [ubuntu-20.04-16core, windows-2022-16core, macOS-latest-xl]
+        os: [ubuntu-latest, windows-2022, macos-latest]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: "true"
 
       - run: cargo fetch
       - name: Install packages (Linux)
@@ -65,23 +72,23 @@ jobs:
           sudo apt-get -yq --no-install-suggests --no-install-recommends install libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev libasound2-dev libxkbcommon-dev # egui_glium dependencies
           sudo apt-get install libgtk-3-dev # rfd dependencies
       - name: cargo test build default features
-        run: cargo build --tests --release
+        run: cargo build --locked --tests --release
       - name: cargo test build
-        run: cargo build --tests --release --all-features
+        run: cargo build --locked --tests --release --all-features
       - name: cargo test
-        run: cargo test -p puffin -p puffin_egui -p puffin_http --release --all-features
+        run: cargo test --locked -p puffin -p puffin_egui -p puffin_http --release --all-features
       - name: cargo test --doc
-        run: cargo test --workspace --doc
+        run: cargo test --locked --workspace --doc
       - name: cargo doc
-        run: cargo doc -p puffin -p puffin_egui -p puffin_http -p --lib --no-deps --all-features
+        run: cargo doc --locked -p puffin -p puffin_egui -p puffin_http -p --lib --no-deps --all-features
 
   cargo-vet:
     name: Vet Dependencies
-    runs-on: ubuntu-20.04-16core
+    runs-on: ubuntu-latest
     env:
       CARGO_VET_VERSION: 0.9.1
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - uses: actions/cache@v3
         with:
@@ -92,8 +99,17 @@ jobs:
       - name: Ensure that the tool cache is populated with the cargo-vet binary
         # build from source, as are not published binaries yet :(
         # tracked in https://github.com/mozilla/cargo-vet/issues/484
-        run: cargo install --root ${{ runner.tool_cache }}/cargo-vet --version ${{ env.CARGO_VET_VERSION }} cargo-vet
+        run: cargo +stable install --root ${{ runner.tool_cache }}/cargo-vet --version ${{ env.CARGO_VET_VERSION }} cargo-vet
       - name: Invoke cargo-vet
         run: |
           cargo vet --locked
           cargo vet --locked >> $GITHUB_STEP_SUMMARY
+
+  taplo:
+    name: Toml format check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: gwen-lg/taplo-action@v1
+        with:
+          format: true

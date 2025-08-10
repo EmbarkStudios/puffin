@@ -1,3 +1,6 @@
+#[expect(clippy::unwrap_used)]
+#[expect(clippy::print_stderr)]
+#[expect(clippy::infinite_loop)]
 fn main() {
     simple_logger::SimpleLogger::new()
         .with_level(log::LevelFilter::Info)
@@ -28,7 +31,7 @@ fn main() {
         sleep_ms(14);
         if frame_counter % 7 == 0 {
             puffin::profile_scope!("Spike");
-            std::thread::sleep(std::time::Duration::from_millis(10))
+            std::thread::sleep(std::time::Duration::from_millis(10));
         }
 
         for _ in 0..1000 {

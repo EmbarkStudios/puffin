@@ -26,6 +26,7 @@ pub struct FrameView {
     /// Maintain stats as we add/remove frames
     stats: FrameStats,
 
+    /// Collect all scope infos(id/name) from the start of the profiling.
     scope_collection: ScopeCollection,
 }
 
@@ -229,7 +230,7 @@ impl FrameView {
         write.write_all(b"PUF0")?;
 
         for frame in self.all_uniq() {
-            frame.write_into(&self.scope_collection, false, write)?;
+            frame.write_into(None, write)?;
         }
         Ok(())
     }

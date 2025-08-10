@@ -1,8 +1,8 @@
 use std::vec;
 
-use super::{SelectedFrames, ERROR_COLOR, HOVER_COLOR};
+use super::{ERROR_COLOR, HOVER_COLOR, SelectedFrames};
 use crate::filter::Filter;
-use egui::*;
+use egui::{emath::GuiRounding, *};
 use indexmap::IndexMap;
 use puffin::*;
 
@@ -196,7 +196,7 @@ enum PaintResult {
     Normal,
 }
 
-impl<'a> Info<'a> {
+impl Info<'_> {
     fn point_from_ns(&self, options: &Options, ns: NanoSecond) -> f32 {
         self.canvas.min.x
             + options.sideways_pan_in_points
@@ -260,7 +260,7 @@ pub fn ui(
 
             ui.group(|ui| {
                 ui.strong("Visible Threads");
-                egui::ScrollArea::vertical().id_source("f").show(ui, |ui| {
+                egui::ScrollArea::vertical().id_salt("f").show(ui, |ui| {
                     for f in frames.threads.keys() {
                         let entry = options
                             .flamegraph_threads
@@ -644,6 +644,7 @@ fn paint_record(
     };
 
     let Some(scope_details) = info.scope_collection.fetch_by_id(&scope_id) else {
+        log_once::warn_once!("Missing scope metadata");
         return PaintResult::Culled;
     };
 
@@ -723,7 +724,7 @@ fn paint_record(
             start_x + 4.0,
             top_y + 0.5 * (options.rect_height - info.text_height),
         );
-        let pos = painter.round_pos_to_pixels(pos);
+        let pos = pos.round_to_pixels(painter.pixels_per_point());
         const TEXT_COLOR: Color32 = Color32::BLACK;
         painter.text(
             pos,
@@ -777,6 +778,7 @@ fn paint_scope(
 
         if result == PaintResult::Hovered {
             let Some(scope_details) = info.scope_collection.fetch_by_id(&scope.id) else {
+                log_once::warn_once!("Missing scope metadata");
                 return Ok(PaintResult::Culled);
             };
             egui::show_tooltip_at_pointer(
@@ -884,7 +886,7 @@ fn paint_scope_details(ui: &mut Ui, scope_id: ScopeId, data: &str, scope_details
 
             if !data.is_empty() {
                 ui.monospace("data");
-                ui.monospace(data.as_str());
+                ui.monospace(egui::TextBuffer::as_str(&data));
                 ui.end_row();
             }
 
@@ -903,6 +905,7 @@ fn merge_scope_tooltip(
     #![allow(clippy::collapsible_else_if)]
 
     let Some(scope_details) = scope_collection.fetch_by_id(&merge.id) else {
+        log_once::warn_once!("Missing scope metadata");
         return;
     };
 

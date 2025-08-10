@@ -84,8 +84,8 @@ pub fn profiler_window(ctx: &egui::Context) -> bool {
     open
 }
 
-static PROFILE_UI: once_cell::sync::Lazy<parking_lot::Mutex<GlobalProfilerUi>> =
-    once_cell::sync::Lazy::new(Default::default);
+static PROFILE_UI: std::sync::LazyLock<parking_lot::Mutex<GlobalProfilerUi>> =
+    std::sync::LazyLock::new(Default::default);
 
 /// Show the profiler.
 ///
@@ -406,7 +406,7 @@ impl ProfilerUi {
     fn all_known_frames<'a>(
         &'a self,
         frame_view: &'a FrameView,
-    ) -> Box<dyn Iterator<Item = &'_ Arc<FrameData>> + '_> {
+    ) -> Box<dyn Iterator<Item = &'a Arc<FrameData>> + 'a> {
         match &self.paused {
             Some(paused) => Box::new(frame_view.all_uniq().chain(paused.frames.uniq.iter())),
             None => Box::new(frame_view.all_uniq()),
@@ -551,7 +551,8 @@ impl ProfilerUi {
 
                 let text = format!(
                     "There are {num_scopes} scopes in this frame, which adds around ~{overhead} of overhead.\n\
-                    Use the Table view to find which scopes are triggered often, and either remove them or replace them with profile_function_if!()");
+                    Use the Table view to find which scopes are triggered often, and either remove them or replace them with profile_function_if!()"
+                );
 
                 ui.label(egui::RichText::new(text).color(ui.visuals().warn_fg_color));
             }

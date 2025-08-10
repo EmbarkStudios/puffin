@@ -39,8 +39,7 @@ web = ["dep:js-sys", "dep:web-time"]
 byteorder = { version = "1.0" }
 cfg-if = "1.0"
 itertools = "0.10"
-once_cell = "1.0"
-parking_lot = { version = "0.12"}
+parking_lot = { version = "0.12" }
 
 # Optional:
 anyhow = { version = "1.0" }
