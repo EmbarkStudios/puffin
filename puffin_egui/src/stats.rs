@@ -107,12 +107,10 @@ fn header_label(ui: &mut egui::Ui, name: &str, sort_key: SortKey, sort_order: &m
         {
             sort_order.toggle();
         }
-    } else {
-        if ui.strong(name).clicked() {
-            *sort_order = SortOrder {
-                key: sort_key,
-                rev: true,
-            }
+    } else if ui.strong(name).clicked() {
+        *sort_order = SortOrder {
+            key: sort_key,
+            rev: true,
         }
     }
 }
