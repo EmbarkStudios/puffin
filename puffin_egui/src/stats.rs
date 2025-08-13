@@ -8,11 +8,119 @@ pub struct Options {
     filter: Filter,
 }
 
+#[derive(Copy, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+pub enum SortKey {
+    Location,
+    FunctionName,
+    ScopeName,
+    Count,
+    Size,
+    TotalSelfTime,
+    MeanSelfTime,
+    MaxSelfTime,
+}
+
+/// Determines the order of scopes in table view.
+#[derive(Copy, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+pub struct SortOrder {
+    /// Which column to sort scopes by
+    pub key: SortKey,
+
+    /// Reverse order, if true sort in descending order.
+    /// If false sort in ascending order.
+    pub rev: bool,
+}
+
+impl SortOrder {
+    fn sort_scopes(&self, scopes: &mut [(&Key, ScopeStats)], scope_infos: &ScopeCollection) {
+        match self.key {
+            SortKey::Location => {
+                scopes.sort_by_key(|(key, _scope_stats)| {
+                    if let Some(scope_details) = scope_infos.fetch_by_id(&key.id) {
+                        scope_details.location()
+                    } else {
+                        String::new()
+                    }
+                });
+            }
+            SortKey::FunctionName => {
+                scopes.sort_by_key(|(key, _scope_stats)| {
+                    if let Some(scope_details) = scope_infos.fetch_by_id(&key.id) {
+                        scope_details.function_name.as_str()
+                    } else {
+                        ""
+                    }
+                });
+            }
+            SortKey::ScopeName => {
+                scopes.sort_by_key(|(key, _scope_stats)| {
+                    if let Some(scope_details) = scope_infos.fetch_by_id(&key.id) {
+                        if let Some(name) = &scope_details.scope_name {
+                            name.as_ref()
+                        } else {
+                            ""
+                        }
+                    } else {
+                        ""
+                    }
+                });
+            }
+            SortKey::Count => {
+                scopes.sort_by_key(|(_key, scope_stats)| scope_stats.count);
+            }
+            SortKey::Size => {
+                scopes.sort_by_key(|(_key, scope_stats)| scope_stats.bytes);
+            }
+            SortKey::TotalSelfTime => {
+                scopes.sort_by_key(|(_key, scope_stats)| scope_stats.total_self_ns);
+            }
+            SortKey::MeanSelfTime => {
+                scopes.sort_by_key(|(_key, scope_stats)| {
+                    scope_stats.total_self_ns as usize / scope_stats.count
+                });
+            }
+            SortKey::MaxSelfTime => {
+                scopes.sort_by_key(|(_key, scope_stats)| scope_stats.max_ns);
+            }
+        }
+        if self.rev {
+            scopes.reverse();
+        }
+    }
+
+    fn get_arrow(&self) -> &str {
+        if self.rev { "⏷" } else { "⏶" }
+    }
+
+    fn toggle(&mut self) {
+        self.rev = !self.rev;
+    }
+}
+
+fn header_label(ui: &mut egui::Ui, name: &str, sort_key: SortKey, sort_order: &mut SortOrder) {
+    if sort_order.key == sort_key {
+        if ui
+            .strong(format!("{} {}", name, sort_order.get_arrow()))
+            .clicked()
+        {
+            sort_order.toggle();
+        }
+    } else if ui.strong(name).clicked() {
+        *sort_order = SortOrder {
+            key: sort_key,
+            rev: true,
+        }
+    }
+}
+
 pub fn ui(
     ui: &mut egui::Ui,
     options: &mut Options,
     scope_infos: &ScopeCollection,
     frames: &[std::sync::Arc<UnpackedFrameData>],
+    sort_order: &mut SortOrder,
 ) {
     let mut threads = std::collections::HashSet::<&ThreadInfo>::new();
     let mut stats = Stats::default();
@@ -50,8 +158,7 @@ pub fn ui(
         .map(|(key, value)| (key, *value))
         .collect();
     scopes.sort_by_key(|(key, _)| *key);
-    scopes.sort_by_key(|(_key, scope_stats)| scope_stats.count);
-    scopes.reverse();
+    sort_order.sort_scopes(&mut scopes, scope_infos);
 
     egui::ScrollArea::horizontal().show(ui, |ui| {
         ui.style_mut().wrap_mode = Some(egui::TextWrapMode::Extend);
@@ -66,28 +173,28 @@ pub fn ui(
             .columns(egui_extras::Column::auto().resizable(false), 6)
             .header(20.0, |mut header| {
                 header.col(|ui| {
-                    ui.strong("Location");
+                    header_label(ui, "Location", SortKey::Location, sort_order);
                 });
                 header.col(|ui| {
-                    ui.strong("Function Name");
+                    header_label(ui, "Function Name", SortKey::FunctionName, sort_order);
                 });
                 header.col(|ui| {
-                    ui.strong("Scope Name");
+                    header_label(ui, "Scope Name", SortKey::ScopeName, sort_order);
                 });
                 header.col(|ui| {
-                    ui.strong("Count");
+                    header_label(ui, "Count", SortKey::Count, sort_order);
                 });
                 header.col(|ui| {
-                    ui.strong("Size");
+                    header_label(ui, "Size", SortKey::Size, sort_order);
                 });
                 header.col(|ui| {
-                    ui.strong("Total self time");
+                    header_label(ui, "Total self time", SortKey::TotalSelfTime, sort_order);
                 });
                 header.col(|ui| {
-                    ui.strong("Mean self time");
+                    header_label(ui, "Mean self time", SortKey::MeanSelfTime, sort_order);
                 });
                 header.col(|ui| {
-                    ui.strong("Max self time");
+                    header_label(ui, "Max self time", SortKey::MaxSelfTime, sort_order);
                 });
             })
             .body(|mut body| {
