@@ -459,4 +459,11 @@ mod tests {
         let _ = FrameView::read(&mut file)?;
         Ok(())
     }
+
+    #[test]
+    fn read_pfd2_file() -> anyhow::Result<()> {
+        let mut file = std::fs::File::open("tests/data/capture_PFD2.puffin")?;
+        let _ = FrameView::read(&mut file)?;
+        Ok(())
+    }
 }
