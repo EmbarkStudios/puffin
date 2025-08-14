@@ -263,11 +263,11 @@ impl Server {
 
                 while let Ok(frame) = rx.recv() {
                     if let Err(err) = server_impl.accept_new_clients() {
-                        log::warn!("puffin server failure: {}", err);
+                        log::warn!("puffin server failure: {err}");
                     }
 
                     if let Err(err) = server_impl.send(&frame) {
-                        log::warn!("puffin server failure: {}", err);
+                        log::warn!("puffin server failure: {err}");
                     }
                 }
             })
@@ -345,7 +345,7 @@ impl PuffinServerImpl {
                         .set_nonblocking(false)
                         .context("stream.set_nonblocking")?;
 
-                    log::info!("{} connected", client_addr);
+                    log::info!("{client_addr} connected");
 
                     let (packet_tx, packet_rx) = crossbeam_channel::bounded(MAX_FRAMES_IN_QUEUE);
 
