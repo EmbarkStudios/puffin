@@ -60,6 +60,9 @@ web-time = { version = "0.2", optional = true }
 [dev-dependencies]
 criterion = "0.5"
 
+[target.'cfg(target_os = "linux")'.dev-dependencies]
+memfile = "0.3"
+
 [[bench]]
 name = "benchmark"
 harness = false

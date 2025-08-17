@@ -444,6 +444,13 @@ impl FrameStats {
 
 #[cfg(all(test, feature = "serialization"))]
 mod tests {
+    use std::{io::Seek, ops::DerefMut, sync::Arc, thread, time::Duration};
+
+    use memfile::MemFile;
+    use parking_lot::Mutex;
+
+    use crate::{GlobalProfiler, profile_scope, set_scopes_on};
+
     use super::FrameView;
 
     #[test]
@@ -472,5 +479,49 @@ mod tests {
         let mut file = std::fs::File::open("tests/data/capture_PFD1.puffin")?;
         let _ = FrameView::read(&mut file)?;
         Ok(())
+    }
+
+    fn run_write(file: MemFile) {
+        // Init profiler sink with sync wrinting
+        let writer = Arc::new(Mutex::new(file));
+        let sink = GlobalProfiler::lock().add_sink(Box::new(move |frame_data| {
+            let mut writer = writer.lock();
+            frame_data.write_into(None, writer.deref_mut()).unwrap();
+        }));
+
+        set_scopes_on(true); // need this to enable capture
+        // run frames
+        for idx in 0..4 {
+            profile_scope!("main", idx.to_string());
+            {
+                profile_scope!("sleep 1ms");
+                let sleep_duration = Duration::from_millis(1);
+                thread::sleep(sleep_duration);
+            }
+            {
+                profile_scope!("sleep 2ms");
+                let sleep_duration = Duration::from_millis(2);
+                thread::sleep(sleep_duration);
+            }
+            GlobalProfiler::lock().new_frame();
+        }
+
+        set_scopes_on(false);
+        GlobalProfiler::lock().new_frame(); //Force to get last frame
+        GlobalProfiler::lock().remove_sink(sink);
+    }
+
+    fn run_read(mut file: MemFile) {
+        file.rewind().unwrap();
+        let _ = FrameView::read(&mut file).expect("read :");
+    }
+
+    #[test]
+    #[cfg(target_os = "linux")]
+    fn deserialize_serialized() {
+        let file = MemFile::create_default("deserialize_serialized.puffin").unwrap();
+        run_write(file.try_clone().unwrap());
+        thread::sleep(Duration::from_secs(1));
+        run_read(file);
     }
 }
