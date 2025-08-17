@@ -568,13 +568,11 @@ impl FrameData {
     #[cfg(not(target_arch = "wasm32"))] // compression not supported on wasm
     #[cfg(feature = "serialization")]
     pub fn write_into(&self, write: &mut impl std::io::Write) -> anyhow::Result<()> {
-        use byteorder::{LE, WriteBytesExt as _};
+        use byteorder::WriteBytesExt as _;
 
-        write.write_all(b"PFD4")?;
+        write.write_all(b"PFD5")?;
 
-        let meta_serialized = bincode::serde::encode_to_vec(self.meta, standard())?;
-        write.write_all(&(meta_serialized.len() as u32).to_le_bytes())?;
-        write.write_all(&meta_serialized)?;
+        let _bytes_written = bincode::serde::encode_into_std_write(self.meta, write, standard())?;
 
         self.create_packed();
         let packed_streams_lock = self.data.read();
@@ -584,9 +582,8 @@ impl FrameData {
         write.write_u8(packed_streams.compression_kind as u8)?;
         write.write_all(&packed_streams.bytes)?;
 
-        let serialized_scopes = bincode::serde::encode_to_vec(&self.scope_delta, standard())?;
-        write.write_u32::<LE>(serialized_scopes.len() as u32)?;
-        write.write_all(&serialized_scopes)?;
+        let _bytes_written =
+            bincode::serde::encode_into_std_write(&self.scope_delta, write, standard())?;
         Ok(())
     }
 
@@ -733,13 +730,12 @@ impl FrameData {
                 }))
             } else if &header == b"PFD4" {
                 // Added 2024-01-08: Split up stream scope details from the record stream.
-                let meta_length = read.read_u32::<LE>()? as usize;
+                let _meta_length = read.read_u32::<LE>()? as usize;
                 let meta = {
-                    let mut meta = vec![0_u8; meta_length];
-                    read.read_exact(&mut meta)?;
-                    let (meta, _x) = bincode::serde::decode_from_slice(&meta, standard())
-                        .context("bincode decode FrameMeta")?;
-                    meta
+                    // let mut meta = vec![0_u8; meta_length];
+                    // read.read_exact(&mut meta)?;
+                    bincode::serde::decode_from_std_read(read, standard())
+                        .context("bincode decode FrameMeta")?
                 };
 
                 let streams_compressed_length = read.read_u32::<LE>()? as usize;
@@ -750,20 +746,38 @@ impl FrameData {
                     PackedStreams::new(compression_kind, streams_compressed)
                 };
 
-                let serialized_scope_len = read.read_u32::<LE>()?;
+                let _serialized_scope_len = read.read_u32::<LE>()?;
                 let deserialized_scopes: Vec<crate::ScopeDetails> = {
-                    let mut serialized_scopes = vec![0; serialized_scope_len as usize];
-                    read.read_exact(&mut serialized_scopes)?;
-                    let (scopes, _) =
-                        bincode::serde::decode_from_slice(&serialized_scopes, standard())
-                            .context("bincode decode scopes")?;
-                    scopes
+                    bincode::serde::decode_from_std_read(read, standard())
+                        .context("bincode decode scopes")?
                 };
 
                 let new_scopes: Vec<_> = deserialized_scopes
                     .into_iter()
                     .map(|x| Arc::new(x.clone()))
                     .collect();
+
+                Ok(Some(Self {
+                    meta,
+                    data: RwLock::new(FrameDataState::Packed(streams_compressed)),
+                    scope_delta: new_scopes,
+                    full_delta: false,
+                }))
+            } else if &header == b"PFD5" {
+                // Added 2025-08-31: direct decode from read, avoid manual management and copies of data.
+                let meta = bincode::serde::decode_from_std_read(read, standard())
+                    .context("bincode decode FrameMeta")?;
+
+                let streams_compressed_length = read.read_u32::<LE>()? as usize;
+                let compression_kind = CompressionKind::from_u8(read.read_u8()?)?;
+                let streams_compressed = {
+                    let mut streams_compressed = vec![0_u8; streams_compressed_length];
+                    read.read_exact(&mut streams_compressed)?;
+                    PackedStreams::new(compression_kind, streams_compressed)
+                };
+
+                let new_scopes = bincode::serde::decode_from_std_read(read, standard())
+                    .context("bincode decode scopes")?;
 
                 Ok(Some(Self {
                     meta,
