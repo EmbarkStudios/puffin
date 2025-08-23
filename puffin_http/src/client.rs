@@ -4,7 +4,12 @@ use std::sync::{
     atomic::{AtomicBool, Ordering::SeqCst},
 };
 
-use puffin::{DataHeader, FrameData, FrameView};
+use puffin::{DataHeader, FrameData, FrameView, ScopeCollection};
+
+enum MessageContent {
+    FrameData(FrameData),
+    ScopeCollection(ScopeCollection),
+}
 
 /// Connect to a [`crate::Server`], reading profile data
 /// and feeding it to a [`puffin::FrameView`].
@@ -102,7 +107,7 @@ impl Client {
 }
 
 /// Read a `puffin_http` message from a stream.
-pub fn consume_message(stream: &mut impl std::io::Read) -> anyhow::Result<puffin::FrameData> {
+pub fn consume_message(stream: &mut impl std::io::Read) -> anyhow::Result<MessageContent> {
     let mut server_version = [0_u8; 2];
     stream.read_exact(&mut server_version)?;
     let server_version = u16::from_le_bytes(server_version);
@@ -125,10 +130,12 @@ pub fn consume_message(stream: &mut impl std::io::Read) -> anyhow::Result<puffin
         }
     }
 
-    let header = DataHeader::try_read(stream)?;
-    FrameData::read_next(stream, &header)
+    todo!("handle scope collection");
+
+    let frame_data = FrameData::read_next(stream)
         .context("Failed to parse FrameData")?
-        .ok_or_else(|| anyhow::format_err!("End of stream"))
+        .ok_or_else(|| anyhow::format_err!("End of stream"))?;
+    Ok(MessageContent::FrameData(frame_data))
 }
 
 /// Show full cause chain in a single line
