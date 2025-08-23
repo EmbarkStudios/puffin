@@ -58,6 +58,48 @@ impl ScopeCollection {
     pub fn scopes_by_id(&self) -> &HashMap<ScopeId, Arc<ScopeDetails>> {
         &self.0.scope_id_to_details
     }
+
+    #[cfg(feature = "serialization")]
+    const PSC1: &[u8] = b"PSC1";
+
+    /// Writes [`ScopeCollection`] into a stream.
+    #[cfg(feature = "serialization")]
+    pub fn write_into(&self, write: &mut impl std::io::Write) -> anyhow::Result<()> {
+        use bincode::Options as _;
+
+        write.write_all(Self::PSC1)?;
+        let scope_collection = self.scopes_by_id().values().collect::<Vec<_>>();
+        bincode::options().serialize_into(write, &scope_collection)?;
+
+        Ok(())
+    }
+
+    /// Read [`ScopeCollection`] from a stream.
+    #[cfg(feature = "serialization")]
+    pub fn read(read: &mut impl std::io::Read, header: &crate::DataHeader) -> anyhow::Result<Self> {
+        use anyhow::anyhow;
+        match header.as_slice() {
+            Self::PSC1 => Self::read_scope_collection_format1(read),
+            _ => Err(anyhow!("`{header}` is not a valid ScopeCollection header")),
+        }
+    }
+
+    #[cfg(feature = "serialization")]
+    fn read_scope_collection_format1(read: &mut impl std::io::Read) -> Result<Self, anyhow::Error> {
+        use anyhow::Context;
+        use bincode::Options;
+
+        let scopes: Vec<ScopeDetails> = bincode::options()
+            .deserialize_from(read)
+            .context("read scopes collection")?;
+
+        let mut scope_collection = Self::default();
+        for scope in scopes {
+            scope_collection.insert(scope.into());
+        }
+
+        Ok(scope_collection)
+    }
 }
 
 /// Scopes are identified by user-provided name while functions are identified by the function name.
