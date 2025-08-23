@@ -569,11 +569,7 @@ impl FrameData {
     /// Writes one [`FrameData`] into a stream, prefixed by its length ([`u32`] le).
     #[cfg(not(target_arch = "wasm32"))] // compression not supported on wasm
     #[cfg(feature = "serialization")]
-    pub fn write_into(
-        &self,
-        scope_collection: Option<&crate::ScopeCollection>,
-        write: &mut impl std::io::Write,
-    ) -> anyhow::Result<()> {
+    pub fn write_into(&self, write: &mut impl std::io::Write) -> anyhow::Result<()> {
         use bincode::Options as _;
         use byteorder::{LE, WriteBytesExt as _};
 
@@ -591,13 +587,7 @@ impl FrameData {
         write.write_u8(packed_streams.compression_kind as u8)?;
         write.write_all(&packed_streams.bytes)?;
 
-        let to_serialize_scopes: Vec<_> = if let Some(scope_collection) = scope_collection {
-            scope_collection.scopes_by_id().values().cloned().collect()
-        } else {
-            self.scope_delta.clone()
-        };
-
-        let serialized_scopes = bincode::options().serialize(&to_serialize_scopes)?;
+        let serialized_scopes = bincode::options().serialize(&self.scope_delta)?;
         write.write_u32::<LE>(serialized_scopes.len() as u32)?;
         write.write_all(&serialized_scopes)?;
         Ok(())

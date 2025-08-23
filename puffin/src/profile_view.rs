@@ -62,6 +62,15 @@ impl FrameView {
         &self.scope_collection
     }
 
+    /// Allow init scope_collection of the FrameView
+    pub fn init_scope_collection(&mut self, scope_collection: ScopeCollection) {
+        assert!(
+            self.scope_collection.scopes_by_id().is_empty()
+                && self.scope_collection.scopes_by_name().is_empty()
+        );
+        self.scope_collection = scope_collection;
+    }
+
     /// Adds a new frame to the view.
     pub fn add_frame(&mut self, new_frame: Arc<FrameData>) {
         // Register all scopes from the new frame into the scope collection.
@@ -229,10 +238,12 @@ impl FrameView {
     #[cfg(feature = "serialization")]
     #[cfg(not(target_arch = "wasm32"))] // compression not supported on wasm
     pub fn write(&self, write: &mut impl std::io::Write) -> anyhow::Result<()> {
-        write.write_all(b"PUF0")?;
+        write.write_all(b"PUF1")?;
+
+        self.scope_collection.write_into(write)?;
 
         for frame in self.all_uniq() {
-            frame.write_into(None, write)?;
+            frame.write_into(write)?;
         }
         Ok(())
     }
@@ -240,10 +251,18 @@ impl FrameView {
     /// Import profile data from a `.puffin` file/stream.
     #[cfg(feature = "serialization")]
     pub fn read(read: &mut impl std::io::Read) -> anyhow::Result<Self> {
+        const MAGIC_0: &[u8; 4] = b"PUF0";
+        const MAGIC_1: &[u8; 4] = b"PUF1";
+
         let mut magic = [0_u8; 4];
         read.read_exact(&mut magic)?;
-        if &magic != b"PUF0" {
-            anyhow::bail!("Expected .puffin magic header of 'PUF0', found {:?}", magic);
+        if &magic != MAGIC_0 && &magic != MAGIC_1 {
+            anyhow::bail!(
+                "Expected .puffin magic header of '{:?}' ok `{:?}`, found {:?}",
+                MAGIC_0,
+                MAGIC_1,
+                magic
+            );
         }
 
         let mut slf = Self {
@@ -252,8 +271,12 @@ impl FrameView {
         };
 
         while let Some(header) = Self::read_header(read)? {
-            if let Some(frame) = FrameData::read_next(read, &header)? {
-                slf.add_frame(frame.into());
+            if header.bytes().starts_with(b"PSC") {
+                slf.init_scope_collection(ScopeCollection::read(read, &header)?);
+            } else if header.bytes().starts_with(b"PFD") {
+                if let Some(frame) = FrameData::read_next(read, &header)? {
+                    slf.add_frame(frame.into());
+                }
             }
         }
 
