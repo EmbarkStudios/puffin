@@ -393,14 +393,8 @@ impl PuffinServerImpl {
             .write_all(&crate::PROTOCOL_VERSION.to_le_bytes())
             .context("Encode puffin `PROTOCOL_VERSION` in packet to be send to client.")?;
 
-        let scope_collection = if self.send_all_scopes {
-            Some(&self.scope_collection)
-        } else {
-            None
-        };
-
         frame
-            .write_into(scope_collection, &mut packet)
+            .write_into(&mut packet)
             .context("Encode puffin frame")?;
         self.send_all_scopes = false;
 
