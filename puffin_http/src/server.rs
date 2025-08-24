@@ -257,18 +257,12 @@ impl Server {
                     tcp_listener,
                     clients: Default::default(),
                     num_clients: num_clients_cloned,
-                    send_all_scopes: false,
                     scope_collection: Default::default(),
                 };
 
                 while let Ok(frame) = rx.recv() {
                     if let Err(err) = server_impl.accept_new_clients() {
                         log::warn!("puffin server `accept new clients` failure: {err}");
-                    }
-
-                    //Hack
-                    if let Err(err) = server_impl.send_scopes() {
-                        log::warn!("puffin server `send scopes` failure: {err}");
                     }
 
                     if let Err(err) = server_impl.send(&frame) {
@@ -337,7 +331,6 @@ struct PuffinServerImpl {
     tcp_listener: TcpListener,
     clients: Vec<Client>,
     num_clients: Arc<AtomicUsize>,
-    send_all_scopes: bool,
     scope_collection: ScopeCollection,
 }
 
@@ -359,13 +352,16 @@ impl PuffinServerImpl {
                         .spawn(move || client_loop(packet_rx, client_addr, tcp_stream))
                         .context("Couldn't spawn thread")?;
 
-                    // Send all scopes when new client connects.
-                    self.send_all_scopes = true;
-                    self.clients.push(Client {
+                    let new_client = Client {
                         client_addr,
                         packet_tx: Some(packet_tx),
                         join_handle: Some(join_handle),
-                    });
+                    };
+                    // Send all scopes to new connected client.
+                    if let Err(err) = self.send_scopes_to_client(&new_client) {
+                        log::warn!("puffin server `send scopes` failure: {err}");
+                    }
+                    self.clients.push(new_client);
                     self.num_clients.store(self.clients.len(), Ordering::SeqCst);
                 }
                 Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {
@@ -423,33 +419,20 @@ impl PuffinServerImpl {
         Ok(())
     }
 
-    pub fn send_scopes(&mut self) -> anyhow::Result<()> {
-        if self.send_all_scopes {
-            let mut packet = vec![];
-            packet
-                .write_all(&crate::PROTOCOL_VERSION.to_le_bytes())
-                .context("Encode puffin `PROTOCOL_VERSION` in packet to be send to client.")?;
-            self.scope_collection.write_into(&mut packet)?;
+    pub fn send_scopes_to_client(&self, client: &Client) -> anyhow::Result<(), anyhow::Error> {
+        let mut packet = vec![];
+        packet
+            .write_all(&crate::PROTOCOL_VERSION.to_le_bytes())
+            .context("Encode puffin `PROTOCOL_VERSION` in packet to be send to client.")?;
+        self.scope_collection.write_into(&mut packet)?;
 
-            let packet: Packet = packet.into();
-            self.clients.retain(|client| match &client.packet_tx {
-                None => false,
-                Some(packet_tx) => match packet_tx.try_send(packet.clone()) {
-                    Ok(()) => true,
-                    Err(crossbeam_channel::TrySendError::Disconnected(_)) => false,
-                    Err(crossbeam_channel::TrySendError::Full(_)) => {
-                        log::info!(
-                            "puffin client {} is not accepting data fast enough; dropping a frame",
-                            client.client_addr
-                        );
-                        true
-                    }
-                },
-            });
-            self.num_clients.store(self.clients.len(), Ordering::SeqCst);
-            self.send_all_scopes = false;
+        let packet: Packet = packet.into();
+        match &client.packet_tx {
+            None => Ok(()),
+            Some(packet_tx) => packet_tx
+                .try_send(packet.clone())
+                .map_err(anyhow::Error::from),
         }
-        Ok(())
     }
 }
 
