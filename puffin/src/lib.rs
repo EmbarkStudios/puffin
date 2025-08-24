@@ -23,6 +23,8 @@
 #![deny(missing_docs)]
 
 mod data;
+#[cfg(feature = "serialization")]
+mod data_header;
 mod frame_data;
 mod global_profiler;
 mod merge;
@@ -36,6 +38,8 @@ use std::sync::atomic::{AtomicBool, Ordering};
 
 /// TODO: Improve encapsulation.
 pub use data::{Error, Reader, Result, Scope, ScopeRecord, Stream, StreamInfo, StreamInfoRef};
+#[cfg(feature = "serialization")]
+pub use data_header::DataHeader;
 pub use frame_data::{FrameData, FrameMeta, UnpackedFrameData};
 pub use global_profiler::{FrameSink, GlobalProfiler};
 pub use merge::{MergeScope, merge_scopes_for_thread};
