@@ -24,6 +24,7 @@ pub struct Server {
     num_clients: Arc<AtomicUsize>,
     stop_connection: Arc<AtomicBool>,
     sink_mngr: SinkManager,
+    wait_client: Receiver<()>,
 }
 
 impl Server {
@@ -239,6 +240,7 @@ impl Server {
         // but `crossbeam_channel` will continue until the channel is empty.
         let (tx, rx): (crossbeam_channel::Sender<Arc<puffin::FrameData>>, _) =
             crossbeam_channel::unbounded();
+        let (client_connected, wait_client) = crossbeam_channel::bounded(0);
 
         let (client_send, client_recv) = crossbeam_channel::unbounded();
 
@@ -256,7 +258,7 @@ impl Server {
                     exit,
                 };
 
-                if let Err(err) = ps_connection.accept_new_clients() {
+                if let Err(err) = ps_connection.accept_new_clients(&client_connected) {
                     log::warn!("puffin server `accept new clients` failure: {err}");
                 }
 
@@ -293,12 +295,23 @@ impl Server {
             num_clients,
             sink_mngr,
             stop_connection,
+            wait_client,
         })
     }
 
     /// Number of clients currently connected.
     pub fn num_clients(&self) -> usize {
         self.num_clients.load(Ordering::SeqCst)
+    }
+
+    /// Block thread to wait at least a puffin client.
+    ///
+    /// # Errors
+    /// Return error from channel.
+    pub fn wait_client(&self) -> Result<(), crossbeam_channel::RecvError> {
+        puffin::profile_function!();
+        log::info!("Wait puffin_http client");
+        self.wait_client.recv()
     }
 }
 
@@ -347,7 +360,7 @@ struct PuffinServerConnection {
 }
 
 impl PuffinServerConnection {
-    fn accept_new_clients(&self) -> anyhow::Result<()> {
+    fn accept_new_clients(&self, rdv_channel: &Sender<()>) -> anyhow::Result<()> {
         loop {
             match self.tcp_listener.accept() {
                 Ok((tcp_stream, client_addr)) => {
@@ -378,6 +391,7 @@ impl PuffinServerConnection {
                     self.client_send
                         .send(new_client)
                         .context("failed to send new client to frame sender")?;
+                    rdv_channel.send(())?;
                 }
                 Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {
                     if self.exit.load(Ordering::Acquire) {
