@@ -695,11 +695,11 @@ impl ProfilerUi {
     ) -> NanoSecond {
         let frame_width_including_spacing = self.flamegraph_options.frame_width;
 
+        let num_frames = frames[frames.len() - 1].frame_index() + 1 - frames[0].frame_index();
         let desired_width = if tight {
             frames.len() as f32 * frame_width_including_spacing
         } else {
             // leave gaps in the view for the missing frames
-            let num_frames = frames[frames.len() - 1].frame_index() + 1 - frames[0].frame_index();
             num_frames as f32 * frame_width_including_spacing
         };
 
@@ -719,9 +719,28 @@ impl ProfilerUi {
         let mut new_selection = vec![];
         let mut slowest_visible_frame = 0;
 
-        for (i, frame) in frames.iter().enumerate() {
+        // If there are no gaps just iterate trough a subslice of frames
+        let frame_range = if tight || (num_frames as usize == frames.len()) {
+            let screen_left = -rect.left() + ui.clip_rect().left();
+            let screen_right = screen_left + ui.clip_rect().width();
+
+            let target_left_index = (screen_left / frame_width_including_spacing).floor() as usize;
+            let target_right_index = (screen_right / frame_width_including_spacing).ceil() as usize;
+
+            let range_start = target_left_index.min(frames.len().saturating_sub(1));
+            let range_end = (target_right_index + 1).min(frames.len());
+
+            range_start..range_end
+        } else {
+            0..frames.len()
+        };
+
+        let first_index = frame_range.start;
+        for (i, frame) in frames[frame_range].iter().enumerate() {
             let x = if tight {
-                rect.right() - (frames.len() as f32 - i as f32) * frame_width_including_spacing
+                rect.right()
+                    - (frames.len() as f32 - (i + first_index) as f32)
+                        * frame_width_including_spacing
             } else {
                 let latest_frame_index = frames[frames.len() - 1].frame_index();
                 rect.right()
