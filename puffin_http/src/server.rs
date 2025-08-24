@@ -1,4 +1,5 @@
 use anyhow::Context as _;
+use crossbeam_channel::{Receiver, Sender};
 use parking_lot::RwLock;
 use puffin::{FrameSinkId, GlobalProfiler, ScopeCollection};
 use std::{
@@ -23,6 +24,7 @@ pub struct Server {
     join_handle: Option<std::thread::JoinHandle<()>>,
     num_clients: Arc<AtomicUsize>,
     sink_remove: fn(FrameSinkId) -> (),
+    wait_client: Receiver<()>,
 }
 
 impl Server {
@@ -247,6 +249,7 @@ impl Server {
         // but `crossbeam_channel` will continue until the channel is empty.
         let (tx, rx): (crossbeam_channel::Sender<Arc<puffin::FrameData>>, _) =
             crossbeam_channel::unbounded();
+        let (client_connected, wait_client) = crossbeam_channel::bounded(0);
 
         let clients = Arc::new(RwLock::new(Vec::new()));
         let num_clients = Arc::new(AtomicUsize::default());
@@ -275,12 +278,13 @@ impl Server {
         let _handle_accept = std::thread::Builder::new()
             .name("pf-server-client".to_owned())
             .spawn(move || {
+                let rdv_channel_client = client_connected;
                 let ps_connection = PuffinServerConnection {
                     tcp_listener,
                     clients: clients.clone(),
                     num_clients: num_clients_wait,
                 };
-                if let Err(err) = ps_connection.accept_new_clients() {
+                if let Err(err) = ps_connection.accept_new_clients(&rdv_channel_client) {
                     log::warn!("pf-server-client failure: {err}");
                 }
             })
@@ -296,12 +300,22 @@ impl Server {
             join_handle: Some(join_handle),
             num_clients,
             sink_remove,
+            wait_client,
         })
     }
 
     /// Number of clients currently connected.
     pub fn num_clients(&self) -> usize {
         self.num_clients.load(Ordering::SeqCst)
+    }
+
+    /// Block thread to wait at least a puffin client.
+    ///
+    /// # Errors
+    /// Return error from channel.
+    pub fn wait_client(&self) -> Result<(), crossbeam_channel::RecvError> {
+        log::info!("Wait puffin_http client");
+        self.wait_client.recv()
     }
 }
 
@@ -346,7 +360,7 @@ struct PuffinServerConnection {
     num_clients: Arc<AtomicUsize>,
 }
 impl PuffinServerConnection {
-    fn accept_new_clients(&self) -> anyhow::Result<()> {
+    fn accept_new_clients(&self, rdv_channel: &Sender<()>) -> anyhow::Result<()> {
         loop {
             match self.tcp_listener.accept() {
                 Ok((tcp_stream, client_addr)) => {
@@ -373,6 +387,7 @@ impl PuffinServerConnection {
                     });
                     self.num_clients
                         .store(self.clients.read().len(), Ordering::SeqCst);
+                    rdv_channel.send(())?;
                 }
                 Err(err) if err.kind() == std::io::ErrorKind::WouldBlock => {
                     // Nothing to do for now. Continue looping
