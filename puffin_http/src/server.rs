@@ -263,11 +263,16 @@ impl Server {
 
                 while let Ok(frame) = rx.recv() {
                     if let Err(err) = server_impl.accept_new_clients() {
-                        log::warn!("puffin server failure: {err}");
+                        log::warn!("puffin server `accept new clients` failure: {err}");
+                    }
+
+                    //Hack
+                    if let Err(err) = server_impl.send_scopes() {
+                        log::warn!("puffin server `send scopes` failure: {err}");
                     }
 
                     if let Err(err) = server_impl.send(&frame) {
-                        log::warn!("puffin server failure: {err}");
+                        log::warn!("puffin server `send FrameData` failure: {err}");
                     }
                 }
             })
@@ -396,7 +401,6 @@ impl PuffinServerImpl {
         frame
             .write_into(&mut packet)
             .context("Encode puffin frame")?;
-        self.send_all_scopes = false;
 
         let packet: Packet = packet.into();
 
@@ -416,6 +420,35 @@ impl PuffinServerImpl {
         });
         self.num_clients.store(self.clients.len(), Ordering::SeqCst);
 
+        Ok(())
+    }
+
+    pub fn send_scopes(&mut self) -> anyhow::Result<()> {
+        if self.send_all_scopes {
+            let mut packet = vec![];
+            packet
+                .write_all(&crate::PROTOCOL_VERSION.to_le_bytes())
+                .context("Encode puffin `PROTOCOL_VERSION` in packet to be send to client.")?;
+            self.scope_collection.write_into(&mut packet)?;
+
+            let packet: Packet = packet.into();
+            self.clients.retain(|client| match &client.packet_tx {
+                None => false,
+                Some(packet_tx) => match packet_tx.try_send(packet.clone()) {
+                    Ok(()) => true,
+                    Err(crossbeam_channel::TrySendError::Disconnected(_)) => false,
+                    Err(crossbeam_channel::TrySendError::Full(_)) => {
+                        log::info!(
+                            "puffin client {} is not accepting data fast enough; dropping a frame",
+                            client.client_addr
+                        );
+                        true
+                    }
+                },
+            });
+            self.num_clients.store(self.clients.len(), Ordering::SeqCst);
+            self.send_all_scopes = false;
+        }
         Ok(())
     }
 }
