@@ -1,9 +1,10 @@
+use anyhow::Context as _;
 use std::sync::{
     Arc,
     atomic::{AtomicBool, Ordering::SeqCst},
 };
 
-use puffin::{FrameData, FrameView};
+use puffin::{DataHeader, FrameData, FrameView};
 
 /// Connect to a [`crate::Server`], reading profile data
 /// and feeding it to a [`puffin::FrameView`].
@@ -124,9 +125,8 @@ pub fn consume_message(stream: &mut impl std::io::Read) -> anyhow::Result<puffin
         }
     }
 
-    use anyhow::Context as _;
-
-    FrameData::read_next(stream)
+    let header = DataHeader::try_read(stream)?;
+    FrameData::read_next(stream, &header)
         .context("Failed to parse FrameData")?
         .ok_or_else(|| anyhow::format_err!("End of stream"))
 }

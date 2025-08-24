@@ -5,6 +5,8 @@ use std::{
     sync::Arc,
 };
 
+#[cfg(feature = "serialization")]
+use crate::DataHeader;
 use crate::{FrameData, FrameSinkId, ScopeCollection};
 
 /// A view of recent and slowest frames, used by GUIs.
@@ -248,11 +250,28 @@ impl FrameView {
             max_recent: usize::MAX,
             ..Default::default()
         };
-        while let Some(frame) = FrameData::read_next(read)? {
-            slf.add_frame(frame.into());
+
+        while let Some(header) = Self::read_header(read)? {
+            if let Some(frame) = FrameData::read_next(read, &header)? {
+                slf.add_frame(frame.into());
+            }
         }
 
         Ok(slf)
+    }
+
+    #[cfg(feature = "serialization")]
+    fn read_header(read: &mut impl std::io::Read) -> Result<Option<DataHeader>, anyhow::Error> {
+        match DataHeader::try_read(read) {
+            Ok(header) => Ok(Some(header)),
+            Err(err) => {
+                if err.kind() == std::io::ErrorKind::UnexpectedEof {
+                    Ok(None)
+                } else {
+                    Err(err.into())
+                }
+            }
+        }
     }
 }
 

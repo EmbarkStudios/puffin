@@ -1,3 +1,6 @@
+#[cfg(feature = "packing")]
+#[cfg(feature = "serialization")]
+use crate::DataHeader;
 use crate::ScopeDetails;
 use crate::{Error, FrameIndex, NanoSecond, Result, StreamInfo, ThreadInfo};
 #[cfg(feature = "packing")]
@@ -605,19 +608,13 @@ impl FrameData {
     /// [`None`] is returned if the end of the stream is reached (EOF),
     /// or an end-of-stream sentinel of `0u32` is read.
     #[cfg(feature = "serialization")]
-    pub fn read_next(read: &mut impl std::io::Read) -> anyhow::Result<Option<Self>> {
+    pub fn read_next(
+        read: &mut impl std::io::Read,
+        header: &DataHeader,
+    ) -> anyhow::Result<Option<Self>> {
         use anyhow::Context as _;
         use bincode::Options as _;
         use byteorder::{LE, ReadBytesExt};
-
-        let mut header = [0_u8; 4];
-        if let Err(err) = read.read_exact(&mut header) {
-            if err.kind() == std::io::ErrorKind::UnexpectedEof {
-                return Ok(None);
-            } else {
-                return Err(err.into());
-            }
-        }
 
         #[derive(Clone, serde::Deserialize, serde::Serialize)]
         pub struct LegacyFrameData {
@@ -657,9 +654,9 @@ impl FrameData {
             }
         }
 
-        if header == [0_u8; 4] {
+        if header.bytes() == [0_u8; 4] {
             Ok(None) // end-of-stream sentinel.
-        } else if header.starts_with(b"PFD") {
+        } else if header.as_slice().starts_with(b"PFD") {
             if &header == b"PFD0" {
                 // Like PDF1, but compressed with `lz4_flex`.
                 // We stopped supporting this in 2021-11-16 in order to remove `lz4_flex` dependency.
@@ -792,7 +789,7 @@ impl FrameData {
             }
         } else {
             // Very old packet without magic header
-            let mut bytes = vec![0_u8; u32::from_le_bytes(header) as usize];
+            let mut bytes = vec![0_u8; u32::from_le_bytes(header.bytes()) as usize];
             read.read_exact(&mut bytes)?;
 
             use bincode::Options as _;
