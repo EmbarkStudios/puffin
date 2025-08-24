@@ -5,6 +5,8 @@ use std::{
     sync::Arc,
 };
 
+#[cfg(feature = "serialization")]
+use crate::DataHeader;
 use crate::{FrameData, FrameSinkId, ScopeCollection};
 
 /// A view of recent and slowest frames, used by GUIs.
@@ -58,6 +60,15 @@ impl FrameView {
     /// This can be used to fetch more information about a specific scope.
     pub fn scope_collection(&self) -> &ScopeCollection {
         &self.scope_collection
+    }
+
+    /// Allow init scope_collection of the FrameView
+    pub fn init_scope_collection(&mut self, scope_collection: ScopeCollection) {
+        assert!(
+            self.scope_collection.scopes_by_id().is_empty()
+                && self.scope_collection.scopes_by_name().is_empty()
+        );
+        self.scope_collection = scope_collection;
     }
 
     /// Adds a new frame to the view.
@@ -227,10 +238,12 @@ impl FrameView {
     #[cfg(feature = "serialization")]
     #[cfg(not(target_arch = "wasm32"))] // compression not supported on wasm
     pub fn write(&self, write: &mut impl std::io::Write) -> anyhow::Result<()> {
-        write.write_all(b"PUF0")?;
+        write.write_all(b"PUF1")?;
+
+        self.scope_collection.write_into(write)?;
 
         for frame in self.all_uniq() {
-            frame.write_into(None, write)?;
+            frame.write_into(write)?;
         }
         Ok(())
     }
@@ -240,7 +253,7 @@ impl FrameView {
     pub fn read(read: &mut impl std::io::Read) -> anyhow::Result<Self> {
         let mut magic = [0_u8; 4];
         read.read_exact(&mut magic)?;
-        if &magic != b"PUF0" {
+        if &magic != b"PUF1" {
             anyhow::bail!("Expected .puffin magic header of 'PUF0', found {:?}", magic);
         }
 
@@ -248,11 +261,32 @@ impl FrameView {
             max_recent: usize::MAX,
             ..Default::default()
         };
-        while let Some(frame) = FrameData::read_next(read)? {
-            slf.add_frame(frame.into());
+
+        while let Some(header) = Self::read_header(read)? {
+            if header.bytes().starts_with(b"PSC") {
+                slf.init_scope_collection(ScopeCollection::read(read, &header)?);
+            } else if header.bytes().starts_with(b"PFD") {
+                if let Some(frame) = FrameData::read_next(read, &header)? {
+                    slf.add_frame(frame.into());
+                }
+            }
         }
 
         Ok(slf)
+    }
+
+    #[cfg(feature = "serialization")]
+    fn read_header(read: &mut impl std::io::Read) -> Result<Option<DataHeader>, anyhow::Error> {
+        match DataHeader::try_read(read) {
+            Ok(header) => Ok(Some(header)),
+            Err(err) => {
+                if err.kind() == std::io::ErrorKind::UnexpectedEof {
+                    Ok(None)
+                } else {
+                    Err(err.into())
+                }
+            }
+        }
     }
 }
 

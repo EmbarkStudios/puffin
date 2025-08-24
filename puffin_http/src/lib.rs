@@ -12,7 +12,8 @@
 //! ```
 
 /// Bumped on protocol breakage.
-pub const PROTOCOL_VERSION: u16 = 2;
+/// 3 => add `ScopeCollection` dedicated messages
+pub const PROTOCOL_VERSION: u16 = 3;
 
 /// The default TCP port used.
 pub const DEFAULT_PORT: u16 = 8585;
