@@ -375,14 +375,16 @@ impl PuffinServerImpl {
     }
 
     pub fn send(&mut self, frame: &puffin::FrameData) -> anyhow::Result<()> {
-        if self.clients.is_empty() {
-            return Ok(());
-        }
         puffin::profile_function!();
 
         // Keep scope_collection up-to-date
         for new_scope in &frame.scope_delta {
             self.scope_collection.insert(new_scope.clone());
+        }
+
+        // Nothing to send if no clients => Early return.
+        if self.clients.is_empty() {
+            return Ok(());
         }
 
         let mut packet = vec![];
