@@ -1,6 +1,6 @@
 #![cfg(all(feature = "serialization", not(target_arch = "wasm32")))] // FrameData.write_into not available on wasm
 
-use crate::{FrameData, FrameSinkId, GlobalProfiler};
+use crate::{FrameData, FrameSinkId, SinkManager};
 use anyhow::Context;
 use std::{
     fs::File,
@@ -22,6 +22,7 @@ use std::{
 pub struct FramesWriter {
     sink_id: FrameSinkId,
     write_thread: Option<JoinHandle<()>>,
+    sink_mngr: SinkManager,
 }
 
 impl FramesWriter {
@@ -33,9 +34,9 @@ impl FramesWriter {
     ///
     /// Usage:
     ///
-    /// ```
+    /// ``` no_run
     /// fn main() {
-    ///     let _frame_writer = FramesWriter::from_path("capture.puffin", SinkInstaller::default());
+    ///     let _frame_writer = puffin::FramesWriter::from_path("capture.puffin", puffin::SinkManager::default());
     ///
     ///     puffin::set_scopes_on(true); // you may want to control this with a flag
     ///     // game loop
@@ -50,9 +51,12 @@ impl FramesWriter {
     ///
     /// # fn slow_code(){}
     /// ```
-    pub fn from_path(path: impl AsRef<Path>) -> Result<FramesWriter, anyhow::Error> {
+    pub fn from_path(
+        path: impl AsRef<Path>,
+        sink_mngr: SinkManager,
+    ) -> Result<FramesWriter, anyhow::Error> {
         let file_writer = BufWriter::new(File::create(path)?);
-        Self::from_writer(file_writer)
+        Self::from_writer(file_writer, sink_mngr)
     }
 
     /// Create [`FramesWriter`] to writes the profiling result to the writer.
@@ -64,9 +68,11 @@ impl FramesWriter {
     /// Usage:
     ///
     /// ``` no_run
+    /// use std::net::TcpStream;
+    ///
     /// fn main() {
     ///     let mut stream = TcpStream::connect("127.0.0.1:34254").unwrap();
-    ///     let _frame_writer = FramesWriter::from_path(stream, SinkInstaller::default());
+    ///     let _frame_writer = puffin::FramesWriter::from_writer(stream, puffin::SinkManager::default());
     ///
     ///     puffin::set_scopes_on(true); // you may want to control this with a flag
     ///     // game loop
@@ -81,7 +87,10 @@ impl FramesWriter {
     ///
     /// # fn slow_code(){}
     /// ```
-    pub fn from_writer(writer: impl Write + Send + 'static) -> Result<Self, anyhow::Error> {
+    pub fn from_writer(
+        writer: impl Write + Send + 'static,
+        sink_mngr: SinkManager,
+    ) -> Result<Self, anyhow::Error> {
         let (frame_sender, frames_recv) = mpsc::channel();
         let frame_writer =
             FrameWriterImpl::from_writer(writer, frames_recv).context("create FrameWriter")?;
@@ -91,19 +100,21 @@ impl FramesWriter {
             .spawn(move || frame_writer.run())?;
 
         // Init profiler sink and enable capture
-        let sink_id = GlobalProfiler::lock().add_sink(Box::new(move |frame_data| {
+        let sink_id = sink_mngr.add_sink(Box::new(move |frame_data| {
             frame_sender.send(frame_data).unwrap()
         }));
-        Ok(FramesWriter {
+        Ok(Self {
             sink_id,
             write_thread: Some(write_thread),
+            sink_mngr,
         })
     }
 }
 
 impl Drop for FramesWriter {
     fn drop(&mut self) {
-        GlobalProfiler::lock().remove_sink(self.sink_id);
+        self.sink_mngr.remove_sink(self.sink_id);
+
         // Wait the end of the write to avoid data lost
         if let Some(write_handle) = self.write_thread.take() {
             let _ = write_handle.join();
