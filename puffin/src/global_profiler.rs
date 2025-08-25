@@ -177,3 +177,62 @@ impl GlobalProfiler {
         self.propagate_all_scope_details = true;
     }
 }
+
+/// define a `fn` to install a Sink
+pub type SinkInstall = fn(FrameSink) -> FrameSinkId;
+/// define a `fn` to remove a Sink
+pub type SinkRemove = fn(FrameSinkId) -> ();
+
+/// Helper to provide an Profiler sink installer/remover.
+///
+/// This is used by systems that need to add and remove a sink to allow the use of a custom profiler with the tool.
+#[derive(Clone, Copy)]
+pub struct SinkManager {
+    sink_install: SinkInstall,
+    sink_remove: SinkRemove,
+}
+
+impl SinkManager {
+    /// Create a default `SinkManager` who use [`GlobalProfiler`]
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Create a new `SinkManager` with custom install and remove fn.
+    ///
+    /// Could be used to avoid [`GlobalProfiler`]
+    ///
+    /// # Arguments
+    /// * `sink_install` - A function that installs the sink into a [`GlobalProfiler`],
+    ///   and then returns the [`FrameSinkId`] so that the sink can be removed later
+    /// * `sink_remove` - A function that reverts `sink_install`.
+    ///   This should be a call to remove the sink from the profiler ([`GlobalProfiler::remove_sink`])
+    pub fn custom(sink_install: SinkInstall, sink_remove: SinkRemove) -> Self {
+        Self {
+            sink_install,
+            sink_remove,
+        }
+    }
+
+    /// Add the sink of the profiler through the provided `SinkInstall` fn.
+    pub fn add_sink(&self, sink: FrameSink) -> FrameSinkId {
+        (self.sink_install)(sink)
+    }
+
+    /// Remove the sink of the Profiler through the provided `SinkRemove` fn.
+    pub fn remove_sink(&self, id: FrameSinkId) {
+        (self.sink_remove)(id)
+    }
+}
+
+impl Default for SinkManager {
+    fn default() -> Self {
+        fn global_add(sink: FrameSink) -> FrameSinkId {
+            GlobalProfiler::lock().add_sink(sink)
+        }
+        fn global_remove(id: FrameSinkId) {
+            GlobalProfiler::lock().remove_sink(id);
+        }
+        Self::custom(global_add, global_remove)
+    }
+}
