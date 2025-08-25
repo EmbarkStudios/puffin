@@ -26,6 +26,7 @@ mod data;
 #[cfg(feature = "serialization")]
 mod data_header;
 mod frame_data;
+mod frames_writer;
 mod global_profiler;
 mod merge;
 mod profile_view;
@@ -41,6 +42,8 @@ pub use data::{Error, Reader, Result, Scope, ScopeRecord, Stream, StreamInfo, St
 #[cfg(feature = "serialization")]
 pub use data_header::DataHeader;
 pub use frame_data::{FrameData, FrameMeta, UnpackedFrameData};
+#[cfg(all(feature = "serialization", not(target_arch = "wasm32")))]
+pub use frames_writer::FramesWriter;
 pub use global_profiler::{FrameSink, GlobalProfiler};
 pub use merge::{MergeScope, merge_scopes_for_thread};
 pub use profile_view::{FrameStats, FrameView, GlobalFrameView, select_slowest};
