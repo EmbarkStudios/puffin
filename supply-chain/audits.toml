@@ -90,6 +90,12 @@ user-id = 5619
 start = "2021-01-17"
 end = "2024-06-08"
 
+[[trusted.epaint_default_fonts]]
+criteria = "safe-to-deploy"
+user-id = 5619
+start = "2024-09-26"
+end = "2026-08-31"
+
 [[trusted.indexmap]]
 criteria = "safe-to-deploy"
 user-id = 539 # Josh Stone (cuviper)
