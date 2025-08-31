@@ -86,6 +86,18 @@ criteria = "safe-to-deploy"
 version = "3.4.1"
 criteria = "safe-to-deploy"
 
+[[exemptions.argh]]
+version = "0.1.13"
+criteria = "safe-to-deploy"
+
+[[exemptions.argh_derive]]
+version = "0.1.13"
+criteria = "safe-to-deploy"
+
+[[exemptions.argh_shared]]
+version = "0.1.13"
+criteria = "safe-to-deploy"
+
 [[exemptions.as-raw-xcb-connection]]
 version = "1.0.1"
 criteria = "safe-to-deploy"
