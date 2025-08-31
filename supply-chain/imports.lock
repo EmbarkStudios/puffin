@@ -104,8 +104,8 @@ user-id = 55123
 user-login = "rust-lang-owner"
 
 [[publisher.indexmap]]
-version = "2.1.0"
-when = "2023-10-31"
+version = "2.10.0"
+when = "2025-06-26"
 user-id = 539
 user-login = "cuviper"
 user-name = "Josh Stone"
@@ -132,8 +132,8 @@ user-login = "alexcrichton"
 user-name = "Alex Crichton"
 
 [[publisher.js-sys]]
-version = "0.3.66"
-when = "2023-11-27"
+version = "0.3.76"
+when = "2024-12-07"
 user-id = 1
 user-login = "alexcrichton"
 user-name = "Alex Crichton"
@@ -159,8 +159,8 @@ user-login = "sunfishcode"
 user-name = "Dan Gohman"
 
 [[publisher.lock_api]]
-version = "0.4.12"
-when = "2024-04-25"
+version = "0.4.13"
+when = "2025-05-29"
 user-id = 2915
 user-login = "Amanieu"
 user-name = "Amanieu d'Antras"
@@ -180,8 +180,8 @@ user-login = "Amanieu"
 user-name = "Amanieu d'Antras"
 
 [[publisher.parking_lot_core]]
-version = "0.9.10"
-when = "2024-04-25"
+version = "0.9.11"
+when = "2025-05-29"
 user-id = 2915
 user-login = "Amanieu"
 user-name = "Amanieu d'Antras"
@@ -263,12 +263,26 @@ user-id = 6743
 user-login = "epage"
 user-name = "Ed Page"
 
+[[publisher.smallvec]]
+version = "1.15.1"
+when = "2025-06-06"
+user-id = 2017
+user-login = "mbrubeck"
+user-name = "Matt Brubeck"
+
 [[publisher.syn]]
 version = "2.0.104"
 when = "2025-06-20"
 user-id = 3618
 user-login = "dtolnay"
 user-name = "David Tolnay"
+
+[[publisher.target-lexicon]]
+version = "0.12.16"
+when = "2024-07-30"
+user-id = 696
+user-login = "fitzgen"
+user-name = "Nick Fitzgerald"
 
 [[publisher.thiserror]]
 version = "1.0.69"
@@ -320,15 +334,15 @@ user-login = "Manishearth"
 user-name = "Manish Goregaokar"
 
 [[publisher.wasm-bindgen]]
-version = "0.2.89"
-when = "2023-11-27"
+version = "0.2.99"
+when = "2024-12-07"
 user-id = 1
 user-login = "alexcrichton"
 user-name = "Alex Crichton"
 
 [[publisher.wasm-bindgen-backend]]
-version = "0.2.89"
-when = "2023-11-27"
+version = "0.2.100"
+when = "2025-01-12"
 user-id = 1
 user-login = "alexcrichton"
 user-name = "Alex Crichton"
@@ -341,22 +355,22 @@ user-login = "alexcrichton"
 user-name = "Alex Crichton"
 
 [[publisher.wasm-bindgen-macro]]
-version = "0.2.89"
-when = "2023-11-27"
+version = "0.2.99"
+when = "2024-12-07"
 user-id = 1
 user-login = "alexcrichton"
 user-name = "Alex Crichton"
 
 [[publisher.wasm-bindgen-macro-support]]
-version = "0.2.89"
-when = "2023-11-27"
+version = "0.2.100"
+when = "2025-01-12"
 user-id = 1
 user-login = "alexcrichton"
 user-name = "Alex Crichton"
 
 [[publisher.wasm-bindgen-shared]]
-version = "0.2.89"
-when = "2023-11-27"
+version = "0.2.100"
+when = "2025-01-12"
 user-id = 1
 user-login = "alexcrichton"
 user-name = "Alex Crichton"
@@ -406,6 +420,20 @@ user-name = "Kenny Kerr"
 [[publisher.windows-sys]]
 version = "0.52.0"
 when = "2023-11-15"
+user-id = 64539
+user-login = "kennykerr"
+user-name = "Kenny Kerr"
+
+[[publisher.windows-sys]]
+version = "0.59.0"
+when = "2024-07-30"
+user-id = 64539
+user-login = "kennykerr"
+user-name = "Kenny Kerr"
+
+[[publisher.windows-sys]]
+version = "0.60.2"
+when = "2025-06-12"
 user-id = 64539
 user-login = "kennykerr"
 user-name = "Kenny Kerr"
@@ -2764,12 +2792,6 @@ criteria = "safe-to-deploy"
 version = "1.1.0"
 aggregated-from = "https://chromium.googlesource.com/chromiumos/third_party/rust_crates/+/refs/heads/main/cargo-vet/audits.toml?format=TEXT"
 
-[[audits.google.audits.smallvec]]
-who = "Manish Goregaokar <manishearth@google.com>"
-criteria = "safe-to-deploy"
-version = "1.13.2"
-aggregated-from = "https://chromium.googlesource.com/chromium/src/+/main/third_party/rust/chromium_crates_io/supply-chain/audits.toml?format=TEXT"
-
 [[audits.google.audits.stable_deref_trait]]
 who = "George Burgess IV <gbiv@google.com>"
 criteria = "safe-to-deploy"
@@ -3184,6 +3206,12 @@ criteria = "safe-to-deploy"
 delta = "0.5.3 -> 0.5.11"
 aggregated-from = "https://raw.githubusercontent.com/mozilla/cargo-vet/main/supply-chain/audits.toml"
 
+[[audits.mozilla.audits.js-sys]]
+who = "Lars Eggert <lars@eggert.org>"
+criteria = "safe-to-deploy"
+delta = "0.3.76 -> 0.3.77"
+aggregated-from = "https://raw.githubusercontent.com/mozilla/glean/main/supply-chain/audits.toml"
+
 [[audits.mozilla.audits.memchr]]
 who = "Jan-Erik Rediger <jrediger@mozilla.com>"
 criteria = "safe-to-deploy"
@@ -3210,6 +3238,18 @@ aggregated-from = "https://raw.githubusercontent.com/mozilla/cargo-vet/main/supp
 who = "Lars Eggert <lars@eggert.org>"
 criteria = "safe-to-deploy"
 delta = "0.1.2 -> 0.1.4"
+aggregated-from = "https://raw.githubusercontent.com/mozilla/glean/main/supply-chain/audits.toml"
+
+[[audits.mozilla.audits.wasm-bindgen]]
+who = "Lars Eggert <lars@eggert.org>"
+criteria = "safe-to-deploy"
+delta = "0.2.99 -> 0.2.100"
+aggregated-from = "https://raw.githubusercontent.com/mozilla/glean/main/supply-chain/audits.toml"
+
+[[audits.mozilla.audits.wasm-bindgen-macro]]
+who = "Lars Eggert <lars@eggert.org>"
+criteria = "safe-to-deploy"
+delta = "0.2.99 -> 0.2.100"
 aggregated-from = "https://raw.githubusercontent.com/mozilla/glean/main/supply-chain/audits.toml"
 
 [[audits.wasmtime.wildcard-audits.bumpalo]]

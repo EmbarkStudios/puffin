@@ -135,7 +135,7 @@ end = "2026-08-31"
 criteria = "safe-to-deploy"
 user-id = 539 # Josh Stone (cuviper)
 start = "2020-01-15"
-end = "2024-06-08"
+end = "2026-08-31"
 
 [[trusted.is-terminal]]
 criteria = "safe-to-deploy"
@@ -159,7 +159,7 @@ end = "2024-06-08"
 criteria = "safe-to-deploy"
 user-id = 1 # Alex Crichton (alexcrichton)
 start = "2019-03-04"
-end = "2024-06-08"
+end = "2026-08-31"
 
 [[trusted.libc]]
 criteria = "safe-to-deploy"
@@ -183,7 +183,7 @@ end = "2026-08-31"
 criteria = "safe-to-deploy"
 user-id = 2915 # Amanieu d'Antras (Amanieu)
 start = "2019-05-04"
-end = "2024-06-08"
+end = "2026-08-31"
 
 [[trusted.memchr]]
 criteria = "safe-to-deploy"
@@ -207,7 +207,7 @@ end = "2026-08-31"
 criteria = "safe-to-deploy"
 user-id = 2915 # Amanieu d'Antras (Amanieu)
 start = "2019-05-04"
-end = "2024-06-08"
+end = "2026-08-31"
 
 [[trusted.paste]]
 criteria = "safe-to-deploy"
@@ -289,14 +289,20 @@ end = "2026-08-31"
 
 [[trusted.smallvec]]
 criteria = "safe-to-deploy"
-user-id = 2017
+user-id = 2017 # Matt Brubeck (mbrubeck)
 start = "2019-10-28"
-end = "2024-06-08"
+end = "2026-08-31"
 
 [[trusted.syn]]
 criteria = "safe-to-deploy"
 user-id = 3618 # David Tolnay (dtolnay)
 start = "2019-03-01"
+end = "2026-08-31"
+
+[[trusted.target-lexicon]]
+criteria = "safe-to-deploy"
+user-id = 696 # Nick Fitzgerald (fitzgen)
+start = "2024-07-30"
 end = "2026-08-31"
 
 [[trusted.thiserror]]
@@ -321,13 +327,13 @@ end = "2026-08-31"
 criteria = "safe-to-deploy"
 user-id = 1 # Alex Crichton (alexcrichton)
 start = "2019-03-04"
-end = "2024-06-08"
+end = "2026-08-31"
 
 [[trusted.wasm-bindgen-backend]]
 criteria = "safe-to-deploy"
 user-id = 1 # Alex Crichton (alexcrichton)
 start = "2019-03-04"
-end = "2024-06-08"
+end = "2026-08-31"
 
 [[trusted.wasm-bindgen-futures]]
 criteria = "safe-to-deploy"
@@ -339,19 +345,19 @@ end = "2024-06-08"
 criteria = "safe-to-deploy"
 user-id = 1 # Alex Crichton (alexcrichton)
 start = "2019-03-04"
-end = "2024-06-08"
+end = "2026-08-31"
 
 [[trusted.wasm-bindgen-macro-support]]
 criteria = "safe-to-deploy"
 user-id = 1 # Alex Crichton (alexcrichton)
 start = "2019-03-04"
-end = "2024-06-08"
+end = "2026-08-31"
 
 [[trusted.wasm-bindgen-shared]]
 criteria = "safe-to-deploy"
 user-id = 1 # Alex Crichton (alexcrichton)
 start = "2019-03-04"
-end = "2024-06-08"
+end = "2026-08-31"
 
 [[trusted.web-sys]]
 criteria = "safe-to-deploy"
@@ -381,7 +387,7 @@ end = "2026-08-31"
 criteria = "safe-to-deploy"
 user-id = 64539 # Kenny Kerr (kennykerr)
 start = "2021-11-15"
-end = "2024-06-08"
+end = "2026-08-31"
 
 [[trusted.windows-targets]]
 criteria = "safe-to-deploy"

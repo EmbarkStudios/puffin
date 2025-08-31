@@ -610,10 +610,6 @@ criteria = "safe-to-deploy"
 version = "6.2.0"
 criteria = "safe-to-deploy"
 
-[[exemptions.target-lexicon]]
-version = "0.12.13"
-criteria = "safe-to-deploy"
-
 [[exemptions.thiserror-core]]
 version = "1.0.50"
 criteria = "safe-to-deploy"
