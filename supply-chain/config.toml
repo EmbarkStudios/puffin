@@ -574,10 +574,6 @@ criteria = "safe-to-deploy"
 version = "0.4.0"
 criteria = "safe-to-deploy"
 
-[[exemptions.scoped-tls]]
-version = "1.0.1"
-criteria = "safe-to-deploy"
-
 [[exemptions.simd-adler32]]
 version = "0.3.7"
 criteria = "safe-to-deploy"

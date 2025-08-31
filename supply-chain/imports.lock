@@ -210,6 +210,13 @@ user-id = 3618
 user-login = "dtolnay"
 user-name = "David Tolnay"
 
+[[publisher.scoped-tls]]
+version = "1.0.1"
+when = "2022-10-31"
+user-id = 1
+user-login = "alexcrichton"
+user-name = "Alex Crichton"
+
 [[publisher.serde]]
 version = "1.0.203"
 when = "2024-05-25"
