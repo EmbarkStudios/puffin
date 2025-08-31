@@ -96,6 +96,12 @@ user-id = 5619
 start = "2024-09-26"
 end = "2026-08-31"
 
+[[trusted.flate2]]
+criteria = "safe-to-deploy"
+user-id = 980 # Sebastian Thiel (Byron)
+start = "2023-08-15"
+end = "2026-08-31"
+
 [[trusted.indexmap]]
 criteria = "safe-to-deploy"
 user-id = 539 # Josh Stone (cuviper)

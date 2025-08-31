@@ -56,6 +56,13 @@ user-id = 3618
 user-login = "dtolnay"
 user-name = "David Tolnay"
 
+[[publisher.flate2]]
+version = "1.1.2"
+when = "2025-06-07"
+user-id = 980
+user-login = "Byron"
+user-name = "Sebastian Thiel"
+
 [[publisher.indexmap]]
 version = "2.1.0"
 when = "2023-10-31"
@@ -2038,100 +2045,6 @@ aggregated-from = "https://chromium.googlesource.com/chromium/src/+/main/third_p
 who = "Lukasz Anforowicz <lukasza@chromium.org>"
 criteria = "safe-to-deploy"
 delta = "0.3.6 -> 0.3.7"
-aggregated-from = "https://chromium.googlesource.com/chromium/src/+/main/third_party/rust/chromium_crates_io/supply-chain/audits.toml?format=TEXT"
-
-[[audits.google.audits.flate2]]
-who = "Lukasz Anforowicz <lukasza@chromium.org>"
-criteria = "safe-to-deploy"
-version = "1.0.30"
-notes = '''
-WARNING: This certification is a result of a **partial** audit.  The
-`any_zlib` code has **not** been audited.  Ability to track partial
-audits is tracked in https://github.com/mozilla/cargo-vet/issues/380
-Chromium does use the `any_zlib` feature(s).  Accidentally depending on
-this feature in the future is prevented using the `ban_features` feature
-of `gnrt` - see:
-https://crrev.com/c/4723145/31/third_party/rust/chromium_crates_io/gnrt_config.toml
-
-Security review of earlier versions of the crate can be found at
-(Google-internal, sorry): go/image-crate-chromium-security-review
-
-I grepped for `-i cipher`, `-i crypto`, `'\bfs\b'`, `'\bnet\b'`, `'\bunsafe\b'`.
-
-All `unsafe` in `flate2` is gated behind `#[cfg(feature = "any_zlib")]`:
-
-* The code under `src/ffi/...` will not be used because the `mod c`
-  declaration in `src/ffi/mod.rs` depends on the `any_zlib` config
-* 7 uses of `unsafe` in `src/mem.rs` also all depend on the
-  `any_zlib` config:
-    - 2 in `fn set_dictionary` (under `impl Compress`)
-    - 2 in `fn set_level` (under `impl Compress`)
-    - 3 in `fn set_dictionary` (under `impl Decompress`)
-
-All hits of `'\bfs\b'` are in comments, or example code, or test code
-(but not in product code).
-
-There were no hits of `-i cipher`, `-i crypto`, `'\bnet\b'`.
-'''
-aggregated-from = "https://chromium.googlesource.com/chromium/src/+/main/third_party/rust/chromium_crates_io/supply-chain/audits.toml?format=TEXT"
-
-[[audits.google.audits.flate2]]
-who = "Lukasz Anforowicz <lukasza@chromium.org>"
-criteria = "safe-to-deploy"
-delta = "1.0.30 -> 1.0.31"
-notes = """
-WARNING: This certification is a result of a **partial** audit.  The
-`any_zlib` code has **not** been audited.  See the audit of 1.0.30 for
-more details.
-
-Only benign changes:
-
-* Comment-only changes in `.rs` files
-* Also changing dependency version in `Cargo.toml`, but this is for `any_zlib`
-  feature which is not used in Chromium (i.e. this is a *partial* audit - see
-  the previous audit notes for 1.0.30)
-"""
-aggregated-from = "https://chromium.googlesource.com/chromium/src/+/main/third_party/rust/chromium_crates_io/supply-chain/audits.toml?format=TEXT"
-
-[[audits.google.audits.flate2]]
-who = "Lukasz Anforowicz <lukasza@chromium.org>"
-criteria = "safe-to-deploy"
-delta = "1.0.31 -> 1.0.33"
-notes = """
-WARNING: This certification is a result of a **partial** audit.  The
-`any_zlib` code has **not** been audited.  See the audit of 1.0.30 for
-more details.
-
-This delta audit has been reviewed in https://crrev.com/c/5811890
-The delta can be seen at https://diff.rs/flate2/1.0.31/1.0.33
-The delta bumps up `miniz_oxide` dependency to `0.8.0`
-The delta also contains some changes to `src/ffi/c.rs` which is *NOT* used by Chromium
-and therefore hasn't been covered by this partial audit.
-"""
-aggregated-from = "https://chromium.googlesource.com/chromium/src/+/main/third_party/rust/chromium_crates_io/supply-chain/audits.toml?format=TEXT"
-
-[[audits.google.audits.flate2]]
-who = "Lukasz Anforowicz <lukasza@chromium.org>"
-criteria = "safe-to-deploy"
-delta = "1.0.33 -> 1.0.34"
-notes = """
-WARNING: This certification is a result of a **partial** audit.  The
-`any_zlib` code has **not** been audited.  See the audit of 1.0.30 for
-more details.
-
-The delta can be seen at https://diff.rs/flate2/1.0.33/1.0.34
-The delta bumps up `libz-rs-sys` dependency from `0.2.1` to `0.3.0`
-The delta in `lib.rs` only tweaks comments and has no code changes.
-The delta also contains some changes to `src/ffi/c.rs` which is *NOT* used by Chromium
-and therefore hasn't been covered by this partial audit.
-"""
-aggregated-from = "https://chromium.googlesource.com/chromium/src/+/main/third_party/rust/chromium_crates_io/supply-chain/audits.toml?format=TEXT"
-
-[[audits.google.audits.flate2]]
-who = "Adrian Taylor <adetaylor@chromium.org>"
-criteria = "safe-to-deploy"
-delta = "1.0.34 -> 1.0.35"
-notes = "There are no significant code changes in this delta (just one string constant change). Note that prior audits may have been partial."
 aggregated-from = "https://chromium.googlesource.com/chromium/src/+/main/third_party/rust/chromium_crates_io/supply-chain/audits.toml?format=TEXT"
 
 [[audits.google.audits.foldhash]]
