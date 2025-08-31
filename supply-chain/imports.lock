@@ -138,6 +138,12 @@ user-id = 1
 user-login = "alexcrichton"
 user-name = "Alex Crichton"
 
+[[publisher.libm]]
+version = "0.2.15"
+when = "2025-05-06"
+user-id = 55123
+user-login = "rust-lang-owner"
+
 [[publisher.linux-raw-sys]]
 version = "0.4.15"
 when = "2025-01-08"
