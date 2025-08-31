@@ -110,6 +110,10 @@ criteria = "safe-to-deploy"
 version = "1.1.2"
 criteria = "safe-to-deploy"
 
+[[exemptions.atomic-waker]]
+version = "1.1.2"
+criteria = "safe-to-deploy"
+
 [[exemptions.base64]]
 version = "0.21.6"
 criteria = "safe-to-deploy"
@@ -142,6 +146,10 @@ criteria = "safe-to-deploy"
 version = "1.14.0"
 criteria = "safe-to-deploy"
 
+[[exemptions.byteorder-lite]]
+version = "0.1.0"
+criteria = "safe-to-deploy"
+
 [[exemptions.cairo-sys-rs]]
 version = "0.15.1"
 criteria = "safe-to-deploy"
@@ -152,6 +160,10 @@ criteria = "safe-to-deploy"
 
 [[exemptions.calloop-wayland-source]]
 version = "0.3.0"
+criteria = "safe-to-deploy"
+
+[[exemptions.cesu8]]
+version = "1.1.0"
 criteria = "safe-to-deploy"
 
 [[exemptions.cesu8]]
@@ -222,6 +234,14 @@ criteria = "safe-to-deploy"
 version = "0.2.0"
 criteria = "safe-to-deploy"
 
+[[exemptions.dispatch]]
+version = "0.2.0"
+criteria = "safe-to-deploy"
+
+[[exemptions.dispatch2]]
+version = "0.3.0"
+criteria = "safe-to-deploy"
+
 [[exemptions.dlib]]
 version = "0.5.2"
 criteria = "safe-to-deploy"
@@ -264,6 +284,10 @@ criteria = "safe-to-deploy"
 
 [[exemptions.epaint]]
 version = "0.32.0"
+criteria = "safe-to-deploy"
+
+[[exemptions.error-code]]
+version = "3.3.2"
 criteria = "safe-to-deploy"
 
 [[exemptions.error-code]]
@@ -334,6 +358,10 @@ criteria = "safe-to-deploy"
 version = "0.3.3"
 criteria = "safe-to-deploy"
 
+[[exemptions.hexf-parse]]
+version = "0.2.1"
+criteria = "safe-to-deploy"
+
 [[exemptions.home]]
 version = "0.5.9"
 criteria = "safe-to-deploy"
@@ -360,6 +388,10 @@ criteria = "safe-to-deploy"
 
 [[exemptions.jobserver]]
 version = "0.1.27"
+criteria = "safe-to-deploy"
+
+[[exemptions.jpeg-decoder]]
+version = "0.3.2"
 criteria = "safe-to-deploy"
 
 [[exemptions.khronos_api]]
@@ -422,6 +454,14 @@ criteria = "safe-to-deploy"
 version = "0.3.1"
 criteria = "safe-to-deploy"
 
+[[exemptions.objc2-cloud-kit]]
+version = "0.2.2"
+criteria = "safe-to-deploy"
+
+[[exemptions.objc2-contacts]]
+version = "0.2.2"
+criteria = "safe-to-deploy"
+
 [[exemptions.objc2-core-data]]
 version = "0.2.2"
 criteria = "safe-to-deploy"
@@ -447,6 +487,10 @@ version = "0.2.2"
 criteria = "safe-to-deploy"
 
 [[exemptions.objc2-quartz-core]]
+version = "0.2.2"
+criteria = "safe-to-deploy"
+
+[[exemptions.objc2-uniform-type-identifiers]]
 version = "0.2.2"
 criteria = "safe-to-deploy"
 
@@ -494,12 +538,32 @@ criteria = "safe-to-deploy"
 version = "3.3.1"
 criteria = "safe-to-deploy"
 
+[[exemptions.portable-atomic]]
+version = "1.11.1"
+criteria = "safe-to-deploy"
+
 [[exemptions.proc-macro-crate]]
 version = "3.0.0"
 criteria = "safe-to-deploy"
 
+[[exemptions.profiling]]
+version = "1.0.17"
+criteria = "safe-to-deploy"
+
+[[exemptions.r-efi]]
+version = "5.3.0"
+criteria = "safe-to-deploy"
+
 [[exemptions.regex-syntax]]
 version = "0.7.2"
+criteria = "safe-to-deploy"
+
+[[exemptions.renderdoc-sys]]
+version = "1.1.0"
+criteria = "safe-to-deploy"
+
+[[exemptions.renderdoc-sys]]
+version = "1.1.0"
 criteria = "safe-to-deploy"
 
 [[exemptions.rfd]]
@@ -564,6 +628,10 @@ criteria = "safe-to-deploy"
 
 [[exemptions.thiserror-core-impl]]
 version = "1.0.50"
+criteria = "safe-to-deploy"
+
+[[exemptions.tiff]]
+version = "0.9.1"
 criteria = "safe-to-deploy"
 
 [[exemptions.time]]
@@ -638,6 +706,14 @@ criteria = "safe-to-deploy"
 version = "0.31.7"
 criteria = "safe-to-deploy"
 
+[[exemptions.wayland-sys]]
+version = "0.31.7"
+criteria = "safe-to-deploy"
+
+[[exemptions.web-time]]
+version = "0.2.4"
+criteria = "safe-to-deploy"
+
 [[exemptions.web-time]]
 version = "1.1.0"
 criteria = "safe-to-deploy"
@@ -646,12 +722,28 @@ criteria = "safe-to-deploy"
 version = "1.0.5"
 criteria = "safe-to-deploy"
 
+[[exemptions.wgpu]]
+version = "25.0.2"
+criteria = "safe-to-deploy"
+
+[[exemptions.winapi-i686-pc-windows-gnu]]
+version = "0.4.0"
+criteria = "safe-to-deploy"
+
+[[exemptions.winapi-i686-pc-windows-gnu]]
+version = "0.4.0"
+criteria = "safe-to-deploy"
+
 [[exemptions.winapi-i686-pc-windows-gnu]]
 version = "0.4.0"
 criteria = "safe-to-deploy"
 
 [[exemptions.winapi-wsapoll]]
 version = "0.1.1"
+criteria = "safe-to-deploy"
+
+[[exemptions.winapi-x86_64-pc-windows-gnu]]
+version = "0.4.0"
 criteria = "safe-to-deploy"
 
 [[exemptions.winapi-x86_64-pc-windows-gnu]]
