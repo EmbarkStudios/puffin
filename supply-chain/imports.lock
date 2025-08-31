@@ -1,6 +1,13 @@
 
 # cargo-vet imports lock
 
+[[publisher.anstyle]]
+version = "1.0.11"
+when = "2025-06-04"
+user-id = 6743
+user-login = "epage"
+user-name = "Ed Page"
+
 [[publisher.anyhow]]
 version = "1.0.98"
 when = "2025-04-14"
@@ -27,6 +34,27 @@ version = "0.15.8"
 when = "2024-04-10"
 user-id = 52553
 user-login = "embark-studios"
+
+[[publisher.clap]]
+version = "4.5.43"
+when = "2025-08-06"
+user-id = 6743
+user-login = "epage"
+user-name = "Ed Page"
+
+[[publisher.clap_builder]]
+version = "4.5.43"
+when = "2025-08-06"
+user-id = 6743
+user-login = "epage"
+user-name = "Ed Page"
+
+[[publisher.clap_lex]]
+version = "0.7.5"
+when = "2025-06-09"
+user-id = 6743
+user-login = "epage"
+user-name = "Ed Page"
 
 [[publisher.core-foundation]]
 version = "0.9.3"
@@ -183,8 +211,8 @@ user-login = "dtolnay"
 user-name = "David Tolnay"
 
 [[publisher.serde_spanned]]
-version = "0.6.5"
-when = "2023-12-19"
+version = "0.6.9"
+when = "2025-06-06"
 user-id = 6743
 user-login = "epage"
 user-name = "Ed Page"
@@ -223,6 +251,13 @@ when = "2025-03-03"
 user-id = 3618
 user-login = "dtolnay"
 user-name = "David Tolnay"
+
+[[publisher.toml_datetime]]
+version = "0.6.11"
+when = "2025-06-06"
+user-id = 6743
+user-login = "epage"
+user-name = "Ed Page"
 
 [[publisher.unicode-segmentation]]
 version = "1.12.0"
@@ -568,8 +603,8 @@ user-login = "kennykerr"
 user-name = "Kenny Kerr"
 
 [[publisher.winnow]]
-version = "0.5.34"
-when = "2024-01-10"
+version = "0.7.12"
+when = "2025-07-11"
 user-id = 6743
 user-login = "epage"
 user-name = "Ed Page"
@@ -1542,45 +1577,6 @@ version = "0.1.5"
 notes = "Android system API FFI"
 aggregated-from = "https://chromium.googlesource.com/chromium/src/+/main/third_party/rust/chromium_crates_io/supply-chain/audits.toml?format=TEXT"
 
-[[audits.google.audits.anstyle]]
-who = "Yu-An Wang <wyuang@google.com>"
-criteria = "safe-to-deploy"
-version = "1.0.4"
-aggregated-from = "https://chromium.googlesource.com/chromiumos/third_party/rust_crates/+/refs/heads/main/cargo-vet/audits.toml?format=TEXT"
-
-[[audits.google.audits.anstyle]]
-who = "Lukasz Anforowicz <lukasza@chromium.org>"
-criteria = "safe-to-deploy"
-delta = "1.0.4 -> 1.0.6"
-aggregated-from = "https://chromium.googlesource.com/chromium/src/+/main/third_party/rust/chromium_crates_io/supply-chain/audits.toml?format=TEXT"
-
-[[audits.google.audits.anstyle]]
-who = "danakj <danakj@chromium.org>"
-criteria = "safe-to-deploy"
-delta = "1.0.6 -> 1.0.7"
-aggregated-from = "https://chromium.googlesource.com/chromium/src/+/main/third_party/rust/chromium_crates_io/supply-chain/audits.toml?format=TEXT"
-
-[[audits.google.audits.anstyle]]
-who = "Lukasz Anforowicz <lukasza@chromium.org>"
-criteria = "safe-to-deploy"
-delta = "1.0.7 -> 1.0.8"
-notes = "Only Cargo.toml changes in the 1.0.7 => 1.0.8 delta."
-aggregated-from = "https://chromium.googlesource.com/chromium/src/+/main/third_party/rust/chromium_crates_io/supply-chain/audits.toml?format=TEXT"
-
-[[audits.google.audits.anstyle]]
-who = "Dustin J. Mitchell <djmitche@chromium.org>"
-criteria = "safe-to-deploy"
-delta = "1.0.8 -> 1.0.9"
-notes = "No changes"
-aggregated-from = "https://chromium.googlesource.com/chromium/src/+/main/third_party/rust/chromium_crates_io/supply-chain/audits.toml?format=TEXT"
-
-[[audits.google.audits.anstyle]]
-who = "Lukasz Anforowicz <lukasza@chromium.org>"
-criteria = "safe-to-deploy"
-delta = "1.0.9 -> 1.0.10"
-notes = "Minor changes related to `write_str`."
-aggregated-from = "https://chromium.googlesource.com/chromium/src/+/main/third_party/rust/chromium_crates_io/supply-chain/audits.toml?format=TEXT"
-
 [[audits.google.audits.argh]]
 who = "ChromeOS"
 criteria = "safe-to-deploy"
@@ -1785,110 +1781,6 @@ who = "Daniel Verkamp <dverkamp@chromium.org>"
 criteria = "safe-to-deploy"
 version = "0.2.2"
 aggregated-from = "https://chromium.googlesource.com/chromiumos/third_party/rust_crates/+/refs/heads/main/cargo-vet/audits.toml?format=TEXT"
-
-[[audits.google.audits.clap]]
-who = "Lukasz Anforowicz <lukasza@chromium.org>"
-criteria = "safe-to-deploy"
-version = "4.5.15"
-notes = '''
-Grepped for `-i cipher`, `-i crypto`, `'\bfs\b'`, `'\bnet\b'`, `'\bunsafe\b'`
-and there were no hits, except for `std::net::IpAddr` usage in
-`examples/typed-derive.rs`.
-'''
-aggregated-from = "https://chromium.googlesource.com/chromium/src/+/main/third_party/rust/chromium_crates_io/supply-chain/audits.toml?format=TEXT"
-
-[[audits.google.audits.clap]]
-who = "danakj <danakj@chromium.org>"
-criteria = "safe-to-deploy"
-delta = "4.5.15 -> 4.5.17"
-notes = "Minor code change and toml changes."
-aggregated-from = "https://chromium.googlesource.com/chromium/src/+/main/third_party/rust/chromium_crates_io/supply-chain/audits.toml?format=TEXT"
-
-[[audits.google.audits.clap]]
-who = "Lukasz Anforowicz <lukasza@chromium.org>"
-criteria = "safe-to-deploy"
-delta = "4.5.17 -> 4.5.18"
-aggregated-from = "https://chromium.googlesource.com/chromium/src/+/main/third_party/rust/chromium_crates_io/supply-chain/audits.toml?format=TEXT"
-
-[[audits.google.audits.clap]]
-who = "danakj <danakj@chromium.org>"
-criteria = "safe-to-deploy"
-delta = "4.5.18 -> 4.5.20"
-notes = "Trivial changes"
-aggregated-from = "https://chromium.googlesource.com/chromium/src/+/main/third_party/rust/chromium_crates_io/supply-chain/audits.toml?format=TEXT"
-
-[[audits.google.audits.clap]]
-who = "Adrian Taylor <adetaylor@chromium.org>"
-criteria = "safe-to-deploy"
-delta = "4.5.20 -> 4.5.21"
-aggregated-from = "https://chromium.googlesource.com/chromium/src/+/main/third_party/rust/chromium_crates_io/supply-chain/audits.toml?format=TEXT"
-
-[[audits.google.audits.clap]]
-who = "Lukasz Anforowicz <lukasza@chromium.org>"
-criteria = "safe-to-deploy"
-delta = "4.5.21 -> 4.5.23"
-aggregated-from = "https://chromium.googlesource.com/chromium/src/+/main/third_party/rust/chromium_crates_io/supply-chain/audits.toml?format=TEXT"
-
-[[audits.google.audits.clap_builder]]
-who = "Lukasz Anforowicz <lukasza@chromium.org>"
-criteria = "safe-to-deploy"
-version = "4.5.15"
-notes = '''
-Grepped for `-i cipher`, `-i crypto`, `'\bfs\b'`, `'\bnet\b'`, `'\bunsafe\b'`
-and there were no hits.
-'''
-aggregated-from = "https://chromium.googlesource.com/chromium/src/+/main/third_party/rust/chromium_crates_io/supply-chain/audits.toml?format=TEXT"
-
-[[audits.google.audits.clap_builder]]
-who = "danakj <danakj@chromium.org>"
-criteria = "safe-to-deploy"
-delta = "4.5.15 -> 4.5.17"
-notes = "No new unsafe, net, fs"
-aggregated-from = "https://chromium.googlesource.com/chromium/src/+/main/third_party/rust/chromium_crates_io/supply-chain/audits.toml?format=TEXT"
-
-[[audits.google.audits.clap_builder]]
-who = "Lukasz Anforowicz <lukasza@chromium.org>"
-criteria = "safe-to-deploy"
-delta = "4.5.17 -> 4.5.18"
-aggregated-from = "https://chromium.googlesource.com/chromium/src/+/main/third_party/rust/chromium_crates_io/supply-chain/audits.toml?format=TEXT"
-
-[[audits.google.audits.clap_builder]]
-who = "danakj <danakj@chromium.org>"
-criteria = "safe-to-deploy"
-delta = "4.5.18 -> 4.5.20"
-notes = "No new unsafe"
-aggregated-from = "https://chromium.googlesource.com/chromium/src/+/main/third_party/rust/chromium_crates_io/supply-chain/audits.toml?format=TEXT"
-
-[[audits.google.audits.clap_builder]]
-who = "Adrian Taylor <adetaylor@chromium.org>"
-criteria = "safe-to-deploy"
-delta = "4.5.20 -> 4.5.21"
-aggregated-from = "https://chromium.googlesource.com/chromium/src/+/main/third_party/rust/chromium_crates_io/supply-chain/audits.toml?format=TEXT"
-
-[[audits.google.audits.clap_builder]]
-who = "Lukasz Anforowicz <lukasza@chromium.org>"
-criteria = "safe-to-deploy"
-delta = "4.5.21 -> 4.5.23"
-aggregated-from = "https://chromium.googlesource.com/chromium/src/+/main/third_party/rust/chromium_crates_io/supply-chain/audits.toml?format=TEXT"
-
-[[audits.google.audits.clap_lex]]
-who = "Ying Hsu <yinghsu@chromium.org>"
-criteria = "safe-to-deploy"
-version = "0.7.0"
-aggregated-from = "https://chromium.googlesource.com/chromiumos/third_party/rust_crates/+/refs/heads/main/cargo-vet/audits.toml?format=TEXT"
-
-[[audits.google.audits.clap_lex]]
-who = "Adrian Taylor <adetaylor@chromium.org>"
-criteria = "safe-to-deploy"
-delta = "0.7.0 -> 0.7.1"
-aggregated-from = "https://chromium.googlesource.com/chromium/src/+/main/third_party/rust/chromium_crates_io/supply-chain/audits.toml?format=TEXT"
-
-[[audits.google.audits.clap_lex]]
-who = "Lukasz Anforowicz <lukasza@chromium.org>"
-criteria = "safe-to-deploy"
-delta = "0.7.1 -> 0.7.2"
-notes = "No `.rs` changes in the delta."
-aggregated-from = "https://chromium.googlesource.com/chromium/src/+/main/third_party/rust/chromium_crates_io/supply-chain/audits.toml?format=TEXT"
 
 [[audits.google.audits.codespan-reporting]]
 who = "danakj@chromium.org"
@@ -2896,12 +2788,6 @@ criteria = "safe-to-deploy"
 delta = "0.5.10 -> 0.8.19"
 aggregated-from = "https://chromium.googlesource.com/chromiumos/third_party/rust_crates/+/refs/heads/main/cargo-vet/audits.toml?format=TEXT"
 
-[[audits.google.audits.toml_datetime]]
-who = "Hung-Hsien Chen <hunghsienchen@chromium.org>"
-criteria = "safe-to-deploy"
-version = "0.6.8"
-aggregated-from = "https://chromium.googlesource.com/chromiumos/third_party/rust_crates/+/refs/heads/main/cargo-vet/audits.toml?format=TEXT"
-
 [[audits.google.audits.twox-hash]]
 who = "Dennis Kempin <denniskempin@google.com>"
 criteria = "safe-to-deploy"
@@ -3383,12 +3269,6 @@ criteria = "safe-to-deploy"
 delta = "1.4.0 -> 1.5.0"
 notes = "Filesystem change is to remove the generated LLVM IR output file after probing."
 aggregated-from = "https://raw.githubusercontent.com/zcash/zcash/master/qa/supply-chain/audits.toml"
-
-[[audits.zcash.audits.clap_lex]]
-who = "Jack Grigg <jack@electriccoin.co>"
-criteria = "safe-to-deploy"
-delta = "0.7.2 -> 0.7.4"
-aggregated-from = "https://raw.githubusercontent.com/zcash/wallet/main/supply-chain/audits.toml"
 
 [[audits.zcash.audits.crossbeam-deque]]
 who = "Jack Grigg <jack@electriccoin.co>"
