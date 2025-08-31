@@ -394,13 +394,13 @@ end = "2026-08-31"
 criteria = "safe-to-deploy"
 user-id = 64539 # Kenny Kerr (kennykerr)
 start = "2021-11-05"
-end = "2024-06-08"
+end = "2026-08-31"
 
 [[trusted.windows_i686_gnu]]
 criteria = "safe-to-deploy"
 user-id = 64539 # Kenny Kerr (kennykerr)
 start = "2021-10-28"
-end = "2024-06-08"
+end = "2026-08-31"
 
 [[trusted.windows_i686_gnullvm]]
 criteria = "safe-to-deploy"
@@ -412,13 +412,13 @@ end = "2026-08-31"
 criteria = "safe-to-deploy"
 user-id = 64539 # Kenny Kerr (kennykerr)
 start = "2021-10-27"
-end = "2024-06-08"
+end = "2026-08-31"
 
 [[trusted.windows_x86_64_gnu]]
 criteria = "safe-to-deploy"
 user-id = 64539 # Kenny Kerr (kennykerr)
 start = "2021-10-28"
-end = "2024-06-08"
+end = "2026-08-31"
 
 [[trusted.windows_x86_64_gnullvm]]
 criteria = "safe-to-deploy"
@@ -430,7 +430,7 @@ end = "2026-08-31"
 criteria = "safe-to-deploy"
 user-id = 64539 # Kenny Kerr (kennykerr)
 start = "2021-10-27"
-end = "2024-06-08"
+end = "2026-08-31"
 
 [[trusted.winnow]]
 criteria = "safe-to-deploy"
