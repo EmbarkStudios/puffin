@@ -1,7 +1,10 @@
 
 # cargo-vet audits file
 
-[audits]
+[[audits.naga]]
+who = "Gwen Lg <me@gwenlg.fr>"
+criteria = "safe-to-deploy"
+delta = "25.0.0 -> 25.0.1"
 
 [[trusted.anyhow]]
 criteria = "safe-to-deploy"
