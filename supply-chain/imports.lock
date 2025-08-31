@@ -97,6 +97,12 @@ user-id = 980
 user-login = "Byron"
 user-name = "Sebastian Thiel"
 
+[[publisher.hashbrown]]
+version = "0.15.5"
+when = "2025-08-07"
+user-id = 55123
+user-login = "rust-lang-owner"
+
 [[publisher.indexmap]]
 version = "2.1.0"
 when = "2023-10-31"
@@ -2035,18 +2041,6 @@ aggregated-from = "https://chromium.googlesource.com/chromium/src/+/main/third_p
 who = "Daniel Verkamp <dverkamp@chromium.org>"
 criteria = "safe-to-deploy"
 version = "2.4.1"
-aggregated-from = "https://chromium.googlesource.com/chromiumos/third_party/rust_crates/+/refs/heads/main/cargo-vet/audits.toml?format=TEXT"
-
-[[audits.google.audits.hashbrown]]
-who = "Nicholas Bishop <nicholasbishop@google.com>"
-criteria = "safe-to-deploy"
-version = "0.13.2"
-aggregated-from = "https://chromium.googlesource.com/chromiumos/third_party/rust_crates/+/refs/heads/main/cargo-vet/audits.toml?format=TEXT"
-
-[[audits.google.audits.hashbrown]]
-who = "George Burgess IV <gbiv@google.com>"
-criteria = "safe-to-deploy"
-delta = "0.13.2 -> 0.14.3"
 aggregated-from = "https://chromium.googlesource.com/chromiumos/third_party/rust_crates/+/refs/heads/main/cargo-vet/audits.toml?format=TEXT"
 
 [[audits.google.audits.heck]]
