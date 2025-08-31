@@ -69,13 +69,6 @@ user-id = 5946
 user-login = "jrmuizel"
 user-name = "Jeff Muizelaar"
 
-[[publisher.core-graphics]]
-version = "0.22.3"
-when = "2021-11-02"
-user-id = 5946
-user-login = "jrmuizel"
-user-name = "Jeff Muizelaar"
-
 [[publisher.core-graphics-types]]
 version = "0.1.1"
 when = "2020-09-15"
@@ -354,13 +347,6 @@ user-id = 1
 user-login = "alexcrichton"
 user-name = "Alex Crichton"
 
-[[publisher.wasm-bindgen-futures]]
-version = "0.4.39"
-when = "2023-11-27"
-user-id = 1
-user-login = "alexcrichton"
-user-name = "Alex Crichton"
-
 [[publisher.wasm-bindgen-macro]]
 version = "0.2.99"
 when = "2024-12-07"
@@ -378,13 +364,6 @@ user-name = "Alex Crichton"
 [[publisher.wasm-bindgen-shared]]
 version = "0.2.100"
 when = "2025-01-12"
-user-id = 1
-user-login = "alexcrichton"
-user-name = "Alex Crichton"
-
-[[publisher.web-sys]]
-version = "0.3.66"
-when = "2023-11-28"
 user-id = 1
 user-login = "alexcrichton"
 user-name = "Alex Crichton"
@@ -814,25 +793,13 @@ criteria = "safe-to-deploy"
 version = "0.2.0"
 notes = "Tiny crate with no dependencies, no unsafe, and no ambient capabilities"
 
-[[audits.fermyon.audits.oorandom]]
-who = "Radu Matei <radu.matei@fermyon.com>"
-criteria = "safe-to-run"
-version = "11.1.3"
+[audits.fermyon.audits]
 
 [[audits.firefox.wildcard-audits.core-foundation]]
 who = "Bobby Holley <bobbyholley@gmail.com>"
 criteria = "safe-to-deploy"
 user-id = 5946 # Jeff Muizelaar (jrmuizel)
 start = "2019-03-29"
-end = "2023-05-04"
-renew = false
-notes = "I've reviewed every source contribution that was neither authored nor reviewed by Mozilla."
-
-[[audits.firefox.wildcard-audits.core-graphics]]
-who = "Bobby Holley <bobbyholley@gmail.com>"
-criteria = "safe-to-deploy"
-user-id = 5946 # Jeff Muizelaar (jrmuizel)
-start = "2020-12-08"
 end = "2023-05-04"
 renew = false
 notes = "I've reviewed every source contribution that was neither authored nor reviewed by Mozilla."
@@ -861,19 +828,6 @@ user-id = 1139 # Manish Goregaokar (Manishearth)
 start = "2019-12-05"
 end = "2026-02-01"
 notes = "All code written or reviewed by Manish"
-
-[[audits.firefox.wildcard-audits.unicode-xid]]
-who = "Manish Goregaokar <manishsmail@gmail.com>"
-criteria = "safe-to-deploy"
-user-id = 1139 # Manish Goregaokar (Manishearth)
-start = "2019-07-25"
-end = "2026-02-01"
-notes = "All code written or reviewed by Manish"
-
-[[audits.firefox.audits.ahash]]
-who = "Erich Gubler <erichdongubler@gmail.com>"
-criteria = "safe-to-deploy"
-delta = "0.8.7 -> 0.8.11"
 
 [[audits.firefox.audits.bit-set]]
 who = "Teodor Tanasoaia <ttanasoaia@mozilla.com>"
@@ -907,6 +861,11 @@ criteria = "safe-to-deploy"
 delta = "0.1.1 -> 0.2.1"
 notes = "Very minor changes."
 
+[[audits.firefox.audits.cgl]]
+who = "Sotaro Ikeda <sotaro.ikeda.g@gmail.com>"
+criteria = "safe-to-deploy"
+version = "0.3.2"
+
 [[audits.firefox.audits.codespan-reporting]]
 who = "Erich Gubler <erichdongubler@gmail.com>"
 criteria = "safe-to-deploy"
@@ -917,16 +876,6 @@ who = "Teodor Tanasoaia <ttanasoaia@mozilla.com>"
 criteria = "safe-to-deploy"
 delta = "0.9.3 -> 0.9.4"
 notes = "I've reviewed every source contribution that was neither authored nor reviewed by Mozilla."
-
-[[audits.firefox.audits.core-foundation]]
-who = "Erich Gubler <erichdongubler@gmail.com>"
-criteria = "safe-to-deploy"
-delta = "0.9.4 -> 0.10.0"
-
-[[audits.firefox.audits.core-graphics]]
-who = "Teodor Tanasoaia <ttanasoaia@mozilla.com>"
-criteria = "safe-to-deploy"
-delta = "0.22.3 -> 0.23.1"
 
 [[audits.firefox.audits.core-graphics-types]]
 who = "Teodor Tanasoaia <ttanasoaia@mozilla.com>"
@@ -1068,22 +1017,6 @@ who = "Makoto Kato <m_kato@ga2.so-net.ne.jp>"
 criteria = "safe-to-deploy"
 delta = "2.0.0-beta2 -> 2.0.0"
 
-[[audits.firefox.audits.icu_locid]]
-who = "Makoto Kato <m_kato@ga2.so-net.ne.jp>"
-criteria = "safe-to-deploy"
-version = "1.2.0"
-notes = "This has unsafe block to handle ascii string in utf-8 string. I've vetted the one instance of unsafe code."
-
-[[audits.firefox.audits.icu_locid]]
-who = "Makoto Kato <m_kato@ga2.so-net.ne.jp>"
-criteria = "safe-to-deploy"
-delta = "1.2.0 -> 1.4.0"
-
-[[audits.firefox.audits.icu_locid]]
-who = "Makoto Kato <m_kato@ga2.so-net.ne.jp>"
-criteria = "safe-to-deploy"
-delta = "1.4.0 -> 1.5.0"
-
 [[audits.firefox.audits.icu_normalizer]]
 who = "Makoto Kato <m_kato@ga2.so-net.ne.jp>"
 criteria = "safe-to-deploy"
@@ -1125,25 +1058,10 @@ criteria = "safe-to-deploy"
 delta = "0.1.32 -> 0.1.33"
 notes = "No unsafe added, only non-trivial change is switching to the getrandom crate on Windows."
 
-[[audits.firefox.audits.libloading]]
-who = "Erich Gubler <erichdongubler@gmail.com>"
-criteria = "safe-to-deploy"
-delta = "0.7.4 -> 0.8.3"
-
-[[audits.firefox.audits.libloading]]
-who = "Erich Gubler <erichdongubler@gmail.com>"
-criteria = "safe-to-deploy"
-delta = "0.8.3 -> 0.8.6"
-
 [[audits.firefox.audits.litemap]]
 who = "Makoto Kato <m_kato@ga2.so-net.ne.jp>"
 criteria = "safe-to-deploy"
 delta = "0.7.5 -> 0.8.0"
-
-[[audits.firefox.audits.litrs]]
-who = "Erich Gubler <erichdongubler@gmail.com>"
-criteria = "safe-to-deploy"
-version = "0.4.1"
 
 [[audits.firefox.audits.malloc_buf]]
 who = "Bobby Holley <bobbyholley@gmail.com>"
@@ -1155,64 +1073,6 @@ There is an edge-case condition that passes slice::from_raw_parts(0x1, 0) which 
 not entirely certain is technically sound, but in either case I am reasonably confident
 it's not exploitable.
 """
-
-[[audits.firefox.audits.memmap2]]
-who = "Mike Hommey <mh+mozilla@glandium.org>"
-criteria = "safe-to-deploy"
-delta = "0.8.0 -> 0.9.3"
-
-[[audits.firefox.audits.memoffset]]
-who = "Gabriele Svelto <gsvelto@mozilla.com>"
-criteria = "safe-to-deploy"
-delta = "0.6.5 -> 0.7.1"
-
-[[audits.firefox.audits.metal]]
-who = "Jim Blandy <jimb@red-bean.com>"
-criteria = "safe-to-deploy"
-version = "0.23.1"
-notes = "This audit treats Dzmitry Malyshau (kvark) as a trusted reviewer."
-
-[[audits.firefox.audits.metal]]
-who = "Jim Blandy <jimb@red-bean.com>"
-criteria = "safe-to-deploy"
-delta = "0.23.1 -> 0.24.0"
-notes = "This audit treats Dzmitry Malyshau (kvark) as a trusted reviewer."
-
-[[audits.firefox.audits.metal]]
-who = "Teodor Tanasoaia <ttanasoaia@mozilla.com>"
-criteria = "safe-to-deploy"
-delta = "0.24.0 -> 0.25.0"
-
-[[audits.firefox.audits.metal]]
-who = "Erich Gubler <egubler@mozilla.com>"
-criteria = "safe-to-deploy"
-delta = "0.25.0 -> 0.26.0"
-
-[[audits.firefox.audits.metal]]
-who = "Nicolas Silva <nical@fastmail.com>, Jim Blandy <jimb@red-bean.com>"
-criteria = "safe-to-deploy"
-delta = "0.26.0 -> 0.27.0"
-
-[[audits.firefox.audits.metal]]
-who = "Erich Gubler <erichdongubler@gmail.com>"
-criteria = "safe-to-deploy"
-delta = "0.27.0 -> 0.28.0"
-notes = "No significantly changed functionality. Some warnings resolved, bumped `core-graphics-types`, newer versions of Metal supported."
-
-[[audits.firefox.audits.metal]]
-who = "Erich Gubler <erichdongubler@gmail.com>"
-criteria = "safe-to-deploy"
-delta = "0.28.0 -> 0.29.0"
-
-[[audits.firefox.audits.metal]]
-who = "Erich Gubler <erichdongubler@gmail.com>"
-criteria = "safe-to-deploy"
-delta = "0.29.0 -> 0.30.0"
-
-[[audits.firefox.audits.metal]]
-who = "Erich Gubler <erichdongubler@gmail.com>"
-criteria = "safe-to-deploy"
-delta = "0.30.0 -> 0.31.0"
 
 [[audits.firefox.audits.naga]]
 who = "Dzmitry Malyshau <kvark@fastmail.com>"
@@ -1468,32 +1328,6 @@ who = "Mark Hammond <mhammond@skippinet.com.au>"
 criteria = "safe-to-deploy"
 delta = "0.1.37 -> 0.1.41"
 
-[[audits.firefox.audits.tracing-core]]
-who = "Alex Franchuk <afranchuk@mozilla.com>"
-criteria = "safe-to-deploy"
-version = "0.1.30"
-notes = """
-Most unsafe code is in implementing non-std sync primitives. Unsafe impls are
-logically correct and justified in comments, and unsafe code is sound and
-justified in comments.
-"""
-
-[[audits.firefox.audits.tracing-core]]
-who = "Mark Hammond <mhammond@skippinet.com.au>"
-criteria = "safe-to-deploy"
-delta = "0.1.30 -> 0.1.33"
-
-[[audits.firefox.audits.unicode-bidi]]
-who = "Makoto Kato <m_kato@ga2.so-net.ne.jp>"
-criteria = "safe-to-deploy"
-delta = "0.3.8 -> 0.3.13"
-
-[[audits.firefox.audits.unicode-bidi]]
-who = "Jonathan Kew <jkew@mozilla.com>"
-criteria = "safe-to-deploy"
-delta = "0.3.13 -> 0.3.14"
-notes = "I am the author of the bulk of the upstream changes in this version, and also checked the remaining post-0.3.13 changes."
-
 [[audits.firefox.audits.url]]
 who = "Valentin Gosu <valentin.gosu@gmail.com>"
 criteria = "safe-to-deploy"
@@ -1518,12 +1352,6 @@ delta = "2.5.0 -> 2.5.1"
 who = "Valentin Gosu <valentin.gosu@gmail.com>"
 criteria = "safe-to-deploy"
 delta = "2.5.1 -> 2.5.4"
-
-[[audits.firefox.audits.utf16_iter]]
-who = "Henri Sivonen <hsivonen@hsivonen.fi>"
-criteria = "safe-to-deploy"
-version = "1.0.5"
-notes = "I, Henri Sivonen, wrote this crate."
 
 [[audits.firefox.audits.wgpu-core-deps-windows-linux-android]]
 who = "Erich Gubler <erichdongubler@gmail.com>"
@@ -1608,12 +1436,6 @@ who = "Erich Gubler <erichdongubler@gmail.com>"
 criteria = "safe-to-deploy"
 delta = "24.0.0 -> 25.0.0"
 
-[[audits.firefox.audits.write16]]
-who = "Henri Sivonen <hsivonen@hsivonen.fi>"
-criteria = "safe-to-deploy"
-version = "1.0.0"
-notes = "I, Henri Sivonen, wrote this (safe-code-only) crate."
-
 [[audits.firefox.audits.zerotrie]]
 who = "Makoto Kato <m_kato@ga2.so-net.ne.jp>"
 criteria = "safe-to-deploy"
@@ -1681,49 +1503,6 @@ criteria = "safe-to-deploy"
 version = "1.1.3"
 aggregated-from = "https://chromium.googlesource.com/chromiumos/third_party/rust_crates/+/refs/heads/main/cargo-vet/audits.toml?format=TEXT"
 
-[[audits.google.audits.android_system_properties]]
-who = "Manish Goregaokar <manishearth@google.com>"
-criteria = "safe-to-deploy"
-version = "0.1.5"
-notes = "Android system API FFI"
-aggregated-from = "https://chromium.googlesource.com/chromium/src/+/main/third_party/rust/chromium_crates_io/supply-chain/audits.toml?format=TEXT"
-
-[[audits.google.audits.argh]]
-who = "ChromeOS"
-criteria = "safe-to-deploy"
-version = "0.1.10"
-aggregated-from = "https://chromium.googlesource.com/chromiumos/third_party/rust_crates/+/refs/heads/main/cargo-vet/audits.toml?format=TEXT"
-
-[[audits.google.audits.argh]]
-who = "George Burgess IV <gbiv@google.com>"
-criteria = "safe-to-deploy"
-delta = "0.1.10 -> 0.1.12"
-aggregated-from = "https://chromium.googlesource.com/chromiumos/third_party/rust_crates/+/refs/heads/main/cargo-vet/audits.toml?format=TEXT"
-
-[[audits.google.audits.argh_derive]]
-who = "ChromeOS"
-criteria = "safe-to-deploy"
-version = "0.1.10"
-aggregated-from = "https://chromium.googlesource.com/chromiumos/third_party/rust_crates/+/refs/heads/main/cargo-vet/audits.toml?format=TEXT"
-
-[[audits.google.audits.argh_derive]]
-who = "George Burgess IV <gbiv@google.com>"
-criteria = "safe-to-deploy"
-delta = "0.1.10 -> 0.1.12"
-aggregated-from = "https://chromium.googlesource.com/chromiumos/third_party/rust_crates/+/refs/heads/main/cargo-vet/audits.toml?format=TEXT"
-
-[[audits.google.audits.argh_shared]]
-who = "ChromeOS"
-criteria = "safe-to-deploy"
-version = "0.1.10"
-aggregated-from = "https://chromium.googlesource.com/chromiumos/third_party/rust_crates/+/refs/heads/main/cargo-vet/audits.toml?format=TEXT"
-
-[[audits.google.audits.argh_shared]]
-who = "George Burgess IV <gbiv@google.com>"
-criteria = "safe-to-deploy"
-delta = "0.1.10 -> 0.1.12"
-aggregated-from = "https://chromium.googlesource.com/chromiumos/third_party/rust_crates/+/refs/heads/main/cargo-vet/audits.toml?format=TEXT"
-
 [[audits.google.audits.arrayvec]]
 who = "Lukasz Anforowicz <lukasza@chromium.org>"
 criteria = "safe-to-deploy"
@@ -1736,13 +1515,6 @@ The crate has quite a few bits of `unsafe` Rust.  The audit comments can be
 found in https://chromium-review.googlesource.com/c/chromium/src/+/6187726/2
 '''
 aggregated-from = "https://chromium.googlesource.com/chromium/src/+/main/third_party/rust/chromium_crates_io/supply-chain/audits.toml?format=TEXT"
-
-[[audits.google.audits.ash]]
-who = "Chia-I Wu <olv@google.com>"
-criteria = "safe-to-deploy"
-version = "0.38.0+1.3.281"
-notes = "Vulkan binding mostly generated from vk.xml"
-aggregated-from = "https://chromium.googlesource.com/chromiumos/third_party/rust_crates/+/refs/heads/main/cargo-vet/audits.toml?format=TEXT"
 
 [[audits.google.audits.autocfg]]
 who = "Manish Goregaokar <manishearth@google.com>"
@@ -1764,6 +1536,12 @@ version = "0.5.3"
 aggregated-from = "https://chromium.googlesource.com/chromiumos/third_party/rust_crates/+/refs/heads/main/cargo-vet/audits.toml?format=TEXT"
 
 [[audits.google.audits.bitflags]]
+who = "George Burgess IV <gbiv@google.com>"
+criteria = "safe-to-deploy"
+version = "1.3.2"
+aggregated-from = "https://chromium.googlesource.com/chromiumos/third_party/rust_crates/+/refs/heads/main/cargo-vet/audits.toml?format=TEXT"
+
+[[audits.google.audits.bitflags]]
 who = "Justin Green <greenjustin@google.com>"
 criteria = "safe-to-deploy"
 version = "2.6.0"
@@ -1781,57 +1559,6 @@ who = "Daniel Cheng <dcheng@chromium.org>"
 criteria = "safe-to-deploy"
 delta = "2.8.0 -> 2.9.0"
 notes = "Adds a straightforward clear() function, but no new unsafe code."
-aggregated-from = "https://chromium.googlesource.com/chromium/src/+/main/third_party/rust/chromium_crates_io/supply-chain/audits.toml?format=TEXT"
-
-[[audits.google.audits.bytemuck_derive]]
-who = "Lukasz Anforowicz <lukasza@chromium.org>"
-criteria = "safe-to-deploy"
-version = "1.6.0"
-notes = """
-Grepped for \"unsafe\", \"crypt\", \"cipher\", \"fs\", \"net\" - there were no
-hits except for 8 occurrences of `unsafe`.  Additional `unsafe` review comments
-can be found in https://crrev.com/c/5445719.
-"""
-aggregated-from = "https://chromium.googlesource.com/chromium/src/+/main/third_party/rust/chromium_crates_io/supply-chain/audits.toml?format=TEXT"
-
-[[audits.google.audits.bytemuck_derive]]
-who = "Lukasz Anforowicz <lukasza@chromium.org>"
-criteria = "safe-to-deploy"
-delta = "1.6.0 -> 1.6.1"
-notes = """
-No behavior/code changes AFAICT - only adding
-`#[allow(clippy::multiple_bound_locations)]`, doc comments, and making
-some cosmetic changes in non-`.rs` files.
-"""
-aggregated-from = "https://chromium.googlesource.com/chromium/src/+/main/third_party/rust/chromium_crates_io/supply-chain/audits.toml?format=TEXT"
-
-[[audits.google.audits.bytemuck_derive]]
-who = "danakj <danakj@chromium.org>"
-criteria = "safe-to-deploy"
-delta = "1.6.1 -> 1.7.0"
-notes = """
-Added support for Zeroable enums, which requires them to be represented as an integer and to have 0 as one of their values.
-
-Other trivial/formatting changes.
-"""
-aggregated-from = "https://chromium.googlesource.com/chromium/src/+/main/third_party/rust/chromium_crates_io/supply-chain/audits.toml?format=TEXT"
-
-[[audits.google.audits.bytemuck_derive]]
-who = "Lukasz Anforowicz <lukasza@chromium.org>"
-criteria = "safe-to-deploy"
-delta = "1.7.0 -> 1.7.1"
-notes = """
-No impact on safety AFAICT - the delta only specifies a new attribute for
-`proc_macro_derive` to work around re-export issues described at
-https://github.com/Lokathor/bytemuck/issues/159
-"""
-aggregated-from = "https://chromium.googlesource.com/chromium/src/+/main/third_party/rust/chromium_crates_io/supply-chain/audits.toml?format=TEXT"
-
-[[audits.google.audits.bytemuck_derive]]
-who = "danakj <danakj@chromium.org>"
-criteria = "safe-to-deploy"
-delta = "1.7.1 -> 1.8.0"
-notes = "Unsafe review: https://crrev.com/c/5921014"
 aggregated-from = "https://chromium.googlesource.com/chromium/src/+/main/third_party/rust/chromium_crates_io/supply-chain/audits.toml?format=TEXT"
 
 [[audits.google.audits.bytes]]
@@ -1911,18 +1638,6 @@ version = "0.8.7"
 notes = "OSX system APIs"
 aggregated-from = "https://chromium.googlesource.com/chromium/src/+/main/third_party/rust/chromium_crates_io/supply-chain/audits.toml?format=TEXT"
 
-[[audits.google.audits.crc32fast]]
-who = "Lukasz Anforowicz <lukasza@chromium.org>"
-criteria = "safe-to-deploy"
-version = "1.4.2"
-notes = """
-Security review of earlier versions of the crate can be found at
-(Google-internal, sorry): go/image-crate-chromium-security-review
-
-Audit comments for 1.4.2 can be found at https://crrev.com/c/4723145.
-"""
-aggregated-from = "https://chromium.googlesource.com/chromium/src/+/main/third_party/rust/chromium_crates_io/supply-chain/audits.toml?format=TEXT"
-
 [[audits.google.audits.crossbeam-channel]]
 who = "George Burgess IV <gbiv@google.com>"
 criteria = "safe-to-deploy"
@@ -1933,12 +1648,6 @@ aggregated-from = "https://chromium.googlesource.com/chromiumos/third_party/rust
 who = "George Burgess IV <gbiv@google.com>"
 criteria = "safe-to-deploy"
 delta = "0.5.7 -> 0.5.8"
-aggregated-from = "https://chromium.googlesource.com/chromiumos/third_party/rust_crates/+/refs/heads/main/cargo-vet/audits.toml?format=TEXT"
-
-[[audits.google.audits.crossbeam-deque]]
-who = "George Burgess IV <gbiv@google.com>"
-criteria = "safe-to-deploy"
-version = "0.8.3"
 aggregated-from = "https://chromium.googlesource.com/chromiumos/third_party/rust_crates/+/refs/heads/main/cargo-vet/audits.toml?format=TEXT"
 
 [[audits.google.audits.crossbeam-epoch]]
@@ -1957,12 +1666,6 @@ aggregated-from = "https://chromium.googlesource.com/chromiumos/third_party/rust
 who = "George Burgess IV <gbiv@google.com>"
 criteria = "safe-to-deploy"
 version = "0.2.5"
-aggregated-from = "https://chromium.googlesource.com/chromiumos/third_party/rust_crates/+/refs/heads/main/cargo-vet/audits.toml?format=TEXT"
-
-[[audits.google.audits.downcast-rs]]
-who = "George Burgess IV <gbiv@google.com>"
-criteria = "safe-to-deploy"
-version = "1.2.0"
 aggregated-from = "https://chromium.googlesource.com/chromiumos/third_party/rust_crates/+/refs/heads/main/cargo-vet/audits.toml?format=TEXT"
 
 [[audits.google.audits.either]]
@@ -2113,12 +1816,6 @@ criteria = "safe-to-deploy"
 delta = "0.2.14 -> 0.2.15"
 aggregated-from = "https://chromium.googlesource.com/chromium/src/+/main/third_party/rust/chromium_crates_io/supply-chain/audits.toml?format=TEXT"
 
-[[audits.google.audits.half]]
-who = "Daniel Verkamp <dverkamp@chromium.org>"
-criteria = "safe-to-deploy"
-version = "2.4.1"
-aggregated-from = "https://chromium.googlesource.com/chromiumos/third_party/rust_crates/+/refs/heads/main/cargo-vet/audits.toml?format=TEXT"
-
 [[audits.google.audits.heck]]
 who = "Ying Hsu <yinghsu@chromium.org>"
 criteria = "safe-to-deploy"
@@ -2156,18 +1853,6 @@ All unsafe code commented (and improved from prior version):
   - Some unchecked indexing around maintained invariants
 """
 aggregated-from = "https://chromium.googlesource.com/chromium/src/+/main/third_party/rust/chromium_crates_io/supply-chain/audits.toml?format=TEXT"
-
-[[audits.google.audits.icu_locid_transform]]
-who = "George Burgess IV <gbiv@google.com>"
-criteria = "safe-to-deploy"
-version = "1.5.0"
-aggregated-from = "https://chromium.googlesource.com/chromiumos/third_party/rust_crates/+/refs/heads/main/cargo-vet/audits.toml?format=TEXT"
-
-[[audits.google.audits.icu_locid_transform_data]]
-who = "George Burgess IV <gbiv@google.com>"
-criteria = "safe-to-deploy"
-version = "1.5.0"
-aggregated-from = "https://chromium.googlesource.com/chromiumos/third_party/rust_crates/+/refs/heads/main/cargo-vet/audits.toml?format=TEXT"
 
 [[audits.google.audits.icu_normalizer]]
 who = "Manish Goregaokar <manishearth@google.com>"
@@ -2235,12 +1920,6 @@ delta = "2.0.0-beta1 -> 2.0.0-beta2"
 notes = "from_utf8_unchecked unsafe remove, all other unsafe not meaningfully changed"
 aggregated-from = "https://chromium.googlesource.com/chromium/src/+/main/third_party/rust/chromium_crates_io/supply-chain/audits.toml?format=TEXT"
 
-[[audits.google.audits.icu_provider_macros]]
-who = "George Burgess IV <gbiv@google.com>"
-criteria = "safe-to-deploy"
-version = "1.5.0"
-aggregated-from = "https://chromium.googlesource.com/chromiumos/third_party/rust_crates/+/refs/heads/main/cargo-vet/audits.toml?format=TEXT"
-
 [[audits.google.audits.idna]]
 who = "George Burgess IV <gbiv@google.com>"
 criteria = "safe-to-deploy"
@@ -2288,12 +1967,6 @@ delta = "1.4.0 -> 1.5.0"
 notes = "Unsafe review notes: https://crrev.com/c/5650836"
 aggregated-from = "https://chromium.googlesource.com/chromium/src/+/main/third_party/rust/chromium_crates_io/supply-chain/audits.toml?format=TEXT"
 
-[[audits.google.audits.libloading]]
-who = "George Burgess IV <gbiv@google.com>"
-criteria = "safe-to-deploy"
-version = "0.7.4"
-aggregated-from = "https://chromium.googlesource.com/chromiumos/third_party/rust_crates/+/refs/heads/main/cargo-vet/audits.toml?format=TEXT"
-
 [[audits.google.audits.litemap]]
 who = "George Burgess IV <gbiv@google.com>"
 criteria = "safe-to-deploy"
@@ -2319,50 +1992,12 @@ describe in the review doc.
 """
 aggregated-from = "https://chromium.googlesource.com/chromium/src/+/main/third_party/rust/chromium_crates_io/supply-chain/audits.toml?format=TEXT"
 
-[[audits.google.audits.memmap2]]
-who = "Ying Hsu <yinghsu@chromium.org>"
-criteria = "safe-to-deploy"
-version = "0.8.0"
-aggregated-from = "https://chromium.googlesource.com/chromiumos/third_party/rust_crates/+/refs/heads/main/cargo-vet/audits.toml?format=TEXT"
-
-[[audits.google.audits.memoffset]]
-who = "George Burgess IV <gbiv@google.com>"
-criteria = "safe-to-deploy"
-version = "0.6.5"
-aggregated-from = "https://chromium.googlesource.com/chromiumos/third_party/rust_crates/+/refs/heads/main/cargo-vet/audits.toml?format=TEXT"
-
-[[audits.google.audits.nix]]
-who = "David Koloski <dkoloski@google.com>"
-criteria = "safe-to-deploy"
-version = "0.26.2"
-notes = """
-Reviewed on https://fxrev.dev/780283
-Issues:
-- https://github.com/nix-rust/nix/issues/1975
-- https://github.com/nix-rust/nix/issues/1977
-- https://github.com/nix-rust/nix/pull/1978
-- https://github.com/nix-rust/nix/pull/1979
-- https://github.com/nix-rust/nix/issues/1980
-- https://github.com/nix-rust/nix/issues/1981
-- https://github.com/nix-rust/nix/pull/1983
-- https://github.com/nix-rust/nix/issues/1990
-- https://github.com/nix-rust/nix/pull/1992
-- https://github.com/nix-rust/nix/pull/1993
-"""
-aggregated-from = "https://fuchsia.googlesource.com/fuchsia/+/refs/heads/main/third_party/rust_crates/supply-chain/audits.toml?format=TEXT"
-
 [[audits.google.audits.num-traits]]
 who = "Manish Goregaokar <manishearth@google.com>"
 criteria = "safe-to-deploy"
 version = "0.2.19"
 notes = "Contains a single line of float-to-int unsafe with decent safety comments"
 aggregated-from = "https://chromium.googlesource.com/chromium/src/+/main/third_party/rust/chromium_crates_io/supply-chain/audits.toml?format=TEXT"
-
-[[audits.google.audits.num_threads]]
-who = "George Burgess IV <gbiv@google.com>"
-criteria = "safe-to-deploy"
-version = "0.1.6"
-aggregated-from = "https://chromium.googlesource.com/chromiumos/third_party/rust_crates/+/refs/heads/main/cargo-vet/audits.toml?format=TEXT"
 
 [[audits.google.audits.once_cell]]
 who = "Ying Hsu <yinghsu@chromium.org>"
@@ -2496,12 +2131,6 @@ criteria = "safe-to-deploy"
 delta = "1.0.93 -> 1.0.94"
 notes = "Minor doc changes and clippy lint adjustments+fixes."
 aggregated-from = "https://chromium.googlesource.com/chromium/src/+/main/third_party/rust/chromium_crates_io/supply-chain/audits.toml?format=TEXT"
-
-[[audits.google.audits.quick-xml]]
-who = "Matthew DeVore <matvore@chromium.org>"
-criteria = "safe-to-deploy"
-version = "0.30.0"
-aggregated-from = "https://chromium.googlesource.com/chromiumos/third_party/rust_crates/+/refs/heads/main/cargo-vet/audits.toml?format=TEXT"
 
 [[audits.google.audits.quote]]
 who = "Ying Hsu <yinghsu@chromium.org>"
@@ -2799,6 +2428,18 @@ criteria = "safe-to-deploy"
 version = "1.1.0"
 aggregated-from = "https://chromium.googlesource.com/chromiumos/third_party/rust_crates/+/refs/heads/main/cargo-vet/audits.toml?format=TEXT"
 
+[[audits.google.audits.simd-adler32]]
+who = "Lukasz Anforowicz <lukasza@chromium.org>"
+criteria = "safe-to-deploy"
+version = "0.3.7"
+notes = """
+Security review of earlier versions of the crate can be found at
+(Google-internal, sorry): go/image-crate-chromium-security-review
+
+Audit comments for 1.3.2 can be found at https://crrev.com/c/4723145.
+"""
+aggregated-from = "https://chromium.googlesource.com/chromium/src/+/main/third_party/rust/chromium_crates_io/supply-chain/audits.toml?format=TEXT"
+
 [[audits.google.audits.stable_deref_trait]]
 who = "George Burgess IV <gbiv@google.com>"
 criteria = "safe-to-deploy"
@@ -2869,18 +2510,6 @@ criteria = "safe-to-deploy"
 version = "1.2.1"
 aggregated-from = "https://chromium.googlesource.com/chromiumos/third_party/rust_crates/+/refs/heads/main/cargo-vet/audits.toml?format=TEXT"
 
-[[audits.google.audits.toml]]
-who = "George Burgess IV <gbiv@google.com>"
-criteria = "safe-to-deploy"
-version = "0.5.10"
-aggregated-from = "https://chromium.googlesource.com/chromiumos/third_party/rust_crates/+/refs/heads/main/cargo-vet/audits.toml?format=TEXT"
-
-[[audits.google.audits.toml]]
-who = "Hung-Hsien Chen <hunghsienchen@chromium.org>"
-criteria = "safe-to-deploy"
-delta = "0.5.10 -> 0.8.19"
-aggregated-from = "https://chromium.googlesource.com/chromiumos/third_party/rust_crates/+/refs/heads/main/cargo-vet/audits.toml?format=TEXT"
-
 [[audits.google.audits.twox-hash]]
 who = "Dennis Kempin <denniskempin@google.com>"
 criteria = "safe-to-deploy"
@@ -2938,22 +2567,10 @@ delta = "1.0.16 -> 1.0.18"
 notes = "Only minor comment and documentation updates."
 aggregated-from = "https://chromium.googlesource.com/chromium/src/+/main/third_party/rust/chromium_crates_io/supply-chain/audits.toml?format=TEXT"
 
-[[audits.google.audits.unicode-normalization]]
-who = "George Burgess IV <gbiv@google.com>"
-criteria = "safe-to-deploy"
-version = "0.1.22"
-aggregated-from = "https://chromium.googlesource.com/chromiumos/third_party/rust_crates/+/refs/heads/main/cargo-vet/audits.toml?format=TEXT"
-
 [[audits.google.audits.utf8_iter]]
 who = "George Burgess IV <gbiv@google.com>"
 criteria = "safe-to-deploy"
 version = "1.0.4"
-aggregated-from = "https://chromium.googlesource.com/chromiumos/third_party/rust_crates/+/refs/heads/main/cargo-vet/audits.toml?format=TEXT"
-
-[[audits.google.audits.version_check]]
-who = "George Burgess IV <gbiv@google.com>"
-criteria = "safe-to-deploy"
-version = "0.9.4"
 aggregated-from = "https://chromium.googlesource.com/chromiumos/third_party/rust_crates/+/refs/heads/main/cargo-vet/audits.toml?format=TEXT"
 
 [[audits.google.audits.winapi]]
@@ -3021,42 +2638,6 @@ delta = "0.7.5 -> 0.8.0"
 notes = "No code changes: only incrementing the version."
 aggregated-from = "https://chromium.googlesource.com/chromium/src/+/main/third_party/rust/chromium_crates_io/supply-chain/audits.toml?format=TEXT"
 
-[[audits.google.audits.zerocopy]]
-who = "ChromeOS"
-criteria = "safe-to-deploy"
-version = "0.7.0-alpha.1"
-aggregated-from = "https://chromium.googlesource.com/chromiumos/third_party/rust_crates/+/refs/heads/main/cargo-vet/audits.toml?format=TEXT"
-
-[[audits.google.audits.zerocopy]]
-who = "Daniel Verkamp <dverkamp@chromium.org>"
-criteria = "safe-to-deploy"
-delta = "0.7.0-alpha.1 -> 0.7.8"
-aggregated-from = "https://chromium.googlesource.com/chromiumos/third_party/rust_crates/+/refs/heads/main/cargo-vet/audits.toml?format=TEXT"
-
-[[audits.google.audits.zerocopy]]
-who = "George Burgess IV <gbiv@google.com>"
-criteria = "safe-to-deploy"
-delta = "0.7.8 -> 0.7.32"
-aggregated-from = "https://chromium.googlesource.com/chromiumos/third_party/rust_crates/+/refs/heads/main/cargo-vet/audits.toml?format=TEXT"
-
-[[audits.google.audits.zerocopy-derive]]
-who = "ChromeOS"
-criteria = "safe-to-deploy"
-version = "0.3.2"
-aggregated-from = "https://chromium.googlesource.com/chromiumos/third_party/rust_crates/+/refs/heads/main/cargo-vet/audits.toml?format=TEXT"
-
-[[audits.google.audits.zerocopy-derive]]
-who = "Daniel Verkamp <dverkamp@chromium.org>"
-criteria = "safe-to-deploy"
-delta = "0.3.2 -> 0.7.8"
-aggregated-from = "https://chromium.googlesource.com/chromiumos/third_party/rust_crates/+/refs/heads/main/cargo-vet/audits.toml?format=TEXT"
-
-[[audits.google.audits.zerocopy-derive]]
-who = "George Burgess IV <gbiv@google.com>"
-criteria = "safe-to-deploy"
-delta = "0.7.8 -> 0.7.32"
-aggregated-from = "https://chromium.googlesource.com/chromiumos/third_party/rust_crates/+/refs/heads/main/cargo-vet/audits.toml?format=TEXT"
-
 [[audits.google.audits.zerofrom]]
 who = "George Burgess IV <gbiv@google.com>"
 criteria = "safe-to-deploy"
@@ -3106,13 +2687,6 @@ aggregated-from = "https://chromium.googlesource.com/chromium/src/+/main/third_p
 who = "George Burgess IV <gbiv@google.com>"
 criteria = "safe-to-deploy"
 version = "0.10.3"
-aggregated-from = "https://chromium.googlesource.com/chromiumos/third_party/rust_crates/+/refs/heads/main/cargo-vet/audits.toml?format=TEXT"
-
-[[audits.google.audits.zstd-sys]]
-who = "Matt Turner <msturner@google.com>"
-criteria = "safe-to-deploy"
-version = "2.0.9+zstd.1.5.5"
-notes = "Includes an implementation of xxhash (a non-cyptographic hashing function) as part of the zstd C sources"
 aggregated-from = "https://chromium.googlesource.com/chromiumos/third_party/rust_crates/+/refs/heads/main/cargo-vet/audits.toml?format=TEXT"
 
 [[audits.isrg.audits.cfg-if]]
@@ -3266,12 +2840,6 @@ user-id = 696 # Nick Fitzgerald (fitzgen)
 start = "2019-03-16"
 end = "2026-08-21"
 
-[[audits.wasmtime.audits.adler]]
-who = "Alex Crichton <alex@alexcrichton.com>"
-criteria = "safe-to-deploy"
-version = "1.0.2"
-notes = "This is a small crate which forbids unsafe code and is a straightforward implementation of the adler hashing algorithm."
-
 [[audits.wasmtime.audits.anes]]
 who = "Pat Hickey <phickey@fastly.com>"
 criteria = "safe-to-deploy"
@@ -3330,36 +2898,10 @@ criteria = "safe-to-deploy"
 delta = "0.8.5 -> 0.8.9"
 notes = "No new unsafe code, just refactorings."
 
-[[audits.wasmtime.audits.tinyvec]]
-who = "Alex Crichton <alex@alexcrichton.com>"
-criteria = "safe-to-deploy"
-version = "1.6.0"
-notes = """
-This crate, while it implements collections, does so without `std::*` APIs and
-without `unsafe`. Skimming the crate everything looks reasonable and what one
-would expect from idiomatic safe collections in Rust.
-"""
-
-[[audits.wasmtime.audits.unicode-bidi]]
-who = "Alex Crichton <alex@alexcrichton.com>"
-criteria = "safe-to-deploy"
-version = "0.3.8"
-notes = """
-This crate has no unsafe code and does not use `std::*`. Skimming the crate it
-does not attempt to out of the bounds of what it's already supposed to be doing.
-"""
-
 [[audits.zcash.audits.adler2]]
 who = "Jack Grigg <jack@electriccoin.co>"
 criteria = "safe-to-deploy"
 delta = "2.0.0 -> 2.0.1"
-aggregated-from = "https://raw.githubusercontent.com/zcash/zcash/master/qa/supply-chain/audits.toml"
-
-[[audits.zcash.audits.ahash]]
-who = "Jack Grigg <jack@electriccoin.co>"
-criteria = "safe-to-deploy"
-delta = "0.8.6 -> 0.8.7"
-notes = "Build-time `stdsimd` detection is replaced with a nightly-only feature flag."
 aggregated-from = "https://raw.githubusercontent.com/zcash/zcash/master/qa/supply-chain/audits.toml"
 
 [[audits.zcash.audits.autocfg]]
@@ -3367,19 +2909,6 @@ who = "Jack Grigg <jack@electriccoin.co>"
 criteria = "safe-to-deploy"
 delta = "1.4.0 -> 1.5.0"
 notes = "Filesystem change is to remove the generated LLVM IR output file after probing."
-aggregated-from = "https://raw.githubusercontent.com/zcash/zcash/master/qa/supply-chain/audits.toml"
-
-[[audits.zcash.audits.crossbeam-deque]]
-who = "Jack Grigg <jack@electriccoin.co>"
-criteria = "safe-to-deploy"
-delta = "0.8.3 -> 0.8.4"
-aggregated-from = "https://raw.githubusercontent.com/zcash/zcash/master/qa/supply-chain/audits.toml"
-
-[[audits.zcash.audits.crossbeam-deque]]
-who = "Daira-Emma Hopwood <daira@jacaranda.org>"
-criteria = "safe-to-deploy"
-delta = "0.8.4 -> 0.8.5"
-notes = "Changes to `unsafe` code look okay."
 aggregated-from = "https://raw.githubusercontent.com/zcash/zcash/master/qa/supply-chain/audits.toml"
 
 [[audits.zcash.audits.crossbeam-epoch]]
@@ -3440,38 +2969,6 @@ criteria = "safe-to-deploy"
 delta = "2.7.4 -> 2.7.5"
 aggregated-from = "https://raw.githubusercontent.com/zcash/zcash/master/qa/supply-chain/audits.toml"
 
-[[audits.zcash.audits.nix]]
-who = "Jack Grigg <jack@electriccoin.co>"
-criteria = "safe-to-deploy"
-delta = "0.26.2 -> 0.26.4"
-notes = """
-Most of the `unsafe` changes are cleaning up their usage:
-- Replacing `data.len() * std::mem::size_of::<$ty>()` with `std::mem::size_of_val(data)`.
-- Removing some `mem::transmute`s.
-- Using `*mut` instead of `*const` to convey intended semantics.
-
-A new unsafe trait method `SockaddrLike::set_length` is added; it's impls look fine.
-"""
-aggregated-from = "https://raw.githubusercontent.com/zcash/zcash/master/qa/supply-chain/audits.toml"
-
-[[audits.zcash.audits.num_enum]]
-who = "Jack Grigg <jack@electriccoin.co>"
-criteria = "safe-to-deploy"
-delta = "0.7.0 -> 0.7.2"
-aggregated-from = "https://raw.githubusercontent.com/zcash/librustzcash/main/supply-chain/audits.toml"
-
-[[audits.zcash.audits.num_enum_derive]]
-who = "Jack Grigg <jack@electriccoin.co>"
-criteria = "safe-to-deploy"
-delta = "0.7.0 -> 0.7.2"
-aggregated-from = "https://raw.githubusercontent.com/zcash/librustzcash/main/supply-chain/audits.toml"
-
-[[audits.zcash.audits.oorandom]]
-who = "Jack Grigg <jack@electriccoin.co>"
-criteria = "safe-to-run"
-delta = "11.1.3 -> 11.1.4"
-aggregated-from = "https://raw.githubusercontent.com/zcash/librustzcash/main/supply-chain/audits.toml"
-
 [[audits.zcash.audits.pkg-config]]
 who = "Jack Grigg <jack@electriccoin.co>"
 criteria = "safe-to-deploy"
@@ -3506,10 +3003,3 @@ who = "Jack Grigg <jack@electriccoin.co>"
 criteria = "safe-to-deploy"
 delta = "1.0.137 -> 1.0.140"
 aggregated-from = "https://raw.githubusercontent.com/zcash/wallet/main/supply-chain/audits.toml"
-
-[[audits.zcash.audits.tinyvec_macros]]
-who = "Jack Grigg <jack@z.cash>"
-criteria = "safe-to-deploy"
-delta = "0.1.0 -> 0.1.1"
-notes = "Adds `#![forbid(unsafe_code)]` and license files."
-aggregated-from = "https://raw.githubusercontent.com/zcash/zcash/master/qa/supply-chain/audits.toml"
