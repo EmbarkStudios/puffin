@@ -196,7 +196,7 @@ end = "2024-06-08"
 criteria = "safe-to-deploy"
 user-id = 2915 # Amanieu d'Antras (Amanieu)
 start = "2019-05-04"
-end = "2024-06-08"
+end = "2026-08-31"
 
 [[trusted.parking_lot_core]]
 criteria = "safe-to-deploy"

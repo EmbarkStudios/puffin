@@ -173,8 +173,8 @@ user-login = "BurntSushi"
 user-name = "Andrew Gallant"
 
 [[publisher.parking_lot]]
-version = "0.12.3"
-when = "2024-05-24"
+version = "0.12.4"
+when = "2025-05-29"
 user-id = 2915
 user-login = "Amanieu"
 user-name = "Amanieu d'Antras"
