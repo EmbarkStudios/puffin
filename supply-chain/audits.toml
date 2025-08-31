@@ -6,6 +6,11 @@ who = "Gwen Lg <me@gwenlg.fr>"
 criteria = "safe-to-deploy"
 delta = "25.0.0 -> 25.0.1"
 
+[[audits.naga]]
+who = "Gwen Lg <me@gwenlg.fr>"
+criteria = "safe-to-deploy"
+delta = "25.0.0 -> 25.0.1"
+
 [[trusted.anstyle]]
 criteria = "safe-to-deploy"
 user-id = 6743 # Ed Page (epage)
