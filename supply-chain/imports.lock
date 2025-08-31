@@ -90,6 +90,13 @@ user-id = 3618
 user-login = "dtolnay"
 user-name = "David Tolnay"
 
+[[publisher.epaint_default_fonts]]
+version = "0.32.1"
+when = "2025-08-15"
+user-id = 5619
+user-login = "emilk"
+user-name = "Emil Ernerfeldt"
+
 [[publisher.flate2]]
 version = "1.1.2"
 when = "2025-06-07"
