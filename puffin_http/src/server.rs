@@ -1,4 +1,5 @@
 use anyhow::Context as _;
+use crossbeam_channel::{Receiver, Sender, TryRecvError};
 use puffin::{FrameSinkId, ScopeCollection, SinkManager};
 use std::{
     io::Write as _,
@@ -238,21 +239,28 @@ impl Server {
         let (tx, rx): (crossbeam_channel::Sender<Arc<puffin::FrameData>>, _) =
             crossbeam_channel::unbounded();
 
+        let (client_send, client_recv) = crossbeam_channel::unbounded();
+
         let num_clients = Arc::new(AtomicUsize::default());
         let num_clients_cloned = num_clients.clone();
 
         let join_handle = std::thread::Builder::new()
             .name("puffin-server".to_owned())
             .spawn(move || {
-                let mut server_impl = PuffinServerImpl {
+                let ps_connection = PuffinServerConnection {
                     tcp_listener,
+                    client_send,
+                };
+
+                let mut server_impl = PuffinServerImpl {
                     clients: Default::default(),
+                    client_recv,
                     num_clients: num_clients_cloned,
                     scope_collection: Default::default(),
                 };
 
                 while let Ok(frame) = rx.recv() {
-                    if let Err(err) = server_impl.accept_new_clients() {
+                    if let Err(err) = ps_connection.accept_new_clients() {
                         log::warn!("puffin server `accept new clients` failure: {err}");
                     }
 
@@ -317,16 +325,13 @@ impl Drop for Client {
 }
 
 /// Listens for incoming connections
-/// and streams them puffin profiler data.
-struct PuffinServerImpl {
+struct PuffinServerConnection {
     tcp_listener: TcpListener,
-    clients: Vec<Client>,
-    num_clients: Arc<AtomicUsize>,
-    scope_collection: ScopeCollection,
+    client_send: Sender<Client>,
 }
 
-impl PuffinServerImpl {
-    fn accept_new_clients(&mut self) -> anyhow::Result<()> {
+impl PuffinServerConnection {
+    fn accept_new_clients(&self) -> anyhow::Result<()> {
         loop {
             match self.tcp_listener.accept() {
                 Ok((tcp_stream, client_addr)) => {
@@ -349,12 +354,10 @@ impl PuffinServerImpl {
                         packet_tx: Some(packet_tx),
                         join_handle: Some(join_handle),
                     };
-                    // Send all scopes to new connected client.
-                    if let Err(err) = self.send_scopes_to_client(&new_client) {
-                        log::warn!("puffin server `send scopes` failure: {err}");
-                    }
-                    self.clients.push(new_client);
-                    self.num_clients.store(self.clients.len(), Ordering::SeqCst);
+
+                    self.client_send
+                        .send(new_client)
+                        .context("failed to send new client to frame sender")?;
                 }
                 Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {
                     break; // Nothing to do for now.
@@ -366,13 +369,33 @@ impl PuffinServerImpl {
         }
         Ok(())
     }
+}
 
+/// Streams puffin profiler data to clients.
+struct PuffinServerImpl {
+    clients: Vec<Client>,
+    client_recv: Receiver<Client>,
+    num_clients: Arc<AtomicUsize>,
+    scope_collection: ScopeCollection,
+}
+
+impl PuffinServerImpl {
     pub fn send(&mut self, frame: &puffin::FrameData) -> anyhow::Result<()> {
         puffin::profile_function!();
 
         // Keep scope_collection up-to-date
         for new_scope in &frame.scope_delta {
             self.scope_collection.insert(new_scope.clone());
+        }
+
+        match self.client_recv.try_recv() {
+            Ok(new_client) => {
+                self.send_scopes_to_client(&new_client)
+                    .context("Send all scopes to new client")?;
+                self.clients.push(new_client);
+                self.num_clients.store(self.clients.len(), Ordering::SeqCst); //Only increment nom_clients when a frame received, not ideal
+            }
+            Err(TryRecvError::Empty | TryRecvError::Disconnected) => {}
         }
 
         // Nothing to send if no clients => Early return.
