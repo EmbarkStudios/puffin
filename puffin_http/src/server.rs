@@ -225,6 +225,7 @@ impl Server {
     /// }
     /// ```
     pub fn new_custom(bind_addr: &str, sink_mngr: SinkManager) -> anyhow::Result<Self> {
+        puffin::profile_scope!("puffin_server_new");
         let tcp_listener = TcpListener::bind(bind_addr).context("binding server TCP socket")?;
         tcp_listener
             .set_nonblocking(true)
@@ -329,6 +330,7 @@ impl PuffinServerImpl {
         loop {
             match self.tcp_listener.accept() {
                 Ok((tcp_stream, client_addr)) => {
+                    puffin::profile_scope!("accept_new_clients");
                     tcp_stream
                         .set_nonblocking(false)
                         .context("stream.set_nonblocking")?;
@@ -410,6 +412,7 @@ impl PuffinServerImpl {
     }
 
     pub fn send_scopes_to_client(&self, client: &Client) -> anyhow::Result<(), anyhow::Error> {
+        puffin::profile_function!();
         let mut packet = vec![];
         packet
             .write_all(&crate::PROTOCOL_VERSION.to_le_bytes())
@@ -433,6 +436,7 @@ fn client_loop(
     mut tcp_stream: TcpStream,
 ) {
     while let Ok(packet) = packet_rx.recv() {
+        puffin::profile_scope!("client_loop");
         if let Err(err) = tcp_stream.write_all(&packet) {
             log::info!(
                 "puffin server failed sending to {}: {} (kind: {:?})",
