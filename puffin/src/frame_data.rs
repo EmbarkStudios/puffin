@@ -570,6 +570,8 @@ impl FrameData {
     pub fn write_into(&self, write: &mut impl std::io::Write) -> anyhow::Result<()> {
         use byteorder::WriteBytesExt as _;
 
+        crate::profile_function!();
+
         write.write_all(b"PFD5")?;
 
         let _bytes_written = bincode::serde::encode_into_std_write(self.meta, write, standard())?;

@@ -138,6 +138,7 @@ impl<W: Write> FrameWriterImpl<W> {
 
     fn run(mut self) {
         while let Ok(frame_data) = self.recv.recv() {
+            crate::profile_scope!("FrameWriter write frame");
             frame_data.write_into(&mut self.writer).expect(
                 "write frame data shouldn't failed, unless problem with write (not handled)",
             );
