@@ -4,3 +4,6 @@
 
 [default.extend-words]
 ba = "ba" # Used in a test
+
+[files]
+extend-exclude = ["supply-chain/*"]

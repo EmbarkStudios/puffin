@@ -1,11 +1,12 @@
 use anyhow::Context as _;
-use puffin::{FrameSinkId, GlobalProfiler, ScopeCollection};
+use crossbeam_channel::{Receiver, Sender, TryRecvError};
+use puffin::{FrameSinkId, ScopeCollection, SinkManager};
 use std::{
     io::Write as _,
     net::{SocketAddr, TcpListener, TcpStream},
     sync::{
         Arc,
-        atomic::{AtomicUsize, Ordering},
+        atomic::{AtomicBool, AtomicUsize, Ordering},
     },
 };
 
@@ -19,39 +20,31 @@ const MAX_FRAMES_IN_QUEUE: usize = 30;
 #[must_use = "When Server is dropped, the server is closed, so keep it around!"]
 pub struct Server {
     sink_id: FrameSinkId,
-    join_handle: Option<std::thread::JoinHandle<()>>,
+    join_handle_send: Option<std::thread::JoinHandle<()>>,
     num_clients: Arc<AtomicUsize>,
-    sink_remove: fn(FrameSinkId) -> (),
+    stop_connection: Arc<AtomicBool>,
+    sink_mngr: SinkManager,
+    wait_client: Receiver<()>,
 }
 
 impl Server {
     /// Start listening for connections on this addr (e.g. "0.0.0.0:8585")
     ///
-    /// Connects to the [`GlobalProfiler`]
+    /// Connects to the [`puffin::GlobalProfiler`]
     ///
     /// # Errors
     ///
     /// forward error from [`Self::new_custom`] call.
     pub fn new(bind_addr: &str) -> anyhow::Result<Self> {
-        fn global_add(sink: puffin::FrameSink) -> FrameSinkId {
-            GlobalProfiler::lock().add_sink(sink)
-        }
-        fn global_remove(id: FrameSinkId) {
-            GlobalProfiler::lock().remove_sink(id);
-        }
-
-        Self::new_custom(bind_addr, global_add, global_remove)
+        Self::new_custom(bind_addr, SinkManager::default())
     }
 
-    /// Starts a new puffin server, with a custom function for installing the server's sink
+    /// Starts a new puffin server, with a custom function for installing/removing the server's sink
     ///
     /// # Arguments
     /// * `bind_addr` - The address to bind to, when listening for connections
     ///   (e.g. "localhost:8585" or "127.0.0.1:8585")
-    /// * `sink_install` - A function that installs the [Server]'s sink into
-    ///   a [`GlobalProfiler`], and then returns the [`FrameSinkId`] so that the sink can be removed later
-    /// * `sink_remove` - A function that reverts `sink_install`.
-    ///   This should be a call to remove the sink from the profiler ([`GlobalProfiler::remove_sink`])
+    /// * `sink_mngr` - A struct than handle the [Server]'s sink install and remove.
     ///
     /// # Example
     ///
@@ -67,7 +60,7 @@ impl Server {
     ///
     /// ## Per-Thread Profiling
     /// ```
-    /// # use puffin::GlobalProfiler;
+    /// # use puffin::{GlobalProfiler, SinkManager};
     /// # use puffin::{StreamInfoRef, ThreadInfo, ScopeDetails};
     /// # use puffin_http::Server;
     /// # use puffin::ThreadProfiler;
@@ -90,10 +83,12 @@ impl Server {
     /// // Create the custom profiling server that uses our custom profiler instead of the global/default one
     /// let thread_server = Server::new_custom(
     ///     "localhost:6969",
-    ///     // Adds the [Server]'s sink to our custom profiler
-    ///     |sink| get_custom_profiler().add_sink(sink),
-    ///     // Remove
-    ///     |id| _ = get_custom_profiler().remove_sink(id)
+    ///     SinkManager::custom(
+    ///         // Adds the [Server]'s sink to our custom profiler
+    ///         |sink| get_custom_profiler().add_sink(sink),
+    ///         // Remove
+    ///         |id| _ = get_custom_profiler().remove_sink(id)
+    ///     )
     /// );
     ///
     /// // Create some custom threads where we use the custom profiler and server
@@ -177,8 +172,10 @@ impl Server {
     ///                             puffin_http::Server::new_custom(
     ///                                 [< $name:upper _PROFILER_ADDR >],
     ///                                 // Can't use closures in a const context, use fn-pointers instead
-    ///                                 [< $name:lower _profiler_server_install >],
-    ///                                 [< $name:lower _profiler_server_drop >],
+    ///                                 puffin::SinkManager::custom(
+    ///                                     [< $name:lower _profiler_server_install >],
+    ///                                     [< $name:lower _profiler_server_drop >]
+    ///                                 )
     ///                             )
     ///                             .expect(&format!("{} puffin_http server failed to start", std::stringify!([<$name:lower>])))
     ///                         )
@@ -230,11 +227,8 @@ impl Server {
     ///     });
     /// }
     /// ```
-    pub fn new_custom(
-        bind_addr: &str,
-        sink_install: fn(puffin::FrameSink) -> FrameSinkId,
-        sink_remove: fn(FrameSinkId) -> (),
-    ) -> anyhow::Result<Self> {
+    pub fn new_custom(bind_addr: &str, sink_mngr: SinkManager) -> anyhow::Result<Self> {
+        puffin::profile_scope!("puffin_server_new");
         let tcp_listener = TcpListener::bind(bind_addr).context("binding server TCP socket")?;
         tcp_listener
             .set_nonblocking(true)
@@ -246,43 +240,62 @@ impl Server {
         // but `crossbeam_channel` will continue until the channel is empty.
         let (tx, rx): (crossbeam_channel::Sender<Arc<puffin::FrameData>>, _) =
             crossbeam_channel::unbounded();
+        let (client_connected, wait_client) = crossbeam_channel::bounded(0);
+
+        let (client_send, client_recv) = crossbeam_channel::unbounded();
 
         let num_clients = Arc::new(AtomicUsize::default());
         let num_clients_cloned = num_clients.clone();
 
-        let join_handle = std::thread::Builder::new()
-            .name("puffin-server".to_owned())
+        let stop_connection = Arc::new(AtomicBool::new(false));
+        let exit = stop_connection.clone();
+        let _join_handle_connect = std::thread::Builder::new()
+            .name("pf-server-connect".to_owned())
             .spawn(move || {
-                let mut server_impl = PuffinServerImpl {
+                let ps_connection = PuffinServerConnection {
                     tcp_listener,
+                    client_send,
+                    exit,
+                };
+
+                if let Err(err) = ps_connection.accept_new_clients(&client_connected) {
+                    log::warn!("puffin server `accept new clients` failure: {err}");
+                }
+
+                log::info!("exit `pf-server-connect` thread");
+            })
+            .context("spawn `pf-server-connect` thread")?;
+
+        let join_handle_send = std::thread::Builder::new()
+            .name("pf-server-send".to_owned())
+            .spawn(move || {
+                let mut server_impl = PuffinServerSend {
                     clients: Default::default(),
+                    client_recv,
                     num_clients: num_clients_cloned,
-                    send_all_scopes: false,
                     scope_collection: Default::default(),
                 };
 
                 while let Ok(frame) = rx.recv() {
-                    if let Err(err) = server_impl.accept_new_clients() {
-                        log::warn!("puffin server failure: {err}");
-                    }
-
                     if let Err(err) = server_impl.send(&frame) {
-                        log::warn!("puffin server failure: {err}");
+                        log::warn!("puffin server `send FrameData` failure: {err}");
                     }
                 }
             })
-            .context("Couldn't spawn thread")?;
+            .context("spawn `pf-server-send` thread")?;
 
         // Call the `install` function to add ourselves as a sink
-        let sink_id = sink_install(Box::new(move |frame| {
+        let sink_id = sink_mngr.add_sink(Box::new(move |frame| {
             tx.send(frame).ok();
         }));
 
         Ok(Self {
             sink_id,
-            join_handle: Some(join_handle),
+            join_handle_send: Some(join_handle_send),
             num_clients,
-            sink_remove,
+            sink_mngr,
+            stop_connection,
+            wait_client,
         })
     }
 
@@ -290,15 +303,28 @@ impl Server {
     pub fn num_clients(&self) -> usize {
         self.num_clients.load(Ordering::SeqCst)
     }
+
+    /// Block thread to wait at least a puffin client.
+    ///
+    /// # Errors
+    /// Return error from channel.
+    pub fn wait_client(&self) -> Result<(), crossbeam_channel::RecvError> {
+        puffin::profile_function!();
+        log::info!("Wait puffin_http client");
+        self.wait_client.recv()
+    }
 }
 
 impl Drop for Server {
     fn drop(&mut self) {
+        // Stop accept connection
+        self.stop_connection.store(true, Ordering::Release);
+
         // Remove ourselves from the profiler
-        (self.sink_remove)(self.sink_id);
+        self.sink_mngr.remove_sink(self.sink_id);
 
         // Take care to send everything before we shut down:
-        if let Some(join_handle) = self.join_handle.take() {
+        if let Some(join_handle) = self.join_handle_send.take() {
             join_handle.join().ok();
         }
     }
@@ -327,20 +353,22 @@ impl Drop for Client {
 }
 
 /// Listens for incoming connections
-/// and streams them puffin profiler data.
-struct PuffinServerImpl {
+struct PuffinServerConnection {
     tcp_listener: TcpListener,
-    clients: Vec<Client>,
-    num_clients: Arc<AtomicUsize>,
-    send_all_scopes: bool,
-    scope_collection: ScopeCollection,
+    client_send: Sender<Client>,
+    exit: Arc<AtomicBool>,
 }
 
-impl PuffinServerImpl {
-    fn accept_new_clients(&mut self) -> anyhow::Result<()> {
+impl PuffinServerConnection {
+    fn accept_new_clients(&self, rdv_channel: &Sender<()>) -> anyhow::Result<()> {
         loop {
             match self.tcp_listener.accept() {
                 Ok((tcp_stream, client_addr)) => {
+                    puffin::profile_scope!("accept_new_clients");
+                    if self.exit.load(Ordering::Acquire) {
+                        break; // Exit server
+                    }
+
                     tcp_stream
                         .set_nonblocking(false)
                         .context("stream.set_nonblocking")?;
@@ -350,36 +378,61 @@ impl PuffinServerImpl {
                     let (packet_tx, packet_rx) = crossbeam_channel::bounded(MAX_FRAMES_IN_QUEUE);
 
                     let join_handle = std::thread::Builder::new()
-                        .name("puffin-server-client".to_owned())
+                        .name("pf-server-client".to_owned())
                         .spawn(move || client_loop(packet_rx, client_addr, tcp_stream))
-                        .context("Couldn't spawn thread")?;
+                        .context("Couldn't spawn thread `pf-server-client`")?;
 
-                    // Send all scopes when new client connects.
-                    self.send_all_scopes = true;
-                    self.clients.push(Client {
+                    let new_client = Client {
                         client_addr,
                         packet_tx: Some(packet_tx),
                         join_handle: Some(join_handle),
-                    });
-                    self.num_clients.store(self.clients.len(), Ordering::SeqCst);
+                    };
+
+                    self.client_send
+                        .send(new_client)
+                        .context("failed to send new client to frame sender")?;
+                    rdv_channel.send(())?;
                 }
                 Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {
-                    break; // Nothing to do for now.
+                    if self.exit.load(Ordering::Acquire) {
+                        break; // Exit server
+                    }
+                    // else, continue wait connections.
                 }
                 Err(e) => {
-                    anyhow::bail!("puffin server TCP error: {:?}", e);
+                    anyhow::bail!("puffin server TCP error: {e:?}");
                 }
             }
         }
         Ok(())
     }
+}
 
+/// Streams puffin profiler data to clients.
+struct PuffinServerSend {
+    clients: Vec<Client>,
+    client_recv: Receiver<Client>,
+    num_clients: Arc<AtomicUsize>,
+    scope_collection: ScopeCollection,
+}
+
+impl PuffinServerSend {
     pub fn send(&mut self, frame: &puffin::FrameData) -> anyhow::Result<()> {
         puffin::profile_function!();
 
         // Keep scope_collection up-to-date
         for new_scope in &frame.scope_delta {
             self.scope_collection.insert(new_scope.clone());
+        }
+
+        match self.client_recv.try_recv() {
+            Ok(new_client) => {
+                self.send_scopes_to_client(&new_client)
+                    .context("Send all scopes to new client")?;
+                self.clients.push(new_client);
+                self.num_clients.store(self.clients.len(), Ordering::SeqCst); //Only increment nom_clients when a frame received, not ideal
+            }
+            Err(TryRecvError::Empty | TryRecvError::Disconnected) => {}
         }
 
         // Nothing to send if no clients => Early return.
@@ -393,16 +446,9 @@ impl PuffinServerImpl {
             .write_all(&crate::PROTOCOL_VERSION.to_le_bytes())
             .context("Encode puffin `PROTOCOL_VERSION` in packet to be send to client.")?;
 
-        let scope_collection = if self.send_all_scopes {
-            Some(&self.scope_collection)
-        } else {
-            None
-        };
-
         frame
-            .write_into(scope_collection, &mut packet)
+            .write_into(&mut packet)
             .context("Encode puffin frame")?;
-        self.send_all_scopes = false;
 
         let packet: Packet = packet.into();
 
@@ -424,6 +470,23 @@ impl PuffinServerImpl {
 
         Ok(())
     }
+
+    pub fn send_scopes_to_client(&self, client: &Client) -> anyhow::Result<(), anyhow::Error> {
+        puffin::profile_function!();
+        let mut packet = vec![];
+        packet
+            .write_all(&crate::PROTOCOL_VERSION.to_le_bytes())
+            .context("Encode puffin `PROTOCOL_VERSION` in packet to be send to client.")?;
+        self.scope_collection.write_into(&mut packet)?;
+
+        let packet: Packet = packet.into();
+        match &client.packet_tx {
+            None => Ok(()),
+            Some(packet_tx) => packet_tx
+                .try_send(packet.clone())
+                .map_err(anyhow::Error::from),
+        }
+    }
 }
 
 #[expect(clippy::needless_pass_by_value)]
@@ -433,6 +496,7 @@ fn client_loop(
     mut tcp_stream: TcpStream,
 ) {
     while let Ok(packet) = packet_rx.recv() {
+        puffin::profile_scope!("client_loop");
         if let Err(err) = tcp_stream.write_all(&packet) {
             log::info!(
                 "puffin server failed sending to {}: {} (kind: {:?})",

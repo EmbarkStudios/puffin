@@ -23,7 +23,10 @@
 #![deny(missing_docs)]
 
 mod data;
+#[cfg(feature = "serialization")]
+mod data_header;
 mod frame_data;
+mod frames_writer;
 mod global_profiler;
 mod merge;
 mod profile_view;
@@ -36,8 +39,12 @@ use std::sync::atomic::{AtomicBool, Ordering};
 
 /// TODO: Improve encapsulation.
 pub use data::{Error, Reader, Result, Scope, ScopeRecord, Stream, StreamInfo, StreamInfoRef};
+#[cfg(feature = "serialization")]
+pub use data_header::DataHeader;
 pub use frame_data::{FrameData, FrameMeta, UnpackedFrameData};
-pub use global_profiler::{FrameSink, GlobalProfiler};
+#[cfg(all(feature = "serialization", not(target_arch = "wasm32")))]
+pub use frames_writer::FramesWriter;
+pub use global_profiler::{FrameSink, GlobalProfiler, SinkManager};
 pub use merge::{MergeScope, merge_scopes_for_thread};
 pub use profile_view::{FrameStats, FrameView, GlobalFrameView, select_slowest};
 pub use scope_details::{ScopeCollection, ScopeDetails, ScopeType};
