@@ -57,6 +57,7 @@ pub fn set_scopes_on(on: bool) {
 /// This is [`false`] by default.
 ///
 /// Turn on with [`set_scopes_on`].
+#[inline]
 pub fn are_scopes_on() -> bool {
     MACROS_ON.load(Ordering::Relaxed)
 }
