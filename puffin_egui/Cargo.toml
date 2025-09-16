@@ -22,26 +22,21 @@ include = [
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-egui = { version = "0.32.0", default-features = false }
-egui_extras = { version = "0.32.0", default-features = false, features = [
-    "serde",
-] }
-indexmap = { version = "2.1.0", features = ["serde"] }
-log = "0.4"
-log-once = "0.4"
-natord = "1.0.9"
-parking_lot = "0.12"
+egui.workspace = true
+egui_extras = { workspace = true, features = ["serde"] }
+indexmap.workspace = true
+log.workspace = true
+log-once.workspace = true
+natord.workspace = true
+parking_lot.workspace = true
 puffin = { version = "0.19.1", path = "../puffin", features = ["packing"] }
-serde = { version = "1.0", features = ["derive"], optional = true }
-time = { version = "0.3.17", default-features = false, features = [
-    "formatting",
-    "macros",
-] }
-vec1 = "1.8"
-web-time = "0.2"
+serde = { workspace = true, optional = true }
+time.workspace = true
+vec1.workspace = true
+web-time.workspace = true
 
 [dev-dependencies]
-eframe = { version = "0.32.0", default-features = false, features = [
+eframe = { workspace = true, features = [
     "default_fonts",
     "glow",
     "persistence",
