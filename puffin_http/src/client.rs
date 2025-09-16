@@ -1,9 +1,15 @@
+use anyhow::Context as _;
 use std::sync::{
     Arc,
     atomic::{AtomicBool, Ordering::SeqCst},
 };
 
-use puffin::{FrameData, FrameView};
+use puffin::{DataHeader, FrameData, FrameView, ScopeCollection};
+
+enum MessageContent {
+    FrameData(FrameData),
+    ScopeCollection(ScopeCollection),
+}
 
 /// Connect to a [`crate::Server`], reading profile data
 /// and feeding it to a [`puffin::FrameView`].
@@ -56,11 +62,16 @@ impl Client {
                             connected.store(true, SeqCst);
                             while alive.load(SeqCst) {
                                 match consume_message(&mut stream) {
-                                    Ok(frame_data) => {
-                                        frame_view
+                                    Ok(message_content) => match message_content {
+                                        MessageContent::FrameData(frame_data) => frame_view
                                             .lock()
-                                            .add_frame(std::sync::Arc::new(frame_data));
-                                    }
+                                            .add_frame(std::sync::Arc::new(frame_data)),
+                                        MessageContent::ScopeCollection(scope_collection) => {
+                                            frame_view
+                                                .lock()
+                                                .init_scope_collection(scope_collection);
+                                        }
+                                    },
                                     Err(err) => {
                                         log::warn!(
                                             "Connection to puffin server closed: {}",
@@ -101,7 +112,7 @@ impl Client {
 }
 
 /// Read a `puffin_http` message from a stream.
-pub fn consume_message(stream: &mut impl std::io::Read) -> anyhow::Result<puffin::FrameData> {
+fn consume_message(stream: &mut impl std::io::Read) -> anyhow::Result<MessageContent> {
     let mut server_version = [0_u8; 2];
     stream.read_exact(&mut server_version)?;
     let server_version = u16::from_le_bytes(server_version);
@@ -124,11 +135,21 @@ pub fn consume_message(stream: &mut impl std::io::Read) -> anyhow::Result<puffin
         }
     }
 
-    use anyhow::Context as _;
-
-    FrameData::read_next(stream)
-        .context("Failed to parse FrameData")?
-        .ok_or_else(|| anyhow::format_err!("End of stream"))
+    let header = DataHeader::try_read(stream)?;
+    if header.bytes().starts_with(b"PSC") {
+        let scope_collection = ScopeCollection::read(stream, &header)?;
+        Ok(MessageContent::ScopeCollection(scope_collection))
+    } else if header.bytes().starts_with(b"PFD") {
+        let frame_data = FrameData::read_next(stream, &header)
+            .context("Failed to parse FrameData")?
+            .ok_or_else(|| anyhow::format_err!("End of stream"))?;
+        Ok(MessageContent::FrameData(frame_data))
+    } else {
+        //TODO: shouldn't interpret None from DataHeader::try_read
+        Err(anyhow::anyhow!(
+            "header value `{header}`not handle in message"
+        ))
+    }
 }
 
 /// Show full cause chain in a single line
