@@ -627,7 +627,7 @@ impl FanOutLoop {
 
         let n_clients_before = self.clients.len();
         self.clients
-            .retain(|client| client.try_send(packet.clone()));
+            .retain_mut(|client| client.try_send(packet.clone()));
         self.shared
             .on_clients_disconnected(n_clients_before - self.clients.len());
 
@@ -661,6 +661,7 @@ impl FanOutLoop {
 struct Client {
     client_addr: SocketAddr,
     tx_packet_to_client: Option<SyncSender<Packet>>,
+    overrun_warning_shown: bool,
     sender_handle: Option<std::thread::JoinHandle<()>>,
 }
 
@@ -682,11 +683,12 @@ impl Client {
         Ok(Self {
             client_addr,
             tx_packet_to_client: Some(tx_packet_to_client),
+            overrun_warning_shown: false,
             sender_handle: Some(sender_handle),
         })
     }
 
-    fn try_send(&self, packet: Packet) -> bool {
+    fn try_send(&mut self, packet: Packet) -> bool {
         match self
             .tx_packet_to_client
             .as_ref()
@@ -696,10 +698,13 @@ impl Client {
             Ok(()) => true,
             Err(TrySendError::Disconnected(_)) => false,
             Err(TrySendError::Full(_)) => {
-                log::info!(
-                    "{} is not accepting data fast enough; dropping a frame",
-                    self.client_addr
-                );
+                if !self.overrun_warning_shown {
+                    log::warn!(
+                        "{} is not accepting data fast enough; dropping a frame (one-time warning)",
+                        self.client_addr
+                    );
+                    self.overrun_warning_shown = true;
+                }
                 true
             }
         }
