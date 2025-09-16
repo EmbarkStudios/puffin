@@ -5,7 +5,7 @@ members = ["puffin", "puffin_egui", "puffin_http", "puffin_viewer"]
 [workspace.package]
 edition = "2024"
 license = "MIT OR Apache-2.0"
-rust-version = "1.86"
+rust-version = "1.87"
 
 [workspace.dependencies]
 anyhow = "1.0"
