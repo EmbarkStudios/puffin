@@ -89,7 +89,7 @@ impl Server {
     /// #
     /// #
     /// // Initialise the profiling server for the main app
-    /// let default_server = Server::new("localhost:8585").expect("failed to create default profiling server");
+    /// let default_server = Server::new("localhost:0").expect("failed to create default profiling server");
     /// puffin::profile_scope!("main_scope");
     ///
     /// // Create a new [GlobalProfiler] instance. This is where we will be sending the events to for our threads.
