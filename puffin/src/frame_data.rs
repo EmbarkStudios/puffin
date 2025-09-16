@@ -795,7 +795,6 @@ impl FrameData {
             let mut bytes = vec![0_u8; u32::from_le_bytes(header) as usize];
             read.read_exact(&mut bytes)?;
 
-            use bincode::Options as _;
             let legacy: LegacyFrameData = bincode::options()
                 .deserialize(&bytes)
                 .context("bincode deserialize")?;
