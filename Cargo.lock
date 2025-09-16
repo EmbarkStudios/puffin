@@ -1879,6 +1879,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32a282da65faaf38286cf3be983213fcf1d2e2a58700e808f83f4ea9a4804bc0"
 
 [[package]]
+name = "memfile"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f64636fdb65a5f0740f920c4281f3dbb76a71e25e25914b6d27000739897d40e"
+dependencies = [
+ "libc",
+]
+
+[[package]]
 name = "memmap2"
 version = "0.9.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2595,6 +2604,7 @@ dependencies = [
  "itertools 0.14.0",
  "js-sys",
  "lz4_flex",
+ "memfile",
  "parking_lot",
  "ruzstd",
  "serde",
