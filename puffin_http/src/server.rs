@@ -18,6 +18,7 @@ use std::{
 const MAX_FRAMES_IN_QUEUE: usize = 30;
 
 const TCP_PING_TIMEOUT: Duration = Duration::from_millis(50);
+const TCP_WRITE_TIMEOUT: Duration = Duration::from_secs(30);
 
 /// Listens for incoming connections
 /// and streams them puffin profiler data.
@@ -670,6 +671,9 @@ impl Client {
         tcp_stream
             .shutdown(Shutdown::Read)
             .context("shutdown TCP read")?;
+        tcp_stream
+            .set_write_timeout(Some(TCP_WRITE_TIMEOUT))
+            .context("set TCP write timeout")?;
 
         let (tx_packet_to_client, rx_packet_from_fan_out) = sync_channel(MAX_FRAMES_IN_QUEUE);
 
