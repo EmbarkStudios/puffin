@@ -550,6 +550,7 @@ struct FanOutLoop {
     shared: Arc<Shared>,
     rx_client_from_listener: Option<Receiver<Client>>,
     rx_data_from_sink: Receiver<Arc<FrameData>>,
+    max_packet_size: usize,
     clients: Vec<Client>,
     scope_collection: ScopeCollection,
 }
@@ -566,6 +567,7 @@ impl FanOutLoop {
                 shared: shared.clone(),
                 rx_client_from_listener: Some(rx_client_from_listener),
                 rx_data_from_sink,
+                max_packet_size: 0,
                 clients: Vec::new(),
                 scope_collection: ScopeCollection::default(),
             },
@@ -608,7 +610,11 @@ impl FanOutLoop {
             return Ok(());
         }
 
-        let mut packet = vec![];
+        let mut packet = if self.max_packet_size == 0 {
+            Vec::new()
+        } else {
+            Vec::with_capacity(self.max_packet_size)
+        };
 
         packet
             .write_all(&crate::PROTOCOL_VERSION.to_le_bytes())
@@ -624,6 +630,7 @@ impl FanOutLoop {
             .write_into(scope_collection, &mut packet)
             .context("Encode puffin frame")?;
 
+        self.max_packet_size = self.max_packet_size.max(packet.len());
         let packet: Packet = packet.into();
 
         let n_clients_before = self.clients.len();
