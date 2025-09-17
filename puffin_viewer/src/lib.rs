@@ -177,6 +177,18 @@ impl PuffinViewer {
         });
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
+    fn ui_kbd_shortcuts_quit(&mut self, ctx: &egui::Context) {
+        #[cfg(not(target_os = "macos"))]
+        if ctx.input(|i| i.modifiers.command && (i.key_pressed(egui::Key::Q))) {
+            ctx.send_viewport_cmd(egui::ViewportCommand::Close);
+        }
+
+        if ctx.input(|i| i.modifiers.command && (i.key_pressed(egui::Key::W))) {
+            ctx.send_viewport_cmd(egui::ViewportCommand::Close);
+        }
+    }
+
     fn ui_file_drag_and_drop(&mut self, ctx: &egui::Context) {
         use egui::*;
 
@@ -224,6 +236,7 @@ impl eframe::App for PuffinViewer {
         #[cfg(not(target_arch = "wasm32"))]
         {
             self.ui_menu_bar(ctx);
+            self.ui_kbd_shortcuts_quit(ctx);
         }
 
         #[cfg(target_arch = "wasm32")]
