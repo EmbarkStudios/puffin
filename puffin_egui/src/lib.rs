@@ -91,6 +91,7 @@ static PROFILE_UI: once_cell::sync::Lazy<parking_lot::Mutex<GlobalProfilerUi>> =
 ///
 /// Call this from within an [`egui::Window`], or use [`profiler_window`] instead.
 pub fn profiler_ui(ui: &mut egui::Ui) {
+    puffin::profile_function!();
     let mut profile_ui = PROFILE_UI.lock();
 
     profile_ui.ui(ui);
