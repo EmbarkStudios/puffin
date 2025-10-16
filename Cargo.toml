@@ -15,9 +15,9 @@ byteorder = "1.0"
 cfg-if = "1.0.3"
 criterion = "0.7"
 crossbeam-channel = "0.5"
-eframe = { version = "0.32.2", default-features = false }
-egui = { version = "0.32.2", default-features = false }
-egui_extras = { version = "0.32.2", default-features = false }
+eframe = { version = "0.33.0", default-features = false }
+egui = { version = "0.33.0", default-features = false }
+egui_extras = { version = "0.33.0", default-features = false }
 env_logger = "0.11.8"
 indexmap = { version = "2.11.0", features = ["serde"] }
 itertools = "0.14"
