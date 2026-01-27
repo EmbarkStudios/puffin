@@ -110,21 +110,31 @@ impl GlobalProfiler {
     /// Inserts user scopes into puffin.
     /// Returns the scope id for every inserted scope in the same order as input slice.
     ///
-    /// Scopes details should only be registered once for each scope and need be inserted before being reported to puffin.
+    /// Scope details need be inserted before being reported to puffin.
+    /// If a scope with the same name is already registered the existing ID is returned instead of creating a duplicate.
+    ///
     /// This function is relevant when you're registering measurement not performed using the puffin profiler macros.
     /// Scope id is always supposed to be `None` as it will be set by puffin.
     pub fn register_user_scopes(&mut self, scopes: &[ScopeDetails]) -> Vec<ScopeId> {
-        let mut new_scopes = Vec::with_capacity(scopes.len());
-        for scope_detail in scopes {
-            let new_scope_id = fetch_add_scope_id();
-            let scope = self.scope_collection.insert(Arc::new(
-                (*scope_detail).clone().with_scope_id(new_scope_id),
-            ));
-            new_scopes.push(scope);
-        }
-        let new_scope_ids = new_scopes.iter().filter_map(|x| x.scope_id).collect();
-        self.new_scopes.extend(new_scopes);
-        new_scope_ids
+        let mut new_scope_details = Vec::new();
+        let ids = scopes
+            .iter()
+            .map(|scope_detail| {
+                if let Some(&existing_id) = self.scope_collection.fetch_by_name(scope_detail.name())
+                {
+                    return existing_id;
+                }
+
+                let new_scope_id = fetch_add_scope_id();
+                let scope = self.scope_collection.insert(Arc::new(
+                    (*scope_detail).clone().with_scope_id(new_scope_id),
+                ));
+                new_scope_details.push(scope);
+                new_scope_id
+            })
+            .collect();
+        self.new_scopes.extend(new_scope_details);
+        ids
     }
 
     /// Reports some profiling data. Called from [`crate::ThreadProfiler`].
