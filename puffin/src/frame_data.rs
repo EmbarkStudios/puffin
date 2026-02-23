@@ -1,3 +1,6 @@
+#[cfg(feature = "packing")]
+#[cfg(feature = "serialization")]
+use crate::DataHeader;
 use crate::ScopeDetails;
 use crate::{Error, FrameIndex, NanoSecond, Result, StreamInfo, ThreadInfo};
 #[cfg(feature = "packing")]
@@ -566,11 +569,7 @@ impl FrameData {
     /// Writes one [`FrameData`] into a stream, prefixed by its length ([`u32`] le).
     #[cfg(not(target_arch = "wasm32"))] // compression not supported on wasm
     #[cfg(feature = "serialization")]
-    pub fn write_into(
-        &self,
-        scope_collection: Option<&crate::ScopeCollection>,
-        write: &mut impl std::io::Write,
-    ) -> anyhow::Result<()> {
+    pub fn write_into(&self, write: &mut impl std::io::Write) -> anyhow::Result<()> {
         use bincode::Options as _;
         use byteorder::{LE, WriteBytesExt as _};
 
@@ -588,13 +587,7 @@ impl FrameData {
         write.write_u8(packed_streams.compression_kind as u8)?;
         write.write_all(&packed_streams.bytes)?;
 
-        let to_serialize_scopes: Vec<_> = if let Some(scope_collection) = scope_collection {
-            scope_collection.scopes_by_id().values().cloned().collect()
-        } else {
-            self.scope_delta.clone()
-        };
-
-        let serialized_scopes = bincode::options().serialize(&to_serialize_scopes)?;
+        let serialized_scopes = bincode::options().serialize(&self.scope_delta)?;
         write.write_u32::<LE>(serialized_scopes.len() as u32)?;
         write.write_all(&serialized_scopes)?;
         Ok(())
@@ -605,19 +598,13 @@ impl FrameData {
     /// [`None`] is returned if the end of the stream is reached (EOF),
     /// or an end-of-stream sentinel of `0u32` is read.
     #[cfg(feature = "serialization")]
-    pub fn read_next(read: &mut impl std::io::Read) -> anyhow::Result<Option<Self>> {
+    pub fn read_next(
+        read: &mut impl std::io::Read,
+        header: &DataHeader,
+    ) -> anyhow::Result<Option<Self>> {
         use anyhow::Context as _;
         use bincode::Options as _;
         use byteorder::{LE, ReadBytesExt};
-
-        let mut header = [0_u8; 4];
-        if let Err(err) = read.read_exact(&mut header) {
-            if err.kind() == std::io::ErrorKind::UnexpectedEof {
-                return Ok(None);
-            } else {
-                return Err(err.into());
-            }
-        }
 
         #[derive(Clone, serde::Deserialize, serde::Serialize)]
         pub struct LegacyFrameData {
@@ -657,9 +644,9 @@ impl FrameData {
             }
         }
 
-        if header == [0_u8; 4] {
+        if header.bytes() == [0_u8; 4] {
             Ok(None) // end-of-stream sentinel.
-        } else if header.starts_with(b"PFD") {
+        } else if header.as_slice().starts_with(b"PFD") {
             if &header == b"PFD0" {
                 // Like PDF1, but compressed with `lz4_flex`.
                 // We stopped supporting this in 2021-11-16 in order to remove `lz4_flex` dependency.
@@ -792,7 +779,7 @@ impl FrameData {
             }
         } else {
             // Very old packet without magic header
-            let mut bytes = vec![0_u8; u32::from_le_bytes(header) as usize];
+            let mut bytes = vec![0_u8; u32::from_le_bytes(header.bytes()) as usize];
             read.read_exact(&mut bytes)?;
 
             let legacy: LegacyFrameData = bincode::options()
