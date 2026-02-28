@@ -1,4 +1,5 @@
 use anyhow::Context as _;
+use crossbeam_channel::TryRecvError;
 use puffin::{FrameSinkId, GlobalProfiler, ScopeCollection};
 use std::{
     io::Write as _,
@@ -7,6 +8,7 @@ use std::{
         Arc,
         atomic::{AtomicUsize, Ordering},
     },
+    time::Duration,
 };
 
 /// Maximum size of the backlog of packets to send to a client if they aren't reading fast enough.
@@ -261,13 +263,22 @@ impl Server {
                     scope_collection: Default::default(),
                 };
 
-                while let Ok(frame) = rx.recv() {
+                loop {
                     if let Err(err) = server_impl.accept_new_clients() {
                         log::warn!("puffin server failure: {err}");
                     }
-
-                    if let Err(err) = server_impl.send(&frame) {
-                        log::warn!("puffin server failure: {err}");
+                    match rx.try_recv() {
+                        Ok(frame) => {
+                            if let Err(err) = server_impl.send(&frame) {
+                                log::warn!("puffin server failure: {err}");
+                            }
+                        }
+                        Err(TryRecvError::Empty) => {
+                            std::thread::sleep(Duration::from_millis(1));
+                        }
+                        Err(TryRecvError::Disconnected) => {
+                            break;
+                        }
                     }
                 }
             })

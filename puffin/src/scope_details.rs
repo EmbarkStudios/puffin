@@ -58,6 +58,28 @@ impl ScopeCollection {
     pub fn scopes_by_id(&self) -> &HashMap<ScopeId, Arc<ScopeDetails>> {
         &self.0.scope_id_to_details
     }
+
+    /// A wrapper than allow `Serialize` all the scopes values of `ScopeCollection`.
+    #[cfg(feature = "serialization")]
+    pub fn serializable(&self) -> Serializable<'_> {
+        Serializable(self)
+    }
+}
+
+/// A wrapper than impl `Serialize` for `ScopeCollection`.
+/// This `struct` is created by the [`serializable`] method on `ScopeCollection`.
+#[cfg(feature = "serialization")]
+pub struct Serializable<'a>(&'a crate::ScopeCollection);
+
+#[cfg(feature = "serialization")]
+impl serde::Serialize for Serializable<'_> {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let iter = self.0.scopes_by_id().values();
+        serializer.collect_seq(iter)
+    }
 }
 
 /// Scopes are identified by user-provided name while functions are identified by the function name.

@@ -60,6 +60,9 @@ web-time = { workspace = true, optional = true }
 [dev-dependencies]
 criterion.workspace = true
 
+[target.'cfg(target_os = "linux")'.dev-dependencies]
+memfile = "0.3"
+
 [[bench]]
 name = "benchmark"
 harness = false
