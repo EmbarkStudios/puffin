@@ -364,7 +364,7 @@ version = "0.1.35"
 criteria = "safe-to-deploy"
 
 [[exemptions.lz4_flex]]
-version = "0.11.2"
+version = "0.13.0"
 criteria = "safe-to-deploy"
 
 [[exemptions.memoffset]]
