@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <!-- next-header -->
 ## [Unreleased] - ReleaseDate
+## [0.20.0] - 2026-03-18
 
 - [PR#274](https://github.com/EmbarkStudios/puffin/pull/274) Fix trimming of unicode scope names
 - [PR#269](https://github.com/EmbarkStudios/puffin/pull/269) Reuse existing scope ids in `register_user_scopes`
@@ -151,7 +152,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * `GlobalProfiler` now store recent history and the slowest frames.
 
 <!-- next-url -->
-[Unreleased]: https://github.com/EmbarkStudios/puffin/compare/puffin-0.19.1...HEAD
+[Unreleased]: https://github.com/EmbarkStudios/puffin/compare/puffin-0.20.0...HEAD
+[0.20.0]: https://github.com/EmbarkStudios/puffin/compare/puffin-0.19.1...puffin-0.20.0
 [0.19.1]: https://github.com/EmbarkStudios/puffin/compare/0.19.0...puffin-0.19.1
 [0.19.0]: https://github.com/EmbarkStudios/puffin/compare/0.18.1...0.19.0
 [0.18.1]: https://github.com/EmbarkStudios/puffin/compare/0.18.0...0.18.1

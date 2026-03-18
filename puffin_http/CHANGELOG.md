@@ -6,6 +6,7 @@ All notable changes to `puffin_http` will be documented in this file.
 
 <!-- next-header -->
 ## [Unreleased] - ReleaseDate
+## [0.17.0] - 2026-03-18
 
 - [PR#255](https://github.com/EmbarkStudios/puffin/pull/255) Keep scopes in server if no client is connected
 - [PR#251](https://github.com/EmbarkStudios/puffin/pull/251) Replace `once_cell::Lazy` with `std::sync::LazyLock`
@@ -80,7 +81,8 @@ All notable changes to `puffin_http` will be documented in this file.
 - Initial release
 
 <!-- next-url -->
-[Unreleased]: https://github.com/EmbarkStudios/puffin/compare/puffin_http-0.16.1...HEAD
+[Unreleased]: https://github.com/EmbarkStudios/puffin/compare/puffin_http-0.17.0...HEAD
+[0.17.0]: https://github.com/EmbarkStudios/puffin/compare/puffin_http-0.16.1...puffin_http-0.17.0
 [0.16.1]: https://github.com/EmbarkStudios/puffin/compare/puffin_http-0.16.0...puffin_http-0.16.1
 [0.16.0]: https://github.com/EmbarkStudios/puffin/compare/puffin_http-0.15.0...puffin_http-0.16.0
 [0.15.0]: https://github.com/EmbarkStudios/puffin/compare/puffin_http-0.14.0...puffin_http-0.15.0

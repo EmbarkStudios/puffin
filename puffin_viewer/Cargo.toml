@@ -1,6 +1,6 @@
 [package]
 name = "puffin_viewer"
-version = "0.22.0"
+version = "0.23.0"
 authors = ["Embark <opensource@embark-studios.com>"]
 categories = ["development-tools::profiling", "gui"]
 description = "Viewer GUI for puffin profiler data"
@@ -22,16 +22,16 @@ wayland = ["eframe/wayland"]
 x11 = ["eframe/x11"]
 
 [dependencies]
-puffin = { version = "0.19.1", path = "../puffin", features = [
+puffin = { version = "0.20.0", path = "../puffin", features = [
     "packing",
     "serialization",
     "lz4",
     "zstd", # Support zstd in order to load old puffin files (before 0.16.0)
 ] }
-puffin_egui = { version = "0.29.0", path = "../puffin_egui", features = [
+puffin_egui = { version = "0.30.0", path = "../puffin_egui", features = [
     "serde",
 ] }
-puffin_http = { version = "0.16.1", path = "../puffin_http" }
+puffin_http = { version = "0.17.0", path = "../puffin_http" }
 
 argh.workspace = true
 eframe = { workspace = true, features = [

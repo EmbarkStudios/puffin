@@ -1,6 +1,6 @@
 [package]
 name = "puffin_egui"
-version = "0.29.0"
+version = "0.30.0"
 authors = ["Emil Ernerfeldt <emil.ernerfeldt@gmail.com>"]
 categories = ["development-tools::profiling", "game-development", "gui"]
 description = "Show puffin profiler flamegraph in-game using egui"
@@ -29,7 +29,7 @@ log.workspace = true
 log-once.workspace = true
 natord.workspace = true
 parking_lot.workspace = true
-puffin = { version = "0.19.1", path = "../puffin", features = ["packing"] }
+puffin = { version = "0.20.0", path = "../puffin", features = ["packing"] }
 serde = { workspace = true, optional = true }
 time.workspace = true
 vec1.workspace = true
