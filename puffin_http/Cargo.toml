@@ -15,7 +15,6 @@ include = ["**/*.rs", "Cargo.toml", "README.md"]
 
 [dependencies]
 anyhow.workspace = true
-crossbeam-channel.workspace = true
 log.workspace = true
 parking_lot.workspace = true
 puffin = { version = "0.19.1", path = "../puffin", features = [

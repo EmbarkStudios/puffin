@@ -5,9 +5,9 @@
 //! When the server is started, [`puffin_viewer`](https://crates.io/crates/puffin_viewer) application can connect to it and display profiling information.
 //!
 //! ```
-//! let server_addr = format!("127.0.0.1:{}", puffin_http::DEFAULT_PORT);
-//! let _puffin_server = puffin_http::Server::new(&server_addr).unwrap();
-//! eprintln!("Serving demo profile data on {server_addr}. Run `puffin_viewer` to view it.");
+//! let puffin_server = puffin_http::Server::new("127.0.0.1:0").unwrap();
+//! let addr = puffin_server.local_addr();
+//! eprintln!("Serving demo profile data on {}. Run `puffin_viewer --url \"{}\"` to view it.", addr, addr);
 //! puffin::set_scopes_on(true);
 //! ```
 
