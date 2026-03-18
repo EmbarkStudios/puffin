@@ -180,9 +180,9 @@ impl Stream {
     fn write_str(&mut self, s: &str) {
         // Future-proof: we may want to use VLQs later.
         const MAX_STRING_LENGTH: usize = 127;
-        let len = s.len().min(MAX_STRING_LENGTH);
+        let len = s.floor_char_boundary(MAX_STRING_LENGTH);
         self.0.write_u8(len as u8).expect("can't fail");
-        self.0.extend(&s.as_bytes()[0..len]); // This may split a character in two. The parser should handle that.
+        self.0.extend(&s.as_bytes()[0..len]);
     }
 }
 
@@ -477,8 +477,7 @@ fn longest_valid_utf8_prefix(data: &[u8]) -> &str {
     match std::str::from_utf8(data) {
         Ok(s) => s,
         Err(error) => {
-            // The string may be been truncated to fit a max length of 255.
-            // This truncation may have happened in the middle of a unicode character.
+            // Backwards compatibility: old versions could truncate in the middle of a UTF-8 character.
             std::str::from_utf8(&data[..error.valid_up_to()]).expect("We can trust valid_up_to")
         }
     }
