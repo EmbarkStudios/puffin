@@ -5,6 +5,8 @@ use std::sync::{
 
 use puffin::{FrameData, FrameView};
 
+use crate::PROTOCOL_VERSION;
+
 /// Connect to a [`crate::Server`], reading profile data
 /// and feeding it to a [`puffin::FrameView`].
 ///
@@ -106,20 +108,16 @@ pub fn consume_message(stream: &mut impl std::io::Read) -> anyhow::Result<puffin
     stream.read_exact(&mut server_version)?;
     let server_version = u16::from_le_bytes(server_version);
 
-    match server_version.cmp(&crate::PROTOCOL_VERSION) {
+    match server_version.cmp(&PROTOCOL_VERSION) {
         std::cmp::Ordering::Less => {
             anyhow::bail!(
-                "puffin server is using an older protocol version ({}) than the client ({}).",
-                server_version,
-                crate::PROTOCOL_VERSION
+                "puffin server is using an older protocol version ({server_version}) than the client ({PROTOCOL_VERSION})."
             );
         }
         std::cmp::Ordering::Equal => {}
         std::cmp::Ordering::Greater => {
             anyhow::bail!(
-                "puffin server is using a newer protocol version ({}) than the client ({}). Update puffin_viewer with 'cargo install puffin_viewer --locked'.",
-                server_version,
-                crate::PROTOCOL_VERSION
+                "puffin server is using a newer protocol version ({server_version}) than the client ({PROTOCOL_VERSION}). Update puffin_viewer with 'cargo install puffin_viewer --locked'."
             );
         }
     }
