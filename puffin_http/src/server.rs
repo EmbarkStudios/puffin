@@ -363,11 +363,11 @@ impl PuffinServerImpl {
                     });
                     self.num_clients.store(self.clients.len(), Ordering::SeqCst);
                 }
-                Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {
+                Err(err) if err.kind() == std::io::ErrorKind::WouldBlock => {
                     break; // Nothing to do for now.
                 }
-                Err(e) => {
-                    anyhow::bail!("puffin server TCP error: {:?}", e);
+                Err(err) => {
+                    anyhow::bail!("puffin server TCP error: {err}");
                 }
             }
         }

@@ -241,7 +241,7 @@ impl FrameView {
         let mut magic = [0_u8; 4];
         read.read_exact(&mut magic)?;
         if &magic != b"PUF0" {
-            anyhow::bail!("Expected .puffin magic header of 'PUF0', found {:?}", magic);
+            anyhow::bail!("Expected .puffin magic header of 'PUF0', found {magic:?}");
         }
 
         let mut slf = Self {
