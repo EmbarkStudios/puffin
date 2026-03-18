@@ -248,7 +248,7 @@ impl Server {
             crossbeam_channel::unbounded();
 
         let num_clients = Arc::new(AtomicUsize::default());
-        let num_clients_cloned = num_clients.clone();
+        let num_clients_cloned = Arc::clone(&num_clients);
 
         let join_handle = std::thread::Builder::new()
             .name("puffin-server".to_owned())
@@ -379,7 +379,7 @@ impl PuffinServerImpl {
 
         // Keep scope_collection up-to-date
         for new_scope in &frame.scope_delta {
-            self.scope_collection.insert(new_scope.clone());
+            self.scope_collection.insert(Arc::clone(new_scope));
         }
 
         // Nothing to send if no clients => Early return.
@@ -408,7 +408,7 @@ impl PuffinServerImpl {
 
         self.clients.retain(|client| match &client.packet_tx {
             None => false,
-            Some(packet_tx) => match packet_tx.try_send(packet.clone()) {
+            Some(packet_tx) => match packet_tx.try_send(Arc::clone(&packet)) {
                 Ok(()) => true,
                 Err(crossbeam_channel::TrySendError::Disconnected(_)) => false,
                 Err(crossbeam_channel::TrySendError::Full(_)) => {

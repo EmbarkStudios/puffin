@@ -38,24 +38,23 @@ pub fn shorten_rust_function_name(name: &str) -> String {
     }
 
     // look for:  <some::ConcreteType as some::Trait>::function_name
-    if let Some(end_caret) = name.rfind('>') {
-        if let Some(trait_as) = name.rfind(" as ") {
-            if trait_as < end_caret {
-                let concrete_name = if let Some(start_caret) = name[..trait_as].rfind('<') {
-                    &name[start_caret + 1..trait_as]
-                } else {
-                    name
-                };
+    if let Some(end_caret) = name.rfind('>')
+        && let Some(trait_as) = name.rfind(" as ")
+        && trait_as < end_caret
+    {
+        let concrete_name = if let Some(start_caret) = name[..trait_as].rfind('<') {
+            &name[start_caret + 1..trait_as]
+        } else {
+            name
+        };
 
-                let trait_name = &name[trait_as + 4..end_caret];
+        let trait_name = &name[trait_as + 4..end_caret];
 
-                let concrete_name = last_part(concrete_name);
-                let trait_name = last_part(trait_name);
+        let concrete_name = last_part(concrete_name);
+        let trait_name = last_part(trait_name);
 
-                let dubcolon_function_name = &name[end_caret + 1..];
-                return format!("<{concrete_name} as {trait_name}>{dubcolon_function_name}");
-            }
-        }
+        let dubcolon_function_name = &name[end_caret + 1..];
+        return format!("<{concrete_name} as {trait_name}>{dubcolon_function_name}");
     }
 
     if let Some(colon) = name.rfind("::") {

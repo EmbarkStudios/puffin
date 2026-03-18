@@ -67,16 +67,16 @@ impl FrameView {
             self.scope_collection.insert(new_scope.clone());
         }
 
-        if let Some(last) = self.recent.iter().last() {
-            if new_frame.frame_index() <= last.0.frame_index() {
-                // A frame from the past!?
-                // Likely we are `puffin_viewer`, and the server restarted.
-                // The safe choice is to clear everything:
-                self.stats.clear();
-                self.recent.clear();
-                self.slowest_by_index.clear();
-                self.slowest_by_duration.clear();
-            }
+        if let Some(last) = self.recent.iter().last()
+            && new_frame.frame_index() <= last.0.frame_index()
+        {
+            // A frame from the past!?
+            // Likely we are `puffin_viewer`, and the server restarted.
+            // The safe choice is to clear everything:
+            self.stats.clear();
+            self.recent.clear();
+            self.slowest_by_index.clear();
+            self.slowest_by_duration.clear();
         }
 
         if let Some(last) = self.recent.iter().last() {
