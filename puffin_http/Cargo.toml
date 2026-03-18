@@ -26,7 +26,7 @@ puffin = { version = "0.19.1", path = "../puffin", features = [
 
 [dev-dependencies]
 simple_logger.workspace = true
-paste.workspace = true
+pastey.workspace = true
 
 [lints]
 workspace = true

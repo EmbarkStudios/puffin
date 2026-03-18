@@ -136,7 +136,7 @@ impl Server {
     ///
     /// /// This macro makes it much easier to define profilers
     /// ///
-    /// /// This macro makes use of the `paste` crate to generate unique identifiers, and `tracing` to log events
+    /// /// This macro makes use of the `pastey` crate to generate unique identifiers, and `tracing` to log events
     /// macro_rules! profiler {
     ///     ($(
     ///          {name: $name:ident, port: $port:expr $(,install: |$install_var:ident| $install:block, drop: |$drop_var:ident| $drop:block)? $(,)?}
@@ -148,7 +148,7 @@ impl Server {
     ///     };
     ///
     ///     (@inner { name: $name:ident, port: $port:expr }) => {
-    ///         paste::paste!{
+    ///         pastey::paste!{
     ///             #[doc = concat!("The address to bind the ", std::stringify!([< $name:lower >]), " thread profilers' server to")]
     ///                 pub const [< $name:upper _PROFILER_ADDR >] : &'static str
     ///                     = concat!("127.0.0.1:", $port);

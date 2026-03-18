@@ -451,8 +451,8 @@ criteria = "safe-to-deploy"
 version = "0.15.10"
 criteria = "safe-to-deploy"
 
-[[exemptions.paste]]
-version = "1.0.15"
+[[exemptions.pastey]]
+version = "0.2.1"
 criteria = "safe-to-run"
 
 [[exemptions.pkg-config]]
