@@ -185,10 +185,10 @@ impl PuffinViewer {
             let painter =
                 ctx.layer_painter(LayerId::new(Order::Foreground, Id::new("file_drop_target")));
 
-            let screen_rect = ctx.input(|i| i.screen_rect());
-            painter.rect_filled(screen_rect, 0.0, Color32::from_black_alpha(192));
+            let content_rect = ctx.input(|i| i.content_rect());
+            painter.rect_filled(content_rect, 0.0, Color32::from_black_alpha(192));
             painter.text(
-                screen_rect.center(),
+                content_rect.center(),
                 Align2::CENTER_CENTER,
                 "Drop to open .puffin file",
                 TextStyle::Heading.resolve(&ctx.style()),
