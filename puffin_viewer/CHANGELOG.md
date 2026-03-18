@@ -6,6 +6,13 @@ All notable changes to `puffin_viewer` will be documented in this file.
 
 <!-- next-header -->
 ## [Unreleased] - ReleaseDate
+
+- [PR#273](https://github.com/EmbarkStudios/puffin/pull/273) Update to egui 0.33
+- [PR#244](https://github.com/EmbarkStudios/puffin/pull/244) Update to egui 0.32
+- [PR#234](https://github.com/EmbarkStudios/puffin/pull/234) Update to egui 0.31
+- [PR#265](https://github.com/EmbarkStudios/puffin/pull/265) Support closing puffin_viewer using Command-Q and Command-W
+- [PR#271](https://github.com/EmbarkStudios/puffin/pull/271) Update MSRV to 1.92
+
 ## [0.22.0] - 2024-07-31
 
 - [PR#228](https://github.com/EmbarkStudios/puffin/pull/228/) Clean up and improve the UI

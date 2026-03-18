@@ -6,6 +6,15 @@ All notable changes to the egui crate will be documented in this file.
 
 <!-- next-header -->
 ## [Unreleased] - ReleaseDate
+
+- [PR#273](https://github.com/EmbarkStudios/puffin/pull/273) Update to egui 0.33
+- [PR#244](https://github.com/EmbarkStudios/puffin/pull/244) Update to egui 0.32
+- [PR#234](https://github.com/EmbarkStudios/puffin/pull/234) Update to egui 0.31
+- [PR#243](https://github.com/EmbarkStudios/puffin/pull/243) Add ability to sort scopes in table view by fields other than count
+- [PR#245](https://github.com/EmbarkStudios/puffin/pull/245) Log a warning when scope metadata is missing
+- [PR#251](https://github.com/EmbarkStudios/puffin/pull/251) Replace `once_cell::Lazy` with `std::sync::LazyLock`
+- [PR#271](https://github.com/EmbarkStudios/puffin/pull/271) Update MSRV to 1.92
+
 ## [0.29.0] - 2024-07-31
 
 - [PR#214](https://github.com/EmbarkStudios/puffin/pull/214) Fix frame selection input handling

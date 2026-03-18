@@ -6,6 +6,13 @@ All notable changes to `puffin_http` will be documented in this file.
 
 <!-- next-header -->
 ## [Unreleased] - ReleaseDate
+
+- [PR#255](https://github.com/EmbarkStudios/puffin/pull/255) Keep scopes in server if no client is connected
+- [PR#251](https://github.com/EmbarkStudios/puffin/pull/251) Replace `once_cell::Lazy` with `std::sync::LazyLock`
+- [PR#236](https://github.com/EmbarkStudios/puffin/pull/236) Some puffin_http cleanup
+- [PR#271](https://github.com/EmbarkStudios/puffin/pull/271) Update MSRV to 1.92
+- [PR#272](https://github.com/EmbarkStudios/puffin/pull/272) Update most dependencies
+
 ## [0.16.1] - 2024-07-31
 ## [0.16.0] - 2024-01-17
 ## [0.15.0] - 2023-11-21
