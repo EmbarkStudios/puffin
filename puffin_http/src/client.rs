@@ -39,9 +39,9 @@ impl Client {
 
         let client = Self {
             addr: addr.clone(),
-            connected: connected.clone(),
-            alive: alive.clone(),
-            frame_view: frame_view.clone(),
+            connected: Arc::clone(&connected),
+            alive: Arc::clone(&alive),
+            frame_view: Arc::clone(&frame_view),
         };
 
         let _: std::thread::JoinHandle<()> = std::thread::Builder::new()

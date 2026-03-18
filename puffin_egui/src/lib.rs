@@ -279,15 +279,11 @@ pub struct Paused {
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+#[derive(Default)]
 pub enum View {
+    #[default]
     Flamegraph,
     Stats,
-}
-
-impl Default for View {
-    fn default() -> Self {
-        Self::Flamegraph
-    }
 }
 
 /// Contains settings for the profiler.
@@ -518,16 +514,16 @@ impl ProfilerUi {
                         || space_pressed
                     {
                         let latest = frame_view.latest_frame();
-                        if let Some(latest) = latest {
-                            if let Ok(latest) = latest.unpacked() {
-                                self.pause_and_select(
-                                    frame_view,
-                                    SelectedFrames::from_vec1(
-                                        frame_view.scope_collection(),
-                                        vec1::vec1![latest],
-                                    ),
-                                );
-                            }
+                        if let Some(latest) = latest
+                            && let Ok(latest) = latest.unpacked()
+                        {
+                            self.pause_and_select(
+                                frame_view,
+                                SelectedFrames::from_vec1(
+                                    frame_view.scope_collection(),
+                                    vec1::vec1![latest],
+                                ),
+                            );
                         }
                     }
                 });
@@ -649,10 +645,10 @@ impl ProfilerUi {
                 ui.style_mut().wrap_mode = Some(TextWrapMode::Extend);
                 ui.add_space(16.0); // make it a bit more centered
                 ui.label("Slowest:");
-                if let Some(frame_view) = frame_view.as_mut() {
-                    if ui.button("Clear").clicked() {
-                        frame_view.clear_slowest();
-                    }
+                if let Some(frame_view) = frame_view.as_mut()
+                    && ui.button("Clear").clicked()
+                {
+                    frame_view.clear_slowest();
                 }
             });
 
@@ -761,18 +757,15 @@ impl ProfilerUi {
                     });
                 }
 
-                if response.dragged() {
-                    if let (Some(start), Some(curr)) =
+                if response.dragged()
+                    && let (Some(start), Some(curr)) =
                         ui.input(|i| (i.pointer.press_origin(), i.pointer.interact_pos()))
-                    {
-                        let min_x = start.x.min(curr.x);
-                        let max_x = start.x.max(curr.x);
-                        let intersects = min_x <= frame_rect.right() && frame_rect.left() <= max_x;
-                        if intersects {
-                            if let Ok(frame) = frame.unpacked() {
-                                new_selection.push(frame);
-                            }
-                        }
+                {
+                    let min_x = start.x.min(curr.x);
+                    let max_x = start.x.max(curr.x);
+                    let intersects = min_x <= frame_rect.right() && frame_rect.left() <= max_x;
+                    if intersects && let Ok(frame) = frame.unpacked() {
+                        new_selection.push(frame);
                     }
                 }
 

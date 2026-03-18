@@ -649,12 +649,12 @@ fn paint_record(
     };
 
     if info.response.double_clicked() {
-        if let Some(mouse_pos) = info.response.interact_pointer_pos() {
-            if rect.contains(mouse_pos) {
-                options
-                    .scope_name_filter
-                    .set_filter(scope_details.name().to_string());
-            }
+        if let Some(mouse_pos) = info.response.interact_pointer_pos()
+            && rect.contains(mouse_pos)
+        {
+            options
+                .scope_name_filter
+                .set_filter(scope_details.name().to_string());
         }
     } else if is_hovered && info.response.clicked() {
         options.zoom_to_relative_ns_range = Some((
@@ -819,7 +819,7 @@ fn paint_merge_scope(
             format!("{}x ", merge.num_pieces)
         }
     } else {
-        let is_integral = merge.num_pieces % info.num_frames == 0;
+        let is_integral = merge.num_pieces.is_multiple_of(info.num_frames);
         if is_integral {
             format!("{}x ", merge.num_pieces / info.num_frames)
         } else {
@@ -939,7 +939,7 @@ fn merge_scope_tooltip(
 
         if merge.num_pieces == num_frames {
             ui.monospace("1 call / frame");
-        } else if merge.num_pieces % num_frames == 0 {
+        } else if merge.num_pieces.is_multiple_of(num_frames) {
             ui.monospace(format!("{} calls / frame", merge.num_pieces / num_frames));
         } else {
             ui.monospace(format!(
