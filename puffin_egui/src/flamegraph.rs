@@ -569,7 +569,7 @@ fn paint_timeline(
                 let text_x = line_x + 4.0;
                 let text_color = Rgba::from_white_alpha((text_alpha * 2.0).min(1.0)).into();
 
-                info.painter.fonts(|f| {
+                info.painter.fonts_mut(|f| {
                     // Text at top:
                     shapes.push(egui::Shape::text(
                         f,
@@ -581,7 +581,7 @@ fn paint_timeline(
                     ));
                 });
 
-                info.painter.fonts(|f| {
+                info.painter.fonts_mut(|f| {
                     // Text at bottom:
                     shapes.push(egui::Shape::text(
                         f,
@@ -966,7 +966,7 @@ fn merge_scope_tooltip(
 fn paint_thread_info(info: &Info<'_>, thread: &ThreadInfo, pos: Pos2, collapsed: &mut bool) {
     let collapsed_symbol = if *collapsed { "⏵" } else { "⏷" };
 
-    let galley = info.ctx.fonts(|f| {
+    let galley = info.ctx.fonts_mut(|f| {
         f.layout_no_wrap(
             format!("{} {}", collapsed_symbol, thread.name.clone()),
             info.font_id.clone(),
