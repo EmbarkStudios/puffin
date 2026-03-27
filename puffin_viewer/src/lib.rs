@@ -241,7 +241,7 @@ impl eframe::App for PuffinViewer {
 
         #[cfg(target_arch = "wasm32")]
         {
-            egui::TopBottomPanel::top("menu_bar").show(ui, |ui| {
+            egui::Panel::top("menu_bar").show_inside(ui, |ui| {
                 ui.heading("Puffin Viewer, on the web");
                 ui.horizontal_wrapped(|ui| {
                     ui.label("It is recommended that you instead use the native version: ");
