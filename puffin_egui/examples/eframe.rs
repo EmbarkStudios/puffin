@@ -10,11 +10,11 @@ fn main() -> eframe::Result<()> {
         viewport: egui::ViewportBuilder::default().with_inner_size([320.0, 240.0]),
         ..Default::default()
     };
-    eframe::run_simple_native("puffin egui eframe", options, move |ctx, _frame| {
+    eframe::run_ui_native("puffin egui eframe", options, move |ui, _frame| {
         puffin::profile_function!();
         puffin::GlobalProfiler::lock().new_frame(); // If you use the `puffin` feature of `eframe` you don't need to call this
 
-        egui::CentralPanel::default().show(ctx, |ui| {
+        egui::CentralPanel::default().show_inside(ui, |ui| {
             let mut profile = puffin::are_scopes_on();
             ui.checkbox(&mut profile, "Show profiler window");
             puffin::set_scopes_on(profile); // controls both the profile capturing, and the displaying of it
@@ -23,17 +23,17 @@ fn main() -> eframe::Result<()> {
                 ui.checkbox(&mut keep_repainting, "Keep repainting this window");
                 if keep_repainting {
                     ui.spinner();
-                    ui.ctx().request_repaint();
+                    ui.request_repaint();
                 }
             });
 
             if ui.button("Quit").clicked() {
-                ui.ctx().send_viewport_cmd(egui::ViewportCommand::Close);
+                ui.send_viewport_cmd(egui::ViewportCommand::Close);
             }
         });
 
         // This call does nothing if profiling is disabled
-        puffin_egui::show_viewport_if_enabled(ctx);
+        puffin_egui::show_viewport_if_enabled(ui);
 
         // ----------------------------------------------------------------
 
