@@ -203,7 +203,7 @@ impl PuffinViewer {
                 content_rect.center(),
                 Align2::CENTER_CENTER,
                 "Drop to open .puffin file",
-                TextStyle::Heading.resolve(&ui.style()),
+                TextStyle::Heading.resolve(ui.style()),
                 Color32::WHITE,
             );
         }
