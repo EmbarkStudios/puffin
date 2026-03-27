@@ -41,27 +41,27 @@ const HOVER_COLOR: Rgba = Rgba::from_rgb(0.8, 0.8, 0.8);
 /// else it will be shown in a floating [`egui::Window`].
 ///
 /// Closing the viewport or window will call `puffin::set_scopes_on(false)`.
-pub fn show_viewport_if_enabled(ctx: &egui::Context) {
+pub fn show_viewport_if_enabled(ui: &egui::Ui) {
     if !puffin::are_scopes_on() {
         return;
     }
 
-    ctx.show_viewport_deferred(
+    ui.show_viewport_deferred(
         egui::ViewportId::from_hash_of("puffin_profiler"),
         egui::ViewportBuilder::default().with_title("Puffin Profiler"),
-        move |ctx, class| {
-            if class == egui::ViewportClass::Embedded {
+        move |ui, class| {
+            if class == egui::ViewportClass::EmbeddedWindow {
                 // Viewports not supported. Show it as a floating egui window instead.
                 let mut open = true;
                 egui::Window::new("Puffin Profiler")
                     .default_size([1024.0, 600.0])
                     .open(&mut open)
-                    .show(ctx, profiler_ui);
+                    .show(ui, profiler_ui);
                 puffin::set_scopes_on(open);
             } else {
                 // A proper viewport!
-                egui::CentralPanel::default().show(ctx, profiler_ui);
-                if ctx.input(|i| i.viewport().close_requested()) {
+                egui::CentralPanel::default().show_inside(ui, profiler_ui);
+                if ui.input(|i| i.viewport().close_requested()) {
                     puffin::set_scopes_on(false);
                 }
             }
@@ -555,7 +555,7 @@ impl ProfilerUi {
         }
 
         if self.paused.is_none() {
-            ui.ctx().request_repaint(); // keep refreshing to see latest data
+            ui.request_repaint(); // keep refreshing to see latest data
         }
 
         ui.horizontal(|ui| {
@@ -747,7 +747,7 @@ impl ProfilerUi {
                 if is_hovered && !is_selected && !viewing_multiple_frames {
                     *hovered_frame = Some(frame.clone());
                     Tooltip::always_open(
-                        ui.ctx().clone(),
+                        ui.clone(),
                         ui.layer_id(),
                         Id::new("puffin_frame_tooltip"),
                         PopupAnchor::Pointer,
