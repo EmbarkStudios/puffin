@@ -609,16 +609,6 @@ impl ProfilerUi {
                 }
             });
 
-            if settings.compact_ui && frame_history_state.is_open() {
-                frame_history_state.show_body_indented(
-                    &ui.response(),
-                    ui,
-                    |ui| {
-                        hovered_frame = self.show_frames(ui, frame_view);
-                    },
-                );
-            }
-
             if frames.frames.len() == 1 {
                 let frame = frames.frames.first();
 
@@ -682,6 +672,16 @@ impl ProfilerUi {
             ui.horizontal(|ui| {
                 header_ui(ui);
             });
+
+            if frame_history_state.is_open() {
+                frame_history_state.show_body_indented(
+                    &ui.response(),
+                    ui,
+                    |ui| {
+                        hovered_frame = self.show_frames(ui, frame_view);
+                    },
+                );
+            }
         } else {
             ui.vertical(|ui| {
                 header_ui(ui);
