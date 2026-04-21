@@ -550,7 +550,7 @@ impl ProfilerUi {
         let mut header_ui = |ui: &mut Ui| {
             ui.horizontal(|ui| {
                 if settings.compact_ui {
-                    ui.allocate_space([0.0, 28.0].into());
+                    ui.allocate_space([0.0, 24.0].into());
 
                     let toggle_resp = if let Some(icon_fn) = &settings.collapsing_icon {
                         frame_history_state.show_toggle_button(ui, **icon_fn)
