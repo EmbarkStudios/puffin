@@ -552,7 +552,7 @@ impl ProfilerUi {
                 if settings.compact_ui {
 
                     // shift collapsing header down slightly
-                    ui.vertical(|ui| { ui.add_space(2.0); ui.horizontal(|ui| {
+                    ui.vertical(|ui| { ui.add_space(4.0); ui.horizontal(|ui| {
 
                         let toggle_resp = if let Some(icon_fn) = &settings.collapsing_icon {
                             frame_history_state.show_toggle_button(ui, **icon_fn)
@@ -583,7 +583,7 @@ impl ProfilerUi {
                             frame_history_state.toggle(ui);
                         }
 
-                        ui.separator();
+                        ui.add(Separator::default().grow(4.0));
 
                         frame_history_state.store(ui.ctx());
                     }); });
