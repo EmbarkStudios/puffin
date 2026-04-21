@@ -20,7 +20,7 @@ use crate::flamegraph::{flamegraph_ui, header_ui, num_frames};
 
 pub use {egui, maybe_mut_ref::MaybeMutRef, puffin};
 
-use egui::{scroll_area::ScrollSource, *};
+use egui::{collapsing_header::{paint_default_icon}, scroll_area::ScrollSource, *};
 use puffin::*;
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -89,7 +89,7 @@ pub fn profiler_window(ctx: &egui::Context, settings: &ProfilerUiSettings) -> bo
 static PROFILE_UI: std::sync::LazyLock<parking_lot::Mutex<GlobalProfilerUi>> =
     std::sync::LazyLock::new(Default::default);
 
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 pub struct ProfilerUiSettings {
     /// When enabled the profiler ui will prefer to lay elements horizontally.
     pub compact_ui: bool,
@@ -97,6 +97,8 @@ pub struct ProfilerUiSettings {
     pub additional_frame_info: bool,
     /// When enabled pressing the space bar will play/pause the profiler.
     pub play_with_space_button: bool,
+    /// Custom icon function for collapsing headers
+    pub collapsing_icon: Option<Arc<&'static (dyn Fn(&mut Ui, f32, &Response) + Send + Sync)>>,
 }
 
 impl Default for ProfilerUiSettings {
@@ -105,6 +107,7 @@ impl Default for ProfilerUiSettings {
             compact_ui: false,
             additional_frame_info: true,
             play_with_space_button: true,
+            collapsing_icon: None
         }
     }
 }
@@ -493,13 +496,27 @@ impl ProfilerUi {
     ) {
         let mut hovered_frame = None;
 
-        egui::CollapsingHeader::new("Frame history")
-            .default_open(false)
-            .show(ui, |ui| {
-                hovered_frame = self.show_frames(ui, frame_view);
-            });
+        let frame_history_id = ui.make_persistent_id("frame_history_collapsing");
+        let mut frame_history_state = egui::collapsing_header::CollapsingState::load_with_default_open(
+            ui.ctx(),
+            frame_history_id,
+            false,
+        );
+        let show_frame_history_title = |ui: &mut egui::Ui| {
+            ui.label("Frame history");
+        };
 
-        let frames = if let Some(frame) = hovered_frame {
+        if !settings.compact_ui {
+            let header_response = frame_history_state
+                .clone()
+                .show_header(ui, show_frame_history_title)
+                .body(|ui| {
+                    hovered_frame = self.show_frames(ui, frame_view);
+                });
+            let _ = header_response;
+        }
+
+        let frames = if let Some(ref frame) = hovered_frame {
             match frame.unpacked() {
                 Ok(frame) => {
                     SelectedFrames::try_from_iter(frame_view.scope_collection(), iter::once(frame))
@@ -530,8 +547,19 @@ impl ProfilerUi {
 
         let (num_frames, mut reset_view) = num_frames(ui, &self.flamegraph_options, &frames);
 
-        let header_ui = |ui: &mut Ui| {
+        let mut header_ui = |ui: &mut Ui| {
             ui.horizontal(|ui| {
+                if settings.compact_ui {
+
+                    if let Some(icon_fn) = &settings.collapsing_icon {
+                        frame_history_state.show_toggle_button(ui, **icon_fn);  
+                    } else {
+                        frame_history_state.show_toggle_button(ui, paint_default_icon);  
+                    }
+                    ui.label("Frame history");
+                    ui.separator();
+                }
+
                 let play_pause_button_size = Vec2::splat(24.0);
                 let (hover_text, space_pressed) = if settings.play_with_space_button {
                     (
@@ -580,6 +608,16 @@ impl ProfilerUi {
                     frames_info_ui(ui, &frames);
                 }
             });
+
+            if settings.compact_ui && frame_history_state.is_open() {
+                frame_history_state.show_body_indented(
+                    &ui.response(),
+                    ui,
+                    |ui| {
+                        hovered_frame = self.show_frames(ui, frame_view);
+                    },
+                );
+            }
 
             if frames.frames.len() == 1 {
                 let frame = frames.frames.first();
@@ -641,12 +679,14 @@ impl ProfilerUi {
         };
 
         if settings.compact_ui {
-            ui.horizontal(header_ui);
+            ui.horizontal(|ui| {
+                header_ui(ui);
+            });
         } else {
-            ui.vertical(header_ui);
+            ui.vertical(|ui| {
+                header_ui(ui);
+            });
         }
-        
-        
 
         match self.view {
             View::Flamegraph => flamegraph_ui(
