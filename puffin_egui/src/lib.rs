@@ -550,32 +550,36 @@ impl ProfilerUi {
         let mut header_ui = |ui: &mut Ui| {
             ui.horizontal(|ui| {
                 if settings.compact_ui {
-                        let toggle_resp = if let Some(icon_fn) = &settings.collapsing_icon {
-                            frame_history_state.show_toggle_button(ui, **icon_fn)
-                        } else {
-                            frame_history_state.show_toggle_button(ui, paint_default_icon) 
-                        };
-                        let label_resp = ui.label("Frame history");
+                    ui.allocate_space([0.0, 24.0].into());
 
-                        let combined_rect = toggle_resp.rect.union(label_resp.rect);
+                    let toggle_resp = if let Some(icon_fn) = &settings.collapsing_icon {
+                        frame_history_state.show_toggle_button(ui, **icon_fn)
+                    } else {
+                        frame_history_state.show_toggle_button(ui, paint_default_icon) 
+                    };
+                    let label_resp = ui.label("Frame history  ");
 
-                        let header_resp = ui.interact(
-                            combined_rect,
-                            ui.id().with("frame_history_header"),
-                            egui::Sense::click(),
+                    let combined_rect = toggle_resp.rect.union(label_resp.rect);
+
+                    let header_resp = ui.interact(
+                        combined_rect,
+                        ui.id().with("frame_history_header"),
+                        egui::Sense::click(),
+                    );
+
+                    if header_resp.hovered() {
+                        let color = ui.visuals().widgets.noninteractive.bg_stroke.color;
+                        ui.painter().rect_filled(
+                            combined_rect.expand(2.0),
+                            0.0,
+                            Color32::from_rgba_unmultiplied(
+                                color[0], color[1], color[2], 30,
+                            ),
                         );
-
-                        if header_resp.hovered() {
-                            let color = ui.visuals().widgets.noninteractive.bg_stroke.color;
-                            ui.painter().rect_filled(
-                                combined_rect.expand(2.0),
-                                2.0,
-                                color.linear_multiply(0.3),
-                            );
-                        }
-                        if header_resp.clicked() {
-                            frame_history_state.toggle(ui);
-                        }
+                    }
+                    if header_resp.clicked() {
+                        frame_history_state.toggle(ui);
+                    }
 
                     ui.separator();
 
