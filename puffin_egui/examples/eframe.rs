@@ -14,7 +14,7 @@ fn main() -> eframe::Result<()> {
         puffin::profile_function!();
         puffin::GlobalProfiler::lock().new_frame(); // If you use the `puffin` feature of `eframe` you don't need to call this
 
-        egui::CentralPanel::default().show_inside(ui, |ui| {
+        egui::CentralPanel::default().show(ui, |ui| {
             let mut profile = puffin::are_scopes_on();
             ui.checkbox(&mut profile, "Show profiler window");
             puffin::set_scopes_on(profile); // controls both the profile capturing, and the displaying of it

@@ -152,7 +152,7 @@ impl PuffinViewer {
             self.save_dialog();
         }
 
-        egui::Panel::top("menu_bar").show_inside(ui, |ui| {
+        egui::Panel::top("menu_bar").show(ui, |ui| {
             egui::MenuBar::new().ui(ui, |ui| {
                 egui::widgets::global_theme_preference_switch(ui);
 
@@ -241,7 +241,7 @@ impl eframe::App for PuffinViewer {
 
         #[cfg(target_arch = "wasm32")]
         {
-            egui::Panel::top("menu_bar").show_inside(ui, |ui| {
+            egui::Panel::top("menu_bar").show(ui, |ui| {
                 ui.heading("Puffin Viewer, on the web");
                 ui.horizontal_wrapped(|ui| {
                     ui.label("It is recommended that you instead use the native version: ");
@@ -251,7 +251,7 @@ impl eframe::App for PuffinViewer {
             });
         }
 
-        egui::Panel::bottom("info_bar").show_inside(ui, |ui| {
+        egui::Panel::bottom("info_bar").show(ui, |ui| {
             if let Some(error) = &self.error {
                 ui.colored_label(egui::Color32::RED, error);
                 ui.add_space(4.0);
@@ -264,7 +264,7 @@ impl eframe::App for PuffinViewer {
             }
         });
 
-        egui::CentralPanel::default().show_inside(ui, |ui| {
+        egui::CentralPanel::default().show(ui, |ui| {
             if self.profile_self {
                 self.global_profiler_ui.ui(ui);
             } else {

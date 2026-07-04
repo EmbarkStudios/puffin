@@ -3,7 +3,7 @@
 //! Usage:
 //! ```
 //! # let mut egui_ctx = egui::Context::default();
-//! # egui_ctx.begin_frame(Default::default());
+//! # egui_ctx.begin_pass(Default::default());
 //! puffin_egui::profiler_window(&egui_ctx);
 //! ```
 
@@ -60,7 +60,7 @@ pub fn show_viewport_if_enabled(ui: &egui::Ui) {
                 puffin::set_scopes_on(open);
             } else {
                 // A proper viewport!
-                egui::CentralPanel::default().show_inside(ui, profiler_ui);
+                egui::CentralPanel::default().show(ui, profiler_ui);
                 if ui.input(|i| i.viewport().close_requested()) {
                     puffin::set_scopes_on(false);
                 }
