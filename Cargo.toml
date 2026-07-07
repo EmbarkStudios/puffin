@@ -20,7 +20,7 @@ egui = { version = "0.35.0", default-features = false }
 egui_extras = { version = "0.35.0", default-features = false }
 env_logger = "0.11.11"
 indexmap = { version = "2.14", features = ["serde"] }
-itertools = "0.14.0" # Keep in sync with what egui uses, to avoid duplicate versions in the dependency graph
+itertools = "0.15.0"
 js-sys = "0.3.103"
 log = "0.4.33"
 log-once = "0.4.1"
