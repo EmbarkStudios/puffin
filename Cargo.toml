@@ -14,26 +14,26 @@ bincode = "1.3"
 byteorder = "1.5"
 cfg-if = "1.0"
 criterion = "0.7.0"
-crossbeam-channel = "0.5.15"
+crossbeam-channel = "0.5.16"
 eframe = { version = "0.35.0", default-features = false }
 egui = { version = "0.35.0", default-features = false }
 egui_extras = { version = "0.35.0", default-features = false }
-env_logger = "0.11.9"
-indexmap = { version = "2.13", features = ["serde"] }
+env_logger = "0.11.11"
+indexmap = { version = "2.14", features = ["serde"] }
 itertools = "0.14.0"
 js-sys = "0.3.91"
-log = "0.4.29"
+log = "0.4.33"
 log-once = "0.4.1"
-lz4_flex = { version = "0.13.0", default-features = false }
-mimalloc = "0.1.48"
+lz4_flex = { version = "0.13.1", default-features = false }
+mimalloc = "0.1.52"
 natord = "1.0"
 parking_lot = "0.12.5"
-pastey = "0.2.1"
+pastey = "0.2.3"
 rfd = "0.17.2"
-ruzstd = "0.8.2"
+ruzstd = "0.8.3"
 serde = { version = "1.0", features = ["derive", "rc"] }
 simple_logger = "5.2"
-time = { version = "0.3.47", default-features = false, features = [
+time = { version = "0.3.53", default-features = false, features = [
     "formatting",
     "macros",
 ] }
