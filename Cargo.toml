@@ -8,37 +8,37 @@ license = "MIT OR Apache-2.0"
 rust-version = "1.92.0"
 
 [workspace.dependencies]
-anyhow = "1.0.102"
+anyhow = "1.0"
 argh = "0.1.19"
-bincode = "1.3"
+bincode = "1.3" # bincode 2+ has a different default encoding; upgrading would break compatibility with existing .puffin files and the puffin_http wire format
 byteorder = "1.5"
-cfg-if = "1.0.4"
-criterion = "0.7.0"
-crossbeam-channel = "0.5.15"
+cfg-if = "1.0"
+criterion = "0.8.2"
+crossbeam-channel = "0.5.16"
 eframe = { version = "0.35.0", default-features = false }
 egui = { version = "0.35.0", default-features = false }
 egui_extras = { version = "0.35.0", default-features = false }
-env_logger = "0.11.9"
-indexmap = { version = "2.13.0", features = ["serde"] }
-itertools = "0.14"
-js-sys = "0.3"
-log = "0.4.29"
-log-once = "0.4"
-lz4_flex = { version = "0.13", default-features = false }
-mimalloc = "0.1.48"
-natord = "1.0.9"
-parking_lot = "0.12"
-pastey = "0.2.1"
+env_logger = "0.11.11"
+indexmap = { version = "2.14", features = ["serde"] }
+itertools = "0.15.0"
+js-sys = "0.3.103"
+log = "0.4.33"
+log-once = "0.4.1"
+lz4_flex = { version = "0.13.1", default-features = false }
+mimalloc = "0.1.52"
+natord = "1.0"
+parking_lot = "0.12.5"
+pastey = "0.2.3"
 rfd = "0.17.2"
-ruzstd = "0.8.2"
-serde = { version = "1.0.228", features = ["derive", "rc"] }
+ruzstd = "0.8.3"
+serde = { version = "1.0", features = ["derive", "rc"] }
 simple_logger = "5.2"
-time = { version = "0.3.47", default-features = false, features = [
+time = { version = "0.3.53", default-features = false, features = [
     "formatting",
     "macros",
 ] }
 vec1 = "1.12"
-wasm-bindgen-futures = "0.4.64"
+wasm-bindgen-futures = "0.4.76"
 web-time = "1.1"
 zstd = "0.13.3"
 
