@@ -1,7 +1,10 @@
 
 # cargo-vet audits file
 
-[audits]
+[[audits.num_enum_derive]]
+who = "Gwen Lg <me@gwenlg.fr>"
+criteria = "safe-to-deploy"
+delta = "0.7.2 -> 0.7.3"
 
 [[trusted.byteorder]]
 criteria = "safe-to-deploy"
@@ -11,7 +14,7 @@ end = "2024-06-08"
 
 [[trusted.bytes]]
 criteria = "safe-to-deploy"
-user-id = 6741 # Alice Ryhl (Darksonn)
+user-id = 6741
 start = "2021-01-11"
 end = "2024-06-08"
 
@@ -209,7 +212,7 @@ end = "2024-06-14"
 
 [[trusted.smallvec]]
 criteria = "safe-to-deploy"
-user-id = 2017 # Matt Brubeck (mbrubeck)
+user-id = 2017
 start = "2019-10-28"
 end = "2024-06-08"
 
