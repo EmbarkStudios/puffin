@@ -5,7 +5,7 @@ members = ["puffin", "puffin_egui", "puffin_http", "puffin_viewer"]
 [workspace.package]
 edition = "2024"
 license = "MIT OR Apache-2.0"
-rust-version = "1.92.0"
+rust-version = "1.95.0"
 
 [workspace.dependencies]
 anyhow = "1.0"
@@ -15,9 +15,9 @@ byteorder = "1.5"
 cfg-if = "1.0"
 criterion = "0.8.2"
 crossbeam-channel = "0.5.16"
-eframe = { version = "0.35.0", default-features = false }
-egui = { version = "0.35.0", default-features = false }
-egui_extras = { version = "0.35.0", default-features = false }
+eframe = { version = "0.36.1", default-features = false }
+egui = { version = "0.36.1", default-features = false }
+egui_extras = { version = "0.36.1", default-features = false }
 env_logger = "0.11.11"
 indexmap = { version = "2.14", features = ["serde"] }
 itertools = "0.15.0"
