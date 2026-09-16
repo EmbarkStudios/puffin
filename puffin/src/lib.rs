@@ -39,7 +39,7 @@ pub use data::{Error, Reader, Result, Scope, ScopeRecord, Stream, StreamInfo, St
 pub use frame_data::{FrameData, FrameMeta, UnpackedFrameData};
 pub use global_profiler::{FrameSink, GlobalProfiler};
 pub use merge::{MergeScope, merge_scopes_for_thread};
-pub use profile_view::{FrameStats, FrameView, GlobalFrameView, select_slowest};
+pub use profile_view::{FrameStats, FrameView, GlobalFrameView, is_puffin_file, select_slowest};
 pub use scope_details::{ScopeCollection, ScopeDetails, ScopeType};
 pub use thread_profiler::{ThreadInfo, ThreadProfiler, internal_profile_reporter};
 pub use utils::{clean_function_name, short_file_name, shorten_rust_function_name, type_name_of};
