@@ -55,6 +55,14 @@ pub struct PuffinViewer {
     profile_self: bool,
     /// if [`Self::profile_self`] is checked, use this to introspect.
     global_profiler_ui: puffin_egui::GlobalProfilerUi,
+
+    /// Sends the name and contents of a dropped file.
+    #[cfg(target_arch = "wasm32")]
+    dropped_file_tx: std::sync::mpsc::Sender<(String, Result<Vec<u8>, String>)>,
+
+    /// Receives the name and contents of a dropped file.
+    #[cfg(target_arch = "wasm32")]
+    dropped_file_rx: std::sync::mpsc::Receiver<(String, Result<Vec<u8>, String>)>,
 }
 
 impl PuffinViewer {
@@ -63,12 +71,19 @@ impl PuffinViewer {
             .and_then(|storage| eframe::get_value(storage, eframe::APP_KEY))
             .unwrap_or_default();
 
+        #[cfg(target_arch = "wasm32")]
+        let (dropped_file_tx, dropped_file_rx) = std::sync::mpsc::channel();
+
         Self {
             profiler_ui,
             source,
             error: None,
             profile_self: false,
             global_profiler_ui: Default::default(),
+            #[cfg(target_arch = "wasm32")]
+            dropped_file_tx,
+            #[cfg(target_arch = "wasm32")]
+            dropped_file_rx,
         }
     }
 
@@ -104,6 +119,7 @@ impl PuffinViewer {
         }
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     fn open_puffin_path(&mut self, path: std::path::PathBuf) {
         puffin::profile_function!();
 
@@ -127,6 +143,7 @@ impl PuffinViewer {
         }
     }
 
+    #[cfg(target_arch = "wasm32")]
     fn open_puffin_bytes(&mut self, name: String, bytes: &[u8]) {
         puffin::profile_function!();
         let mut reader = std::io::Cursor::new(bytes);
@@ -209,19 +226,41 @@ impl PuffinViewer {
         }
 
         // Collect dropped files:
-        ui.input(|i| {
-            if !i.raw.dropped_files.is_empty() {
-                for file in i.raw.dropped_files.iter() {
-                    if let Some(path) = &file.path {
-                        self.open_puffin_path(path.clone());
-                        break;
-                    } else if let Some(bytes) = &file.bytes {
-                        self.open_puffin_bytes(file.name.clone(), bytes);
-                        break;
-                    }
+        if let Some(file) = ui.input(|i| i.raw.dropped_files.first().cloned()) {
+            self.open_dropped_file(ui.ctx(), &file);
+        }
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    fn open_dropped_file(&mut self, _ctx: &egui::Context, file: &egui::DroppedFileHandle) {
+        self.open_puffin_path(file.path().to_owned());
+    }
+
+    /// Reads the file in the background, sending the contents to [`Self::poll_dropped_files`].
+    #[cfg(target_arch = "wasm32")]
+    fn open_dropped_file(&mut self, ctx: &egui::Context, file: &egui::DroppedFileHandle) {
+        let name = file.path().display().to_string();
+        let file = file.clone();
+        let tx = self.dropped_file_tx.clone();
+        let ctx = ctx.clone();
+
+        wasm_bindgen_futures::spawn_local(async move {
+            let bytes = file.bytes_async().await;
+            tx.send((name, bytes)).ok();
+            ctx.request_repaint();
+        });
+    }
+
+    #[cfg(target_arch = "wasm32")]
+    fn poll_dropped_files(&mut self) {
+        while let Ok((name, bytes)) = self.dropped_file_rx.try_recv() {
+            match bytes {
+                Ok(bytes) => self.open_puffin_bytes(name, &bytes),
+                Err(err) => {
+                    self.error = Some(format!("Failed to read {name:?}: {err}"));
                 }
             }
-        });
+        }
     }
 }
 
@@ -241,6 +280,8 @@ impl eframe::App for PuffinViewer {
 
         #[cfg(target_arch = "wasm32")]
         {
+            self.poll_dropped_files();
+
             egui::Panel::top("menu_bar").show(ui, |ui| {
                 ui.heading("Puffin Viewer, on the web");
                 ui.horizontal_wrapped(|ui| {
