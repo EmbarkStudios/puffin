@@ -10,8 +10,15 @@ use crate::{FrameData, FrameSinkId, ScopeCollection};
 /// Magic bytes for `.puffin`
 const PUF0: &[u8] = b"PUF0";
 
+/// Returns the trailing bytes after puffin's magic bytes.
+///
+/// Returns `None` if the bytes don't start with puffin's magic bytes.
+pub fn strip_magic_bytes(bytes: &[u8]) -> Option<&[u8]> {
+    bytes.strip_prefix(PUF0)
+}
+
 /// Checks if the file has puffin magic bytes.
-pub fn is_puffin_file(bytes: &[u8]) -> bool {
+pub fn is_puffin_data(bytes: &[u8]) -> bool {
     bytes.starts_with(PUF0)
 }
 
