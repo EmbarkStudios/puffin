@@ -7,6 +7,21 @@ use std::{
 
 use crate::{FrameData, FrameSinkId, ScopeCollection};
 
+/// Magic bytes for `.puffin`
+const PUF0: &[u8] = b"PUF0";
+
+/// Returns the trailing bytes after puffin's magic bytes.
+///
+/// Returns `None` if the bytes don't start with puffin's magic bytes.
+pub fn strip_magic_bytes(bytes: &[u8]) -> Option<&[u8]> {
+    bytes.strip_prefix(PUF0)
+}
+
+/// Checks if the file has puffin magic bytes.
+pub fn is_puffin_data(bytes: &[u8]) -> bool {
+    bytes.starts_with(PUF0)
+}
+
 /// A view of recent and slowest frames, used by GUIs.
 #[derive(Clone)]
 pub struct FrameView {
@@ -227,7 +242,7 @@ impl FrameView {
     #[cfg(feature = "serialization")]
     #[cfg(not(target_arch = "wasm32"))] // compression not supported on wasm
     pub fn write(&self, write: &mut impl std::io::Write) -> anyhow::Result<()> {
-        write.write_all(b"PUF0")?;
+        write.write_all(PUF0)?;
 
         for frame in self.all_uniq() {
             frame.write_into(None, write)?;
@@ -240,7 +255,7 @@ impl FrameView {
     pub fn read(read: &mut impl std::io::Read) -> anyhow::Result<Self> {
         let mut magic = [0_u8; 4];
         read.read_exact(&mut magic)?;
-        if &magic != b"PUF0" {
+        if magic != PUF0 {
             anyhow::bail!("Expected .puffin magic header of 'PUF0', found {magic:?}");
         }
 
