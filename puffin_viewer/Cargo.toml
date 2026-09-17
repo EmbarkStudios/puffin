@@ -48,4 +48,5 @@ rfd.workspace = true
 mimalloc.workspace = true
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
+puffin = { version = "0.20.0", path = "../puffin", features = ["web"] }
 wasm-bindgen-futures.workspace = true
