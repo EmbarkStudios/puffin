@@ -62,6 +62,7 @@ fn main() -> Result<(), eframe::Error> {
             .with_app_id("puffin_viewer")
             .with_drag_and_drop(true)
             .with_inner_size([1400.0, 1000.0])
+            .with_min_inner_size([150., 150.])
             .with_icon(icon),
         ..Default::default()
     };
