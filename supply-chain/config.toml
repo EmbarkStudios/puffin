@@ -2,9 +2,12 @@
 # cargo-vet config file
 
 [cargo-vet]
-version = "0.9"
+version = "0.10"
 
-[imports.embark]
+[imports.actix]
+url = "https://raw.githubusercontent.com/actix/supply-chain/main/audits.toml"
+
+[imports.embark-studios]
 url = "https://raw.githubusercontent.com/EmbarkStudios/rust-ecosystem/main/audits.toml"
 
 [imports.fermyon]
@@ -48,10 +51,6 @@ audit-as-crates-io = false
 audit-as-crates-io = false
 
 [policy.redox_syscall]
-criteria = []
-notes = "Not used, Redox OS-only"
-
-[policy.redox_users]
 criteria = []
 notes = "Not used, Redox OS-only"
 
@@ -136,11 +135,11 @@ version = "0.15.1"
 criteria = "safe-to-deploy"
 
 [[exemptions.calloop]]
-version = "0.12.3"
+version = "0.13.0"
 criteria = "safe-to-deploy"
 
 [[exemptions.calloop-wayland-source]]
-version = "0.2.0"
+version = "0.3.0"
 criteria = "safe-to-deploy"
 
 [[exemptions.cesu8]]
