@@ -171,7 +171,7 @@ impl PuffinViewer {
 
         egui::Panel::top("menu_bar").show(ui, |ui| {
             egui::MenuBar::new().ui(ui, |ui| {
-                egui::widgets::global_theme_preference_switch(ui);
+                egui::widgets::global_theme_preference_buttons(ui);
 
                 ui.menu_button("File", |ui| {
                     if ui.button("Open…").clicked() {
@@ -212,7 +212,7 @@ impl PuffinViewer {
         // Preview hovering files:
         if !ui.input(|i| i.raw.hovered_files.is_empty()) {
             let painter =
-                ui.layer_painter(LayerId::new(Order::Foreground, Id::new("file_drop_target")));
+                ui.layer_painter(LayerId::new(Order::Foreground, Id::unique("file_drop_target")));
 
             let content_rect = ui.input(|i| i.content_rect());
             painter.rect_filled(content_rect, 0.0, Color32::from_black_alpha(192));
