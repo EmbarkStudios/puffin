@@ -749,7 +749,7 @@ impl ProfilerUi {
                     Tooltip::always_open(
                         ui.clone(),
                         ui.layer_id(),
-                        Id::new("puffin_frame_tooltip"),
+                        Id::unique("puffin_frame_tooltip"),
                         PopupAnchor::Pointer,
                     )
                     .show(|ui| {
